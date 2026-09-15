@@ -72,10 +72,11 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   const [allUsers, setAllUsers] = useState<User[]>(getSavedUsers());
   
   // Tab view controller with persistence across reloads
-  // tutorias, psicoeducativo, my_bookings, history, disponibilidad, inconvenientes
-  const [activeSegment, setActiveSegment] = useState<'tutorias' | 'psicoeducativo' | 'my_bookings' | 'history' | 'disponibilidad' | 'inconvenientes'>(() => {
+  // tutorias, psicoeducativo, my_bookings, history, inconvenientes
+  const [activeSegment, setActiveSegment] = useState<'tutorias' | 'psicoeducativo' | 'my_bookings' | 'history' | 'inconvenientes'>(() => {
     const saved = localStorage.getItem('uft_alumno_active_segment');
-    return (saved as 'tutorias' | 'psicoeducativo' | 'my_bookings' | 'history' | 'disponibilidad' | 'inconvenientes') || 'tutorias';
+    if (saved === 'disponibilidad') return 'tutorias';
+    return (saved as 'tutorias' | 'psicoeducativo' | 'my_bookings' | 'history' | 'inconvenientes') || 'tutorias';
   });
 
   useEffect(() => {
@@ -820,14 +821,6 @@ Equipo de Acompañamiento Académico UFT`;
               </p>
 
               <button
-                onClick={() => { setActiveSegment('disponibilidad'); }}
-                className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer mb-2 ${activeSegment === 'disponibilidad' ? 'bg-brand-celeste text-white shadow-md' : 'bg-white text-brand-navy hover:bg-slate-100'}`}
-              >
-                <Clock className="h-4 w-4 shrink-0" />
-                <span>Declarar Mi Horario</span>
-              </button>
-
-              <button
                 onClick={() => { setActiveSegment('inconvenientes'); }}
                 className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${activeSegment === 'inconvenientes' ? 'bg-brand-celeste text-white shadow-md' : 'bg-white text-brand-navy hover:bg-slate-100'}`}
               >
@@ -907,7 +900,7 @@ Equipo de Acompañamiento Académico UFT`;
                   </span>
                 )}
               </button>
-              <button
+              <button 
                 onClick={onLogout}
                 className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded"
               >
@@ -942,12 +935,6 @@ Equipo de Acompañamiento Académico UFT`;
               Historial
             </button>
             <button
-              onClick={() => { setActiveSegment('disponibilidad'); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 ${activeSegment === 'disponibilidad' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-[#153a5c] text-white'}`}
-            >
-              Horarios
-            </button>
-            <button
               onClick={() => { setActiveSegment('inconvenientes'); }}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 ${activeSegment === 'inconvenientes' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-[#153a5c] text-white'}`}
             >
@@ -966,7 +953,6 @@ Equipo de Acompañamiento Académico UFT`;
               {activeSegment === 'psicoeducativo' && 'Talleres Psicoeducativos de Autogestión'}
               {activeSegment === 'my_bookings' && 'Tus Bloques de Talleres Inscritos'}
               {activeSegment === 'history' && 'Certificaciones e Historial Académico'}
-              {activeSegment === 'disponibilidad' && 'Tu Disponibilidad de Horario Declarada'}
               {activeSegment === 'inconvenientes' && 'Bandeja de Inconvenientes de Clase y Horario Flexible'}
             </span>
           </div>
@@ -1390,89 +1376,7 @@ Equipo de Acompañamiento Académico UFT`;
             </div>
           )}
 
-          {/* D. STUDENT DISPONIBILIDAD PROFILE SECTOR */}
-          {activeSegment === 'disponibilidad' && myAvailability && (
-            <div className="space-y-4">
-              <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-xs space-y-4">
-                <div className="flex items-center space-x-2 pb-2 border-b border-slate-100">
-                  <Clock className="h-5 w-5 text-[#3a9ad9]" />
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-800">Cargar Mi Disponibilidad</h3>
-                    <p className="text-[10px] text-slate-400">Selecciona los bloques de horario semanales que tienes libre para que el docente pueda ver tu coincidencia y asignarte horas fijas o tutorías virtuales.</p>
-                  </div>
-                </div>
-
-                {formFeedback && (
-                  <div className="p-3 bg-emerald-55 text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-xl text-xs font-semibold animate-fade-in flex items-center space-x-1.5">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                    <span>{formFeedback}</span>
-                  </div>
-                )}
-
-                <div className="space-y-4">
-                  {myAvailability.days.map((d, dIdx) => (
-                    <div key={d.day} className="p-3.5 bg-slate-50/50 rounded-xl border border-slate-100 space-y-2.5">
-                      <span className="text-[11px] font-extrabold uppercase text-[#092c4c] tracking-wider block">
-                        {d.day}
-                      </span>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                        {TIME_SLOTS.map(slot => {
-                          const isChecked = d.slots.includes(slot);
-                          return (
-                            <button
-                              key={slot}
-                              type="button"
-                              onClick={() => {
-                                const newDays = [...myAvailability.days];
-                                if (isChecked) {
-                                  newDays[dIdx].slots = newDays[dIdx].slots.filter(s => s !== slot);
-                                } else {
-                                  newDays[dIdx].slots = [...newDays[dIdx].slots, slot];
-                                }
-                                setMyAvailability({
-                                  ...myAvailability,
-                                  days: newDays,
-                                  updatedAt: new Date().toISOString()
-                                });
-                              }}
-                              className={`px-2 py-1.5 rounded-lg border text-[10px] font-bold transition-all text-center flex items-center justify-center space-x-1 ${isChecked ? 'bg-[#3a9ad9] border-[#3a9ad9] text-white shadow-xs animate-scale-up' : 'bg-white border-slate-100 text-slate-650 hover:border-slate-300'}`}
-                            >
-                              <span>{slot}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="pt-3 border-t border-slate-100 flex justify-end">
-                  <button
-                    onClick={() => {
-                      const currentList = getSavedAvailabilities();
-                      const filtered = currentList.filter(a => a.userId !== user.id);
-                      const updatedAvail = {
-                        ...myAvailability,
-                        updatedAt: new Date().toISOString()
-                      };
-                      const nextList = [...filtered, updatedAvail];
-                      saveAvailabilities(nextList);
-                      setMyAvailability(updatedAvail);
-                      setFormFeedback("¡Tu disponibilidad horaria ha sido guardada exitosamente en el sistema de Trayectoria UFT!");
-                      reloadData();
-                      setTimeout(() => setFormFeedback(null), 4000);
-                    }}
-                    className="bg-[#092c4c] hover:bg-slate-900 text-white font-bold text-xs py-2 px-5 rounded-xl transition-all shadow-xs flex items-center space-x-1.5 cursor-pointer"
-                  >
-                    <Check className="h-4 w-4 text-[#3a9ad9]" />
-                    <span>Guardar Mi Disponibilidad Semanal</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* E. STUDENT INCONVENIENTES & MESSAGES SECTOR */}
+          {/* D. STUDENT INCONVENIENTES & MESSAGES SECTOR */}
           {activeSegment === 'inconvenientes' && (
             <div className="space-y-4">
               <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-xs space-y-4">
