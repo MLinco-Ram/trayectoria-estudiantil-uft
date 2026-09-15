@@ -88,6 +88,7 @@ flowchart TD
     TutorPar -->|4. Pasa asistencia con QR| Asistencia["📋 Registro de Asistencia"]
     
     Alumno["🎓 Alumno"] -->|5. Asiste y evalúa con estrellas| Calificacion["⭐ Encuesta de Satisfacción"]
+    Alumno -.->|"Registra asistencia vía QR"| Asistencia
     
     TutorDeTutores -->|6. Audita en 'Revisión Cumplimiento'| Auditoria["🔍 Auditoría de 5 Parámetros"]
     
@@ -96,6 +97,10 @@ flowchart TD
     Auditoria --> Param3["3. Fecha / Ejecución"]
     Auditoria --> Param4["4. Inconvenientes / Alertas"]
     Auditoria --> Param5["5. Nota de Evaluación"]
+
+    Cronograma -.->|"Verifica que exista"| Param1
+    Asistencia -.->|"Verifica % registrado"| Param2
+    Calificacion -.->|"Aporta el promedio de estrellas"| Param5
     
     Param1 & Param2 & Param3 & Param4 & Param5 --> Dictamen{"Cálculo del Estado"}
     Dictamen -->|Todo en orden| Cumplida["✅ Cumplida (Verde)"]
