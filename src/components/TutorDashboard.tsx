@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { SessionQRModal } from './common/SessionQRModal';
 import { ThemeToggle } from './common/ThemeToggle';
+import { HexCornerMosaic } from './SidebarDecor';
 
 import { useAuth } from '../context/AuthContext';
 
@@ -706,7 +707,9 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
 
       {/* Main Workspace Column */}
       <main className="flex-1 flex flex-col md:h-screen md:overflow-y-auto min-w-0 relative z-10" id="tutor-main-panel-workspace">
-        
+        <HexCornerMosaic corner="top-right" size={230} offset={64} />
+        <HexCornerMosaic corner="bottom-right" size={280} />
+
         {/* Mobile Header Bar */}
         <header className="md:hidden bg-[#092c4c] text-white px-4 py-3 flex flex-col space-y-2 shrink-0">
           <div className="flex justify-between items-center">
@@ -775,7 +778,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
         </header>
 
         {/* Desktop Top Header Bar with navigation trial breadcrumb & action triggers */}
-        <header className="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shrink-0 shadow-sm">
+        <header className="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shrink-0 shadow-sm sticky top-0 z-20">
           <div className="flex items-center gap-3 text-slate-400">
             <span className="text-sm font-semibold text-slate-600">
               {isLeadTutor ? 'Portal del Tutor de Tutores' : 'Portal de Tutores'}
