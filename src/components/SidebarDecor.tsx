@@ -173,7 +173,11 @@ interface HexShape {
 const HEX_WHITE = '#ffffff';
 const HEX_WHITE_STROKE = '#c9d6da';
 
-// Composición base en un lienzo vertical de 190 x 300
+// Composición base en un lienzo vertical de 190 x 470. El bloque principal
+// vive en los primeros ~300px; de ahí en adelante hay una "cola" de
+// hexágonos cada vez más chicos y espaciados que se van perdiendo hacia el
+// resto del lienzo, para que el mosaico no se vea como un bloque flotando
+// con un vacío abrupto cuando se estira en pantallas grandes/altas.
 const HEX_CLUSTER: HexShape[] = [
   // Gran hexágono cyan con rejilla diagonal, recortado en el borde superior
   { cx: 128, cy: 4, r: 72, pattern: true },
@@ -191,10 +195,20 @@ const HEX_CLUSTER: HexShape[] = [
   { cx: 26, cy: 226, r: 15, fill: HEX_WHITE, stroke: HEX_WHITE_STROKE, strokeWidth: 1.5 },
   // Hexágono negro diminuto, esquina
   { cx: 140, cy: 298, r: 13, fill: HEX_BLACK, opacity: 0.85, isBlack: true },
+
+  // --- Cola que se desvanece hacia el resto del lienzo ---
+  { cx: 100, cy: 336, r: 19, fill: 'none', stroke: HEX_TEAL, strokeWidth: 3, opacity: 0.85 },
+  { cx: 152, cy: 356, r: 15, fill: HEX_BLACK, opacity: 0.8, isBlack: true },
+  { cx: 62, cy: 372, r: 13, fill: HEX_WHITE, stroke: HEX_WHITE_STROKE, strokeWidth: 1.5, opacity: 0.85 },
+  { cx: 118, cy: 396, r: 11, fill: HEX_CYAN, opacity: 0.75 },
+  { cx: 168, cy: 408, r: 10, fill: HEX_BLACK, opacity: 0.7, isBlack: true },
+  { cx: 88, cy: 424, r: 9, fill: 'none', stroke: HEX_TEAL, strokeWidth: 2, opacity: 0.7 },
+  { cx: 138, cy: 444, r: 8, fill: HEX_BLACK, opacity: 0.6, isBlack: true },
+  { cx: 58, cy: 456, r: 7, fill: HEX_CYAN, opacity: 0.55 },
 ];
 
 const CLUSTER_VB_W = 190;
-const CLUSTER_VB_H = 300;
+const CLUSTER_VB_H = 470;
 
 interface HexCornerMosaicProps {
   corner?: 'top-right' | 'bottom-right';
@@ -207,14 +221,16 @@ interface HexCornerMosaicProps {
 // derecho para que el mosaico nunca se superponga con ella.
 const SCROLLBAR_CLEARANCE = 18;
 
-// "size" se trata como el alto de referencia a 1440px de ancho de viewport.
-// Se escala con vw (clamp) para que el mosaico crezca/encoja proporcionalmente
-// en cualquier resolución en vez de quedar fijo en píxeles.
+// "size" se trata como el alto de referencia a 900px de alto de viewport.
+// Se escala con vmin (el menor entre ancho y alto) para que el mosaico
+// crezca de forma pareja tanto en pantallas anchas como en pantallas altas,
+// sin quedar desproporcionadamente chico ni dejar huecos raros entre los
+// dos racimos (superior e inferior) en resoluciones grandes.
 function responsiveHeight(size: number): string {
-  const min = Math.round(size * 0.68);
-  const max = Math.round(size * 1.55);
-  const preferredVw = (size / 1440) * 100;
-  return `clamp(${min}px, ${preferredVw.toFixed(2)}vw, ${max}px)`;
+  const min = Math.round(size * 0.75);
+  const max = Math.round(size * 2.2);
+  const preferredVmin = (size / 900) * 100;
+  return `clamp(${min}px, ${preferredVmin.toFixed(2)}vmin, ${max}px)`;
 }
 
 export function HexCornerMosaic({ corner = 'top-right', size = 260, className = '', offset = 0 }: HexCornerMosaicProps) {
