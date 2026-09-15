@@ -227,20 +227,28 @@ const SCROLLBAR_CLEARANCE = 18;
 // crezca de forma pareja tanto en pantallas anchas como en pantallas altas,
 // sin quedar desproporcionadamente chico ni dejar huecos raros entre los
 // dos racimos (superior e inferior) en resoluciones grandes.
-function responsiveHeight(size: number): string {
-  const min = Math.round(size * 0.75);
-  const max = Math.round(size * 2.2);
-  const preferredVmin = (size / 900) * 100;
+//
+// Importante: el ancho se calcula con la MISMA fórmula clamp() (en vez de
+// usar CSS "aspect-ratio" sobre un elemento con ancho automático). Un
+// "position: fixed" sin left/width explícito, cuyo hijo SVG usa width:100%,
+// crea una dependencia circular de tamaño que algunos navegadores resuelven
+// mal, estirando el mosaico de forma gigante y distorsionada. Calculando
+// ancho y alto por separado evitamos depender de ese comportamiento.
+function responsiveClamp(pxAt900: number): string {
+  const min = Math.round(pxAt900 * 0.75);
+  const max = Math.round(pxAt900 * 2.2);
+  const preferredVmin = (pxAt900 / 900) * 100;
   return `clamp(${min}px, ${preferredVmin.toFixed(2)}vmin, ${max}px)`;
 }
 
 export function HexCornerMosaic({ corner = 'top-right', size = 260, className = '', offset = 0 }: HexCornerMosaicProps) {
   const { isDark } = useTheme();
-  const height = responsiveHeight(size);
+  const height = responsiveClamp(size);
+  const width = responsiveClamp(size * (CLUSTER_VB_W / CLUSTER_VB_H));
   const rotationStyle = corner === 'bottom-right' ? { transform: 'rotate(180deg)' } : undefined;
   const positionStyle = corner === 'top-right'
-    ? { top: offset, right: SCROLLBAR_CLEARANCE, height, aspectRatio: `${CLUSTER_VB_W} / ${CLUSTER_VB_H}` }
-    : { bottom: offset, right: SCROLLBAR_CLEARANCE, height, aspectRatio: `${CLUSTER_VB_W} / ${CLUSTER_VB_H}` };
+    ? { top: offset, right: SCROLLBAR_CLEARANCE, width, height }
+    : { bottom: offset, right: SCROLLBAR_CLEARANCE, width, height };
   const patternId = `uft-hex-hatch-${corner}`;
 
   return (
