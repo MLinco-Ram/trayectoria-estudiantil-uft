@@ -196,19 +196,20 @@ const HEX_CLUSTER: HexShape[] = [
   // Hexágono negro diminuto, esquina
   { cx: 140, cy: 298, r: 13, fill: HEX_BLACK, opacity: 0.85, isBlack: true },
 
-  // --- Cola que se desvanece hacia el resto del lienzo ---
-  { cx: 100, cy: 336, r: 19, fill: 'none', stroke: HEX_TEAL, strokeWidth: 3, opacity: 0.85 },
-  { cx: 152, cy: 356, r: 15, fill: HEX_BLACK, opacity: 0.8, isBlack: true },
-  { cx: 62, cy: 372, r: 13, fill: HEX_WHITE, stroke: HEX_WHITE_STROKE, strokeWidth: 1.5, opacity: 0.85 },
-  { cx: 118, cy: 396, r: 11, fill: HEX_CYAN, opacity: 0.75 },
-  { cx: 168, cy: 408, r: 10, fill: HEX_BLACK, opacity: 0.7, isBlack: true },
-  { cx: 88, cy: 424, r: 9, fill: 'none', stroke: HEX_TEAL, strokeWidth: 2, opacity: 0.7 },
-  { cx: 138, cy: 444, r: 8, fill: HEX_BLACK, opacity: 0.6, isBlack: true },
-  { cx: 58, cy: 456, r: 7, fill: HEX_CYAN, opacity: 0.55 },
+  // --- Cola fluida: hexágonos más grandes y superpuestos entre sí, en vez
+  // de puntos sueltos, para que se sienta como una cadena continua ---
+  { cx: 112, cy: 324, r: 27, fill: 'none', stroke: HEX_TEAL, strokeWidth: 3.5, opacity: 0.88 },
+  { cx: 142, cy: 348, r: 23, fill: HEX_BLACK, opacity: 0.82, isBlack: true },
+  { cx: 104, cy: 370, r: 21, fill: HEX_WHITE, stroke: HEX_WHITE_STROKE, strokeWidth: 2, opacity: 0.92 },
+  { cx: 134, cy: 392, r: 19, fill: HEX_CYAN, opacity: 0.82 },
+  { cx: 98, cy: 412, r: 17, fill: HEX_BLACK, opacity: 0.75, isBlack: true },
+  { cx: 128, cy: 432, r: 15, fill: 'none', stroke: HEX_TEAL, strokeWidth: 3, opacity: 0.75 },
+  { cx: 100, cy: 450, r: 13, fill: HEX_CYAN, opacity: 0.68 },
+  { cx: 126, cy: 466, r: 11, fill: HEX_BLACK, opacity: 0.6, isBlack: true },
 ];
 
 const CLUSTER_VB_W = 190;
-const CLUSTER_VB_H = 470;
+const CLUSTER_VB_H = 490;
 
 interface HexCornerMosaicProps {
   corner?: 'top-right' | 'bottom-right';
