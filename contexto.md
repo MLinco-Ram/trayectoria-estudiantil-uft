@@ -10,7 +10,190 @@ La aplicación permite la interacción fluida y modular de cuatro roles clave: *
 
 ---
 
-## 2. Stack Tecnológico
+## 2. Diagramas de Arquitectura y Flujos del Sistema
+
+### A. Arquitectura General del Sistema (C4 Container View)
+
+```mermaid
+flowchart TD
+    subgraph Client["Cliente / Navegador (SPA React 19 + TypeScript)"]
+        DPortal["Portal Docente / Coordinación (/docente)"]
+        TTPortal["Portal Tutor de Tutores (/tutor)"]
+        TPPortal["Portal Tutor Par (/tutor)"]
+        APortal["Portal Alumno (/alumno)"]
+        AdminPortal["Portal Administrador TI (/admin)"]
+    end
+
+    subgraph Transport["Capa de Transporte & Tiempo Real"]
+        ViteProxy["Vite Dev Proxy (:3000 -> :3001)"]
+        SocketClient["Socket.io Client (WebSockets)"]
+        ApiClient["Fetch REST API (src/services/api.ts)"]
+    end
+
+    subgraph Backend["Servidor Backend Express 4 (Node.js Modular)"]
+        Router["Enrutador Modular (/api)"]
+        Middlewares["Middlewares (RateLimit, Helmet, CheckDB)"]
+        
+        subgraph Controllers["Controladores de Negocio"]
+            AuthCtrl["auth.controller.js"]
+            UsersCtrl["users.controller.js"]
+            SessionsCtrl["sessions.controller.js"]
+            ReportsCtrl["reports.controller.js"]
+            RequestsCtrl["studentRequests.controller.js"]
+            NotifsCtrl["notifications.controller.js"]
+        end
+
+        subgraph Services["Servicios de Dominio"]
+            CryptoSvc["crypto.service.js (AES-256-GCM + HMAC-SHA256)"]
+            EmailSvc["email.service.js (Nodemailer SMTP)"]
+            SocketServer["Socket.io Server (Event Emitter)"]
+        end
+    end
+
+    subgraph Database["Capa de Persistencia"]
+        Atlas["MongoDB Atlas (Cluster Cloud)"]
+        ColUsers[("Colección: users")]
+        ColSessions[("Colección: sessions")]
+        ColReports[("Colección: reports")]
+        ColRequests[("Colección: student_requests")]
+        ColNotifs[("Colección: notifications")]
+        ColAvail[("Colección: availabilities")]
+        ColSettings[("Colección: settings")]
+    end
+
+    Client --> Transport
+    Transport --> Backend
+    Router --> Middlewares --> Controllers
+    Controllers --> Services
+    Controllers --> Database
+    Atlas --- ColUsers
+    Atlas --- ColSessions
+    Atlas --- ColReports
+    Atlas --- ColRequests
+    Atlas --- ColNotifs
+    Atlas --- ColAvail
+    Atlas --- ColSettings
+    SocketServer -.->|Broadcast en tiempo real| SocketClient
+```
+
+### B. Flujo de Coordinación, Supervisión y Revisión de Cumplimiento
+
+```mermaid
+flowchart TD
+    Docente["👨‍🏫 Docente Coordinador"] -->|1. Crea o reclasifica| TutorDeTutores["🛡️ Tutor de Tutores"]
+    Docente -->|2. Asigna tutores supervisados| Asignacion["📋 Asignación de Tutores Pares"]
+    Asignacion --> TutorPar["🧑‍🏫 Tutor Par Asignado"]
+
+    TutorPar -->|3. Carga temario/plan| Cronograma["📅 Cronograma de Sesión"]
+    TutorPar -->|4. Pasa asistencia con QR| Asistencia["📋 Registro de Asistencia"]
+    
+    Alumno["🎓 Alumno"] -->|5. Asiste y evalúa con estrellas| Calificacion["⭐ Encuesta de Satisfacción"]
+    
+    TutorDeTutores -->|6. Audita en 'Revisión Cumplimiento'| Auditoria["🔍 Auditoría de 5 Parámetros"]
+    
+    Auditoria --> Param1["1. Cronograma Cargado"]
+    Auditoria --> Param2["2. Asistencia 100%"]
+    Auditoria --> Param3["3. Fecha / Ejecución"]
+    Auditoria --> Param4["4. Inconvenientes / Alertas"]
+    Auditoria --> Param5["5. Nota de Evaluación"]
+    
+    Param1 & Param2 & Param3 & Param4 & Param5 --> Dictamen{"Cálculo del Estado"}
+    Dictamen -->|Todo en orden| Cumplida["✅ Cumplida (Verde)"]
+    Dictamen -->|Falta temario| SinCronograma["⚠️ Sin Cronograma (Ámbar)"]
+    Dictamen -->|Vencida o con ticket| Inconsistente["🚨 Inconsistente (Rojo)"]
+    Dictamen -->|Sesión futura| Pendiente["⏳ Pendiente (Gris)"]
+
+    Auditoria -.->|Despacho de recordatorio| NotificacionEmail["✉️ Correo Institucional al Tutor"]
+```
+
+### C. Diagrama de Entidad-Relación (Modelo de Datos)
+
+```mermaid
+erDiagram
+    USER ||--o{ SESSION : "imparte / coordina"
+    USER ||--o{ USER_AVAILABILITY : "declara"
+    USER ||--o{ ISSUE_REPORT : "reporta"
+    USER ||--o{ STUDENT_REQUEST : "solicita"
+    SESSION ||--o{ SESSION_FEEDBACK : "recibe"
+    SESSION ||--o{ ISSUE_REPORT : "origina"
+
+    USER {
+        string id PK
+        string name
+        string rut "AES-256-GCM"
+        string rutHash "HMAC-SHA256 Index"
+        string email
+        string role "docente | tutor | alumno | admin"
+        string tutorType "tutor_par | tutor_de_tutores"
+        stringArray assignedTutorIds "IDs tutores a cargo"
+        string career
+        string password "bcrypt"
+    }
+
+    SESSION {
+        string id PK
+        string program "tutorias | psicoeducativo"
+        string type "general | personalizada | taller"
+        string title
+        string subject
+        string date "YYYY-MM-DD"
+        string timeSlot
+        string docenteId FK
+        string tutorId FK
+        stringArray studentIds FK
+        int maxSpots
+        string location
+        map attendance "studentId -> presente|ausente"
+        string syllabus "Cronograma / Temario"
+        boolean isCompleted
+        map ratings "studentId -> feedback"
+    }
+
+    SESSION_FEEDBACK {
+        string studentId FK
+        string studentName
+        int rating "1 a 5 estrellas"
+        string comment
+        string createdAt
+    }
+
+    USER_AVAILABILITY {
+        string userId FK
+        string role "alumno | tutor"
+        string userName
+        string career
+        array days "Lunes a Domingo con slots"
+        string updatedAt
+    }
+
+    ISSUE_REPORT {
+        string id PK
+        string sessionId FK
+        string tutorId FK
+        string description
+        string requestType "reasignar_horario | reasignar_tutor"
+        string proposedTime
+        string status "pendiente | resuelto"
+        string createdAt
+    }
+
+    STUDENT_REQUEST {
+        string id PK
+        string studentId FK
+        string studentName
+        string studentCareer
+        string program "tutorias | psicoeducativo"
+        string message
+        string preferredTime
+        string status "pendiente | resuelto"
+        string assignedSessionId FK
+        string createdAt
+    }
+```
+
+---
+
+## 3. Stack Tecnológico
 
 ### Frontend
 - **Framework / Librería**: React 19 con TypeScript.
