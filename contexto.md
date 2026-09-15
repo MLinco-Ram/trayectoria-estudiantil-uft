@@ -191,6 +191,252 @@ erDiagram
     }
 ```
 
+### D. Diagrama de Clases y Modelos de Dominio
+
+```mermaid
+classDiagram
+    class User {
+        +string id
+        +string name
+        +string rut
+        +string rutHash
+        +string email
+        +string role
+        +string tutorType
+        +string[] assignedTutorIds
+        +string career
+        +string password
+        +isLeadTutor() bool
+    }
+
+    class Session {
+        +string id
+        +string program
+        +string type
+        +string title
+        +string subject
+        +string date
+        +string timeSlot
+        +string docenteId
+        +string tutorId
+        +string[] studentIds
+        +int maxSpots
+        +string location
+        +Record attendance
+        +string syllabus
+        +bool isCompleted
+        +Record ratings
+        +getComplianceStatus() string
+    }
+
+    class SessionFeedback {
+        +string studentId
+        +string studentName
+        +int rating
+        +string comment
+        +string createdAt
+    }
+
+    class IssueReport {
+        +string id
+        +string sessionId
+        +string tutorId
+        +string description
+        +string requestType
+        +string proposedTime
+        +string status
+        +string createdAt
+    }
+
+    class StudentRequest {
+        +string id
+        +string studentId
+        +string studentName
+        +string studentCareer
+        +string program
+        +string message
+        +string preferredTime
+        +string status
+        +string assignedSessionId
+        +string createdAt
+    }
+
+    class UserAvailability {
+        +string userId
+        +string role
+        +string userName
+        +string career
+        +DaySlot[] days
+        +string updatedAt
+    }
+
+    class WebNotification {
+        +string id
+        +string toEmail
+        +string toName
+        +string subject
+        +string message
+        +string timestamp
+        +bool read
+    }
+
+    class SmtpSettings {
+        +string host
+        +int port
+        +bool secure
+        +string user
+        +string pass
+        +string fromName
+        +string updatedAt
+    }
+
+    User "1" --> "*" Session : "coordina / tutor"
+    Session "1" *-- "*" SessionFeedback : "contiene"
+    Session "1" o-- "*" IssueReport : "reporta"
+    User "1" --> "1" UserAvailability : "configura"
+    User "1" --> "*" StudentRequest : "solicita"
+    Session "1" <-- "0..1" StudentRequest : "resuelve"
+```
+
+### E. Diagrama de Componentes de Frontend y Backend
+
+```mermaid
+flowchart TD
+    subgraph UI["Capa de Presentación (React 19 SPA)"]
+        App["App.tsx (Enrutador Principal)"]
+        AuthCtx["AuthContext.tsx (Sesión y Cookies)"]
+        ProtRoute["ProtectedRoute.tsx (Control por Rol)"]
+        
+        subgraph Portales["Vistas por Rol"]
+            DocenteDash["DocenteDashboard.tsx"]
+            TutorDash["TutorDashboard.tsx"]
+            AlumnoDash["AlumnoDashboard.tsx"]
+            AdminDash["AdminDashboard.tsx"]
+        end
+
+        subgraph DocenteComponents["Módulos Docente"]
+            DocCalendar["DocenteCalendarTab"]
+            DocTutors["DocenteTutorsTab (Gestión y Asignación)"]
+            DocAtt["DocenteAttendanceTab"]
+            DocFlex["DocenteFlexScheduleTab"]
+            DocAlerts["DocenteAlertsTab"]
+            DocAnnc["DocenteAnnouncementsTab"]
+            DocAnalytics["DocenteAnalyticsTab"]
+            DocComments["DocenteCommentsTab"]
+        end
+
+        subgraph TutorComponents["Módulos Tutor"]
+            TutSchedule["Mis Tutorías (Cronograma + QR)"]
+            TutAvail["Cargar Horario Semanal"]
+            TutIssue["Avisar Inconveniente"]
+            TutAssigned["Tutores a Cargo (Métricas)"]
+            TutCompliance["Revisión Cumplimiento (Auditoría 5 Parámetros)"]
+        end
+
+        subgraph AlumnoComponents["Módulos Alumno"]
+            AluExplore["Explorador & Reserva Tutorías"]
+            AluBookings["Mis Reservas Activas"]
+            AluHistory["Historial Clases (Temario Desplegable + Encuesta)"]
+            AluAvail["Cargar Disponibilidad"]
+            AluIssue["Avisar Inconveniente Flexible"]
+        end
+
+        subgraph SharedComponents["Componentes Comunes"]
+            QRModal["SessionQRModal / MobileQRScanner"]
+            ThemeTgl["ThemeToggle (Modo Claro/Oscuro)"]
+            ModalNotifs["Bandeja de Notificaciones"]
+        end
+    end
+
+    subgraph ClientServices["Capa de Servicios Frontend"]
+        ApiClients["src/services/api.ts (authApi, sessionsApi, usersApi, reportsApi)"]
+        SocketSvc["src/services/socket.ts (WebSockets Client)"]
+    end
+
+    subgraph ServerComponents["Capa de Servidor Backend Express"]
+        MasterRouter["server/routes/index.js"]
+        
+        subgraph ControllersPkg["Controladores"]
+            AuthC["auth.controller.js"]
+            UsersC["users.controller.js"]
+            SessionsC["sessions.controller.js"]
+            ReportsC["reports.controller.js"]
+            ReqsC["studentRequests.controller.js"]
+            NotifsC["notifications.controller.js"]
+            SettingsC["settings.controller.js"]
+            BroadcastC["broadcast.controller.js"]
+        end
+
+        subgraph ServicesPkg["Servicios de Negocio"]
+            CryptoS["crypto.service.js (AES-256-GCM + HMAC-SHA256)"]
+            EmailS["email.service.js (Nodemailer Transporter)"]
+            CronS["cron.service.js (Alertas Automáticas)"]
+        end
+    end
+
+    subgraph DBCluster["Persistencia de Datos"]
+        MongoDriver["MongoClient Connection Pool"]
+        MongoAtlas[("MongoDB Atlas Database")]
+    end
+
+    App --> AuthCtx --> ProtRoute
+    ProtRoute --> Portales
+    DocenteDash --> DocenteComponents
+    TutorDash --> TutorComponents
+    AlumnoDash --> AlumnoComponents
+    Portales --> SharedComponents
+    DocenteComponents & TutorComponents & AlumnoComponents --> ClientServices
+    ApiClients & SocketSvc --> MasterRouter
+    MasterRouter --> ControllersPkg
+    ControllersPkg --> ServicesPkg
+    ControllersPkg --> MongoDriver --> MongoAtlas
+```
+
+### F. Diagrama de Despliegue de Infraestructura
+
+```mermaid
+flowchart TD
+    subgraph ClientNode["Nodo Cliente (Dispositivo de Usuario)"]
+        Browser["Navegador Web (Chrome, Edge, Safari, Firefox)\n- React 19 SPA Bundle\n- Auth Cookies (7 días)\n- LocalStorage Cache\n- HTML5 QR Scanner / Camera"]
+    end
+
+    subgraph ApplicationHost["Servidor de Aplicación (Host Node.js / Linux VPS)"]
+        subgraph WebServerLayer["Capa Web / Proxy Inverso"]
+            ViteDev["Vite Dev Server (:3000)\nProxy /api -> :3001"]
+        end
+
+        subgraph AppServerLayer["Capa de Servidor Express (:3001)"]
+            ExpressRuntime["Node.js + TSX Runtime (Watch Mode)"]
+            RestAPI["API REST (/api/*)\n- Helmet (Cabeceras Seguras)\n- Express Rate Limit (120 req/min)"]
+            SocketEngine["Socket.io Engine (WebSockets Server)\n- Eventos: sessions, users, notifications, reports"]
+            CryptoEngine["Módulo Criptográfico Nativo (Node:crypto)\n- AES-256-GCM (Cipher/Decipher)\n- HMAC-SHA256 (Blind Indexing)"]
+        end
+    end
+
+    subgraph CloudDatabase["Cluster Cloud MongoDB Atlas"]
+        subgraph ReplicaSet["Cluster Replicado Multi-AZ (M0 / Dedicated)"]
+            PrimaryDB[("Nodo Primario (Read/Write)")]
+            SecondaryDB[("Nodos Secundarios (Replica Sync)")]
+            PrimaryDB --- SecondaryDB
+        end
+        Collections["Colecciones Cifradas:\n- users (RUTs encriptados + rutHash)\n- sessions (syllabus + ratings)\n- student_requests, reports, notifications, availabilities, settings"]
+        ReplicaSet --- Collections
+    end
+
+    subgraph ExternalServices["Servicios Externos Institucionales"]
+        GoogleSMTP["Servidor SMTP Institucional (Google / UFT)\nPuerto 587 (STARTTLS / TLS)"]
+        DNSResolvers["Resolutores DNS Globales\nGoogle Public DNS (8.8.8.8) / Cloudflare (1.1.1.1)"]
+    end
+
+    Browser -->|HTTPS / WSS (Puerto 3000/3001)| ViteDev
+    ViteDev -->|Proxy HTTP/WS| ExpressRuntime
+    ExpressRuntime --> RestAPI & SocketEngine
+    RestAPI --> CryptoEngine
+    RestAPI -->|MongoDB Connection Pool con TLS/SRV| PrimaryDB
+    AppServerLayer -->|SMTP Auth + STARTTLS| GoogleSMTP
+    AppServerLayer -->|DNS SRV Resolution| DNSResolvers
+```
+
 ---
 
 ## 3. Stack Tecnológico
