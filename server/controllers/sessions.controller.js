@@ -74,6 +74,8 @@ export const registerQRAttendance = async (req, res) => {
     }
 
     const attendance = session.attendance || {};
+    const wasAlreadyPresent = attendance[studentId] === 'presente';
+
     attendance[studentId] = 'presente';
 
     const studentIds = Array.isArray(session.studentIds) ? [...session.studentIds] : [];
@@ -89,7 +91,14 @@ export const registerQRAttendance = async (req, res) => {
     const updatedSession = await db.collection('sessions').findOne({ id });
     emitEvent('sessions:changed', { action: 'update', sessionId: id, session: updatedSession });
 
-    res.json({ success: true, session: updatedSession, message: 'Asistencia registrada con éxito' });
+    res.json({ 
+      success: true, 
+      alreadyPresent: wasAlreadyPresent,
+      session: updatedSession, 
+      message: wasAlreadyPresent 
+        ? '¡Ya te encontrabas registrado como presente en esta tutoría!' 
+        : '¡Asistencia registrada con éxito!' 
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

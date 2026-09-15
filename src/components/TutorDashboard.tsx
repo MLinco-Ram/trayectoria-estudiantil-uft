@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { User, Session, IssueReport, UserAvailability } from '../types';
+import { User, Session, IssueReport, UserAvailability, SessionFeedback } from '../types';
 import { getSavedSessions, saveSessions, getSavedReports, saveReports, getSavedAvailabilities, saveAvailabilities, getSavedUsers, saveUsers, triggerNotification, TIME_SLOTS } from '../data';
 import { getSocket } from '../services/socket';
 import { 
@@ -1930,7 +1930,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                                 const studentNames = registeredStudents.map(st => st.name).join(', ');
 
                                 // Calificaciones / Evaluaciones de estudiantes
-                                const ratingsList = Object.values(session.ratings || {});
+                                const ratingsList = (Object.values(session.ratings || {}) as SessionFeedback[]);
                                 const totalRatings = ratingsList.length;
                                 const averageRating = totalRatings > 0 
                                   ? (ratingsList.reduce((acc, r) => acc + (r.rating || 0), 0) / totalRatings).toFixed(1)

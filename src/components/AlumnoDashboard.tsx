@@ -206,11 +206,35 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
     // Sincronización en tiempo real vía WebSockets
     const socket = getSocket();
+    const handleSessionsUpdate = (payload: any) => {
+      if (payload?.session && payload.action === 'update') {
+        setSessions(prev => {
+          const updated = prev.map(s => s.id === payload.session.id ? payload.session : s);
+          saveSessions(updated);
+          return updated;
+        });
+      } else if (payload?.session && payload.action === 'create') {
+        setSessions(prev => {
+          const updated = [payload.session, ...prev.filter(s => s.id !== payload.session.id)];
+          saveSessions(updated);
+          return updated;
+        });
+      } else if (payload?.sessionId && payload.action === 'delete') {
+        setSessions(prev => {
+          const updated = prev.filter(s => s.id !== payload.sessionId);
+          saveSessions(updated);
+          return updated;
+        });
+      } else {
+        reloadData();
+      }
+    };
+
     const handleRealtimeUpdate = () => {
       reloadData();
     };
 
-    socket.on('sessions:changed', handleRealtimeUpdate);
+    socket.on('sessions:changed', handleSessionsUpdate);
     socket.on('student_requests:changed', handleRealtimeUpdate);
     socket.on('notifications:changed', handleRealtimeUpdate);
     socket.on('users:changed', handleRealtimeUpdate);
@@ -218,7 +242,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
     return () => {
       window.removeEventListener('storage', handleStorage);
-      socket.off('sessions:changed', handleRealtimeUpdate);
+      socket.off('sessions:changed', handleSessionsUpdate);
       socket.off('student_requests:changed', handleRealtimeUpdate);
       socket.off('notifications:changed', handleRealtimeUpdate);
       socket.off('users:changed', handleRealtimeUpdate);

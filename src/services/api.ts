@@ -115,7 +115,7 @@ export const sessionsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ studentId }),
     });
-    return handleResponse<{ success: boolean; session: Session; message: string }>(res);
+    return handleResponse<{ success: boolean; alreadyPresent?: boolean; session: Session; message: string }>(res);
   },
 };
 
