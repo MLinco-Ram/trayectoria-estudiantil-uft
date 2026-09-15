@@ -173,13 +173,27 @@ function seededRandom(seed: number): number {
   return x - Math.floor(x);
 }
 
-interface PanelHex { cx: number; cy: number; r: number; cyan: boolean }
+type PanelHexVariant = 'outline' | 'cyan-solid' | 'cyan-hatch' | 'black-solid' | 'cyan-outline';
+
+interface PanelHex { cx: number; cy: number; r: number; variant: PanelHexVariant }
 
 const PANEL_VB_W = 460;
 const PANEL_VB_H = 1300;
 const PANEL_HEX_R = 88;
 const PANEL_COL_STEP = PANEL_HEX_R * 1.5;
 const PANEL_ROW_STEP = PANEL_HEX_R * Math.sqrt(3);
+
+// Distribución de estilos, de mayor a menor frecuencia: la mayoría son solo
+// contorno (para no saturar), con acentos sólidos en cyan/negro y algunos
+// con la textura de rejilla diagonal, igual que la referencia.
+function pickVariant(seed: number): PanelHexVariant {
+  const v = seededRandom(seed);
+  if (v < 0.4) return 'outline';
+  if (v < 0.62) return 'cyan-solid';
+  if (v < 0.76) return 'cyan-hatch';
+  if (v < 0.9) return 'black-solid';
+  return 'cyan-outline';
+}
 
 function buildPanelHexes(): PanelHex[] {
   const hexes: PanelHex[] = [];
@@ -190,11 +204,11 @@ function buildPanelHexes(): PanelHex[] {
       const seed = col * 97 + row * 13 + 1;
       const baseX = col * PANEL_COL_STEP;
       const baseY = row * PANEL_ROW_STEP + (col % 2 !== 0 ? PANEL_ROW_STEP / 2 : 0);
-      const jitterX = (seededRandom(seed) - 0.5) * PANEL_HEX_R * 0.55;
-      const jitterY = (seededRandom(seed + 0.37) - 0.5) * PANEL_HEX_R * 0.55;
-      const r = PANEL_HEX_R * (0.82 + seededRandom(seed + 0.71) * 0.36);
-      const cyan = seededRandom(seed + 0.13) < 0.32;
-      hexes.push({ cx: baseX + jitterX, cy: baseY + jitterY, r, cyan });
+      const jitterX = (seededRandom(seed) - 0.5) * PANEL_HEX_R * 0.5;
+      const jitterY = (seededRandom(seed + 0.37) - 0.5) * PANEL_HEX_R * 0.5;
+      const r = PANEL_HEX_R * (0.8 + seededRandom(seed + 0.71) * 0.4);
+      const variant = pickVariant(seed + 0.13);
+      hexes.push({ cx: baseX + jitterX, cy: baseY + jitterY, r, variant });
     }
   }
   return hexes;
@@ -217,11 +231,12 @@ interface HexPanelBackdropProps {
 export function HexPanelBackdrop({ className = '', topOffset = 64 }: HexPanelBackdropProps) {
   const { isDark } = useTheme();
   const darkLineColor = isDark ? '#ffffff' : HEX_BLACK;
+  const hatchId = 'uft-panel-hatch';
 
   return (
     <div
-      className={`fixed right-0 pointer-events-none select-none opacity-90 -z-10 ${className}`}
-      style={{ top: topOffset, bottom: 0, width: 'clamp(240px, 30vw, 560px)' }}
+      className={`fixed right-0 pointer-events-none select-none opacity-95 -z-10 ${className}`}
+      style={{ top: topOffset, bottom: 0, width: 'clamp(260px, 32vw, 600px)' }}
       aria-hidden="true"
     >
       <svg
@@ -229,14 +244,35 @@ export function HexPanelBackdrop({ className = '', topOffset = 64 }: HexPanelBac
         className="w-full h-full"
         preserveAspectRatio="xMaxYMin slice"
       >
-        {PANEL_HEXES.map((h, i) => (
+        <defs>
+          <pattern id={hatchId} width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="16" height="16" fill={HEX_CYAN} />
+            <line x1="0" y1="0" x2="0" y2="16" stroke={HEX_NAVY} strokeWidth="1.2" opacity="0.4" />
+            <line x1="0" y1="0" x2="16" y2="0" stroke={HEX_NAVY} strokeWidth="1.2" opacity="0.4" />
+          </pattern>
+        </defs>
+
+        {/* Hexágonos de solo contorno primero, sirven de "relleno" detrás de los sólidos */}
+        {PANEL_HEXES.filter(h => h.variant === 'outline' || h.variant === 'cyan-outline').map((h, i) => (
           <polygon
-            key={i}
+            key={`outline-${i}`}
             points={hexPointsFlat(h.cx, h.cy, h.r)}
             fill="none"
-            stroke={h.cyan ? HEX_CYAN : darkLineColor}
-            strokeWidth={h.cyan ? 3.2 : 2.2}
-            opacity={h.cyan ? 0.85 : 0.7}
+            stroke={h.variant === 'cyan-outline' ? HEX_CYAN : darkLineColor}
+            strokeWidth={h.variant === 'cyan-outline' ? 3.5 : 2.2}
+            opacity={h.variant === 'cyan-outline' ? 0.9 : 0.65}
+          />
+        ))}
+
+        {/* Hexágonos sólidos (cyan, cyan con rejilla, negro) por encima */}
+        {PANEL_HEXES.filter(h => h.variant === 'cyan-solid' || h.variant === 'cyan-hatch' || h.variant === 'black-solid').map((h, i) => (
+          <polygon
+            key={`solid-${i}`}
+            points={hexPointsFlat(h.cx, h.cy, h.r)}
+            fill={h.variant === 'cyan-hatch' ? `url(#${hatchId})` : h.variant === 'black-solid' ? HEX_BLACK : HEX_CYAN}
+            stroke={h.variant === 'black-solid' && isDark ? '#ffffff' : 'none'}
+            strokeWidth={h.variant === 'black-solid' && isDark ? 3 : 0}
+            opacity={h.variant === 'black-solid' ? 0.9 : 0.92}
           />
         ))}
 
