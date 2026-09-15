@@ -428,13 +428,13 @@ flowchart TD
         DNSResolvers["Resolutores DNS Globales\nGoogle Public DNS (8.8.8.8) / Cloudflare (1.1.1.1)"]
     end
 
-    Browser -->|HTTPS / WSS (Puerto 3000)| ViteDev
-    ViteDev -->|Proxy HTTP/WS a :3001| ExpressRuntime
+    Browser -->|"HTTPS / WSS (Puerto 3000)"| ViteDev
+    ViteDev -->|"Proxy HTTP/WS a :3001"| ExpressRuntime
     ExpressRuntime --> RestAPI & SocketEngine
     RestAPI --> CryptoEngine
-    RestAPI -->|MongoDB Connection Pool con TLS/SRV| PrimaryDB
-    AppServerLayer -->|SMTP Auth + TLS Implícito| GoogleSMTP
-    AppServerLayer -->|DNS SRV Resolution| DNSResolvers
+    RestAPI -->|"MongoDB Connection Pool con TLS/SRV"| PrimaryDB
+    AppServerLayer -->|"SMTP Auth + TLS Implícito"| GoogleSMTP
+    AppServerLayer -->|"DNS SRV Resolution"| DNSResolvers
 ```
 
 ---
