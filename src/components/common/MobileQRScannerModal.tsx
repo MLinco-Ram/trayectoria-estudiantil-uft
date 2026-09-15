@@ -19,7 +19,7 @@ export const MobileQRScannerModal: React.FC<MobileQRScannerModalProps> = ({
 }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successInfo, setSuccessInfo] = useState<{ title: string; timeSlot: string } | null>(null);
+  const [successInfo, setSuccessInfo] = useState<{ title: string; timeSlot: string; alreadyPresent?: boolean; message?: string } | null>(null);
   const [manualCode, setManualCode] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -50,63 +50,58 @@ export const MobileQRScannerModal: React.FC<MobileQRScannerModalProps> = ({
       const element = document.getElementById('uft-qr-reader');
       if (!element) return;
 
-      if (!html5QrCodeRef.current) {
-        html5QrCodeRef.current = new Html5Qrcode('uft-qr-reader');
-      }
+      const html5QrCode = new Html5Qrcode('uft-qr-reader');
+      html5QrCodeRef.current = html5QrCode;
 
-      const qrCode = html5QrCodeRef.current;
-      if (isStartedRef.current) {
-        return;
-      }
-
-      setIsScanning(true);
-
-      const qrConfig = {
+      const config = {
         fps: 10,
         qrbox: { width: 250, height: 250 },
         aspectRatio: 1.0,
       };
 
-      await qrCode.start(
+      await html5QrCode.start(
         { facingMode: 'environment' },
-        qrConfig,
+        config,
         (decodedText) => {
           handleSuccessfulScan(decodedText);
         },
         () => {
-          // Frame error callback - ignore standard scan frame misses
+          // Frame error (no QR detected in frame) - ignore
         }
       );
 
       isStartedRef.current = true;
+      setIsScanning(true);
     } catch (err: any) {
-      console.warn('Error starting camera scanner:', err);
+      console.warn('Error al iniciar cámara:', err);
       setIsScanning(false);
-      isStartedRef.current = false;
-      setErrorMessage('No se pudo acceder a la cámara. Revisa los permisos o ingresa el código manualmente.');
+      setErrorMessage(
+        'No se pudo acceder a la cámara. Por favor permite los permisos o ingresa el código manualmente.'
+      );
     }
   };
 
   const stopScanner = async () => {
-    if (html5QrCodeRef.current && isStartedRef.current) {
-      try {
+    try {
+      if (html5QrCodeRef.current && isStartedRef.current) {
         await html5QrCodeRef.current.stop();
         html5QrCodeRef.current.clear();
-      } catch (err) {
-        console.warn('Error stopping camera:', err);
-      } finally {
         isStartedRef.current = false;
         setIsScanning(false);
       }
+    } catch (err) {
+      console.warn('Error al detener escáner:', err);
     }
   };
 
   const handleSuccessfulScan = async (rawDecodedText: string) => {
     if (isProcessing) return;
     setIsProcessing(true);
+    setErrorMessage(null);
 
     try {
-      if (navigator.vibrate) {
+      // Vibrate if supported
+      if ('vibrate' in navigator) {
         navigator.vibrate([100, 50, 100]);
       }
 
@@ -132,6 +127,8 @@ export const MobileQRScannerModal: React.FC<MobileQRScannerModalProps> = ({
         setSuccessInfo({
           title: response.session?.title || sessionTitle || 'Tutoría UFT',
           timeSlot: response.session?.timeSlot || sessionTime || 'Horario Registrado',
+          alreadyPresent: response.alreadyPresent,
+          message: response.message,
         });
         if (onAttendanceRegistered && response.session) {
           onAttendanceRegistered(response.session);
@@ -184,15 +181,26 @@ export const MobileQRScannerModal: React.FC<MobileQRScannerModalProps> = ({
         <div className="p-5 flex-1 overflow-y-auto space-y-4">
           {successInfo ? (
             <div className="py-6 flex flex-col items-center text-center space-y-4 animate-fade-in">
-              <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-lg">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg ${
+                successInfo.alreadyPresent 
+                  ? 'bg-sky-100 text-[#092c4c]' 
+                  : 'bg-emerald-100 text-emerald-600'
+              }`}>
                 <CheckCircle2 className="w-10 h-10" />
               </div>
               <div className="space-y-1">
-                <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest">
-                  ¡Asistencia Registrada!
+                <span className={`text-xs font-extrabold uppercase tracking-widest px-3 py-1 rounded-full ${
+                  successInfo.alreadyPresent
+                    ? 'bg-sky-100 text-sky-800 border border-sky-200'
+                    : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                }`}>
+                  {successInfo.alreadyPresent ? 'ℹ Ya Estabas Presente' : '✓ ¡Asistencia Registrada!'}
                 </span>
-                <h4 className="text-base font-bold text-slate-900">{successInfo.title}</h4>
+                <h4 className="text-base font-bold text-slate-900 mt-2">{successInfo.title}</h4>
                 <p className="text-xs text-slate-500 font-semibold">{successInfo.timeSlot}</p>
+                <p className="text-xs text-slate-600 mt-1 font-medium">
+                  {successInfo.message || (successInfo.alreadyPresent ? 'Ya te encontrabas registrado como presente en esta tutoría.' : 'Tu asistencia ha sido validada y confirmada.')}
+                </p>
                 <p className="text-xs text-slate-400 mt-2">
                   Estudiante: <strong className="text-slate-700">{currentUser.name}</strong>
                 </p>
@@ -202,7 +210,11 @@ export const MobileQRScannerModal: React.FC<MobileQRScannerModalProps> = ({
                   stopScanner();
                   onClose();
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-md mt-4 cursor-pointer"
+                className={`w-full py-2.5 px-4 rounded-xl text-white text-xs font-bold transition-all shadow-md mt-4 cursor-pointer ${
+                  successInfo.alreadyPresent
+                    ? 'bg-[#092c4c] hover:bg-[#153a5c]'
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
               >
                 Finalizar y Continuar
               </button>

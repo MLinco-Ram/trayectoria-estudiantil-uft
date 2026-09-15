@@ -1,8 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Session, User } from '../../types';
-import { CheckSquare, Calendar, Users, CheckCircle2, XCircle, Clock, Send, AlertTriangle, QrCode } from 'lucide-react';
-import { getDynamicPresetDates, triggerNotification } from '../../data';
+import { 
+  CheckSquare, 
+  Calendar, 
+  Users, 
+  CheckCircle2, 
+  XCircle, 
+  Clock, 
+  Send, 
+  AlertTriangle, 
+  QrCode, 
+  UserPlus, 
+  Search, 
+  Trash2, 
+  X, 
+  Plus, 
+  Check, 
+  GraduationCap 
+} from 'lucide-react';
+import { getDynamicPresetDates, triggerNotification, saveSessions } from '../../data';
 import { sessionsApi } from '../../services/api';
+import { getSocket } from '../../services/socket';
 import { SessionQRModal } from '../common/SessionQRModal';
 
 interface DocenteAttendanceTabProps {
@@ -23,18 +41,65 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
   const [attendanceFeedback, setAttendanceFeedback] = useState<string | null>(null);
   const [selectedQRModalSession, setSelectedQRModalSession] = useState<Session | null>(null);
 
+  // Sincronización en tiempo real de la lista de asistencia vía WebSockets
+  useEffect(() => {
+    const socket = getSocket();
+    const handleSessionsChanged = (payload: any) => {
+      if (payload?.session && payload.action === 'update') {
+        setSessions(prev => {
+          const updated = prev.map(s => s.id === payload.session.id ? payload.session : s);
+          saveSessions(updated);
+          return updated;
+        });
+        if (selectedQRModalSession && selectedQRModalSession.id === payload.session.id) {
+          setSelectedQRModalSession(payload.session);
+        }
+      } else if (payload?.session && payload.action === 'create') {
+        setSessions(prev => {
+          const updated = [payload.session, ...prev.filter(s => s.id !== payload.session.id)];
+          saveSessions(updated);
+          return updated;
+        });
+      } else if (payload?.sessionId && payload.action === 'delete') {
+        setSessions(prev => {
+          const updated = prev.filter(s => s.id !== payload.sessionId);
+          saveSessions(updated);
+          return updated;
+        });
+      } else {
+        onReload();
+      }
+    };
+
+    socket.on('sessions:changed', handleSessionsChanged);
+    return () => {
+      socket.off('sessions:changed', handleSessionsChanged);
+    };
+  }, [selectedQRModalSession, setSessions, onReload]);
+
+  // Estado para agregar estudiantes manualmente a una sesión
+  const [addingStudentSessionId, setAddingStudentSessionId] = useState<string | null>(null);
+  const [selectedStudentToAdd, setSelectedStudentToAdd] = useState<string>('');
+  const [studentSearchQuery, setStudentSearchQuery] = useState<string>('');
+  const [initialStatusToAdd, setInitialStatusToAdd] = useState<'presente' | 'pendiente'>('presente');
+
   const dailySessions = sessions.filter(s => s.date === selectedDate);
+
+  // Lista general de estudiantes registrados en el sistema
+  const allStudents = useMemo(() => {
+    return allUsers.filter(u => u.role === 'alumno');
+  }, [allUsers]);
 
   const handleMarkAttendance = async (sessionId: string, studentId: string, status: 'presente' | 'ausente') => {
     const session = sessions.find(s => s.id === sessionId);
     if (!session) return;
 
     const newAttendance = { ...(session.attendance || {}), [studentId]: status };
-    const updatedSessions = sessions.map(s => s.id === sessionId ? { ...s, attendance: newAttendance } : s);
+    const updatedSessions = sessions.map(s => s.id === sessionId ? { ...s, attendance: newAttendance, isCompleted: true } : s);
     setSessions(updatedSessions);
 
     try {
-      await sessionsApi.updateSession(sessionId, { attendance: newAttendance });
+      await sessionsApi.updateSession(sessionId, { attendance: newAttendance, isCompleted: true });
 
       // Si se marca ausente, enviar correo de alerta de inasistencia
       if (status === 'ausente') {
@@ -53,6 +118,73 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
       setTimeout(() => setAttendanceFeedback(null), 3000);
     } catch (err: any) {
       console.warn('Guardado local de asistencia:', err);
+    }
+  };
+
+  // Función para agregar un estudiante manualmente a la sesión
+  const handleAddStudentToSession = async (sessionId: string) => {
+    const studentId = selectedStudentToAdd;
+    const initialStatus = initialStatusToAdd;
+    if (!studentId) return;
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+
+    if ((session.studentIds || []).includes(studentId)) {
+      setAttendanceFeedback('El estudiante ya se encuentra en la lista de esta sesión.');
+      return;
+    }
+
+    const newStudentIds = [...(session.studentIds || []), studentId];
+    const newAttendance: Record<string, 'presente' | 'ausente' | 'pendiente'> = { 
+      ...(session.attendance || {}), 
+      [studentId]: initialStatus 
+    };
+
+    const updatedSessions = sessions.map(s => s.id === sessionId ? { ...s, studentIds: newStudentIds, attendance: newAttendance } : s);
+    setSessions(updatedSessions);
+
+    try {
+      await sessionsApi.updateSession(sessionId, {
+        studentIds: newStudentIds,
+        attendance: newAttendance
+      });
+
+      const studentObj = allUsers.find(u => u.id === studentId);
+      setAttendanceFeedback(`¡${studentObj?.name || 'Estudiante'} agregado exitosamente a la lista con estado "${initialStatus}"!`);
+      setTimeout(() => setAttendanceFeedback(null), 4000);
+      setAddingStudentSessionId(null);
+      setSelectedStudentToAdd('');
+      setStudentSearchQuery('');
+    } catch (err: any) {
+      console.warn('Error al agregar estudiante manualmente:', err);
+      setAttendanceFeedback('Error al guardar en el servidor.');
+    }
+  };
+
+  // Función para remover un estudiante de la lista de asistencia
+  const handleRemoveStudentFromSession = async (sessionId: string, studentId: string) => {
+    const studentObj = allUsers.find(u => u.id === studentId);
+    if (!confirm(`¿Estás seguro de remover a ${studentObj?.name || 'este estudiante'} de la lista de esta sesión?`)) return;
+
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+
+    const newStudentIds = (session.studentIds || []).filter(id => id !== studentId);
+    const newAttendance = { ...(session.attendance || {}) };
+    delete newAttendance[studentId];
+
+    const updatedSessions = sessions.map(s => s.id === sessionId ? { ...s, studentIds: newStudentIds, attendance: newAttendance } : s);
+    setSessions(updatedSessions);
+
+    try {
+      await sessionsApi.updateSession(sessionId, {
+        studentIds: newStudentIds,
+        attendance: newAttendance
+      });
+      setAttendanceFeedback(`Estudiante ${studentObj?.name || ''} removido de la lista.`);
+      setTimeout(() => setAttendanceFeedback(null), 3000);
+    } catch (err) {
+      console.warn('Error al remover estudiante:', err);
     }
   };
 
@@ -116,7 +248,40 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
                         {sess.timeSlot} • {sess.location} • Tutor: <strong>{tutor?.name || 'Coordinación'}</strong>
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (addingStudentSessionId === sess.id) {
+                            setAddingStudentSessionId(null);
+                            setSelectedStudentToAdd('');
+                            setStudentSearchQuery('');
+                          } else {
+                            setAddingStudentSessionId(sess.id);
+                            setSelectedStudentToAdd('');
+                            setStudentSearchQuery('');
+                            setInitialStatusToAdd('presente');
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer ${
+                          addingStudentSessionId === sess.id
+                            ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        }`}
+                        title="Agregar manualmente un estudiante a esta sesión"
+                      >
+                        {addingStudentSessionId === sess.id ? (
+                          <>
+                            <X className="w-3.5 h-3.5" />
+                            <span>Cerrar</span>
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="w-3.5 h-3.5" />
+                            <span>+ Agregar Estudiante</span>
+                          </>
+                        )}
+                      </button>
                       <button
                         type="button"
                         onClick={() => setSelectedQRModalSession(sess)}
@@ -136,10 +301,117 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
                     </div>
                   </div>
 
+                  {/* Panel para agregar estudiante manualmente */}
+                  {addingStudentSessionId === sess.id && (
+                    <div className="bg-white border-2 border-dashed border-emerald-300 rounded-xl p-4 shadow-sm space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                          <UserPlus className="w-4 h-4 text-emerald-600" />
+                          Inscribir Alumno a esta Sesión
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          {allStudents.filter(st => !(sess.studentIds || []).includes(st.id)).length} estudiantes disponibles en el sistema
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                        {/* Buscador y selector */}
+                        <div className="sm:col-span-6 space-y-1.5">
+                          <div className="relative">
+                            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                              type="text"
+                              placeholder="Buscar por nombre, RUT o carrera..."
+                              value={studentSearchQuery}
+                              onChange={(e) => setStudentSearchQuery(e.target.value)}
+                              className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500"
+                            />
+                          </div>
+                          <select
+                            value={selectedStudentToAdd}
+                            onChange={(e) => setSelectedStudentToAdd(e.target.value)}
+                            className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-medium text-slate-800 focus:outline-none focus:border-emerald-500"
+                          >
+                            <option value="">-- Seleccionar Estudiante ({
+                              allStudents
+                                .filter(st => !(sess.studentIds || []).includes(st.id))
+                                .filter(st => {
+                                  if (!studentSearchQuery) return true;
+                                  const q = studentSearchQuery.toLowerCase();
+                                  return (
+                                    st.name?.toLowerCase().includes(q) ||
+                                    st.rut?.toLowerCase().includes(q) ||
+                                    st.career?.toLowerCase().includes(q) ||
+                                    st.email?.toLowerCase().includes(q)
+                                  );
+                                }).length
+                            } disponibles) --</option>
+                            {allStudents
+                              .filter(st => !(sess.studentIds || []).includes(st.id))
+                              .filter(st => {
+                                if (!studentSearchQuery) return true;
+                                const q = studentSearchQuery.toLowerCase();
+                                return (
+                                  st.name?.toLowerCase().includes(q) ||
+                                  st.rut?.toLowerCase().includes(q) ||
+                                  st.career?.toLowerCase().includes(q) ||
+                                  st.email?.toLowerCase().includes(q)
+                                );
+                              })
+                              .map(st => (
+                                <option key={st.id} value={st.id}>
+                                  {st.name} {st.rut ? `(${st.rut})` : ''} - {st.career || 'Estudiante'}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+
+                        {/* Estado inicial */}
+                        <div className="sm:col-span-3">
+                          <label className="text-[11px] font-semibold text-slate-600 block mb-1">Estado de Asistencia</label>
+                          <select
+                            value={initialStatusToAdd}
+                            onChange={(e) => setInitialStatusToAdd(e.target.value as 'presente' | 'pendiente' | 'ausente')}
+                            className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-medium text-slate-800 focus:outline-none focus:border-emerald-500"
+                          >
+                            <option value="presente">✓ Presente (Registrado ahora)</option>
+                            <option value="pendiente">● Pendiente de marcar</option>
+                            <option value="ausente">✕ Ausente</option>
+                          </select>
+                        </div>
+
+                        {/* Botón de confirmar */}
+                        <div className="sm:col-span-3 flex items-end">
+                          <button
+                            type="button"
+                            disabled={!selectedStudentToAdd}
+                            onClick={() => handleAddStudentToSession(sess.id)}
+                            className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 shadow-sm"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Inscribir en Lista</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {studentIds.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic bg-white p-3 rounded-xl border border-slate-200">
-                      No hay alumnos inscritos aún en este bloque.
-                    </p>
+                    <div className="text-xs text-slate-400 italic bg-white p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+                      <span>No hay alumnos inscritos aún en este bloque.</span>
+                      <button
+                        onClick={() => {
+                          setAddingStudentSessionId(sess.id);
+                          setSelectedStudentToAdd('');
+                          setStudentSearchQuery('');
+                          setInitialStatusToAdd('presente');
+                        }}
+                        className="text-emerald-700 font-bold hover:underline not-italic flex items-center gap-1"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        Agregar el primer alumno
+                      </button>
+                    </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs text-slate-700 bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -147,8 +419,10 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
                           <tr>
                             <th className="py-2.5 px-4">Estudiante</th>
                             <th className="py-2.5 px-3">RUT</th>
+                            <th className="py-2.5 px-3">Carrera</th>
                             <th className="py-2.5 px-3">Estado Actual</th>
-                            <th className="py-2.5 px-4 text-right">Marcar Asistencia</th>
+                            <th className="py-2.5 px-4 text-center">Marcar Asistencia</th>
+                            <th className="py-2.5 px-2 text-center w-10"></th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -157,25 +431,33 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
                             const currentStatus = sess.attendance?.[stId] || 'pendiente';
 
                             return (
-                              <tr key={stId} className="hover:bg-slate-50">
-                                <td className="py-2.5 px-4 font-semibold">{student?.name || stId}</td>
-                                <td className="py-2.5 px-3 font-mono">{student?.rut || '-'}</td>
+                              <tr key={stId} className="hover:bg-slate-50 transition-colors">
+                                <td className="py-2.5 px-4 font-semibold text-slate-800">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 font-bold flex items-center justify-center text-[10px]">
+                                      {student?.name?.charAt(0) || 'E'}
+                                    </div>
+                                    <span>{student?.name || stId}</span>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 font-mono text-slate-500">{student?.rut || '-'}</td>
+                                <td className="py-2.5 px-3 text-slate-500">{student?.career || '-'}</td>
                                 <td className="py-2.5 px-3">
                                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                     currentStatus === 'presente' ? 'bg-emerald-100 text-emerald-800' :
                                     currentStatus === 'ausente' ? 'bg-rose-100 text-rose-800' :
-                                    'bg-slate-100 text-slate-600'
+                                    'bg-amber-100 text-amber-800'
                                   }`}>
                                     {currentStatus.toUpperCase()}
                                   </span>
                                 </td>
-                                <td className="py-2.5 px-4 text-right">
-                                  <div className="flex items-center justify-end gap-1.5">
+                                <td className="py-2.5 px-4 text-center">
+                                  <div className="flex items-center justify-center gap-1.5">
                                     <button
                                       onClick={() => handleMarkAttendance(sess.id, stId, 'presente')}
                                       className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
                                         currentStatus === 'presente'
-                                          ? 'bg-emerald-600 text-white'
+                                          ? 'bg-emerald-600 text-white shadow-xs'
                                           : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                                       }`}
                                     >
@@ -185,13 +467,22 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
                                       onClick={() => handleMarkAttendance(sess.id, stId, 'ausente')}
                                       className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
                                         currentStatus === 'ausente'
-                                          ? 'bg-rose-600 text-white'
+                                          ? 'bg-rose-600 text-white shadow-xs'
                                           : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
                                       }`}
                                     >
                                       Ausente
                                     </button>
                                   </div>
+                                </td>
+                                <td className="py-2.5 px-2 text-center">
+                                  <button
+                                    onClick={() => handleRemoveStudentFromSession(sess.id, stId)}
+                                    title="Remover de la lista"
+                                    className="p-1 rounded text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
                                 </td>
                               </tr>
                             );
