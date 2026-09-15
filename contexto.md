@@ -424,16 +424,16 @@ flowchart TD
     end
 
     subgraph ExternalServices["Servicios Externos Institucionales"]
-        GoogleSMTP["Servidor SMTP Institucional (Google / UFT)\nPuerto 587 (STARTTLS / TLS)"]
+        GoogleSMTP["Servidor SMTP Institucional (Google / UFT)\nPuerto 465 (TLS Implícito / SSL)"]
         DNSResolvers["Resolutores DNS Globales\nGoogle Public DNS (8.8.8.8) / Cloudflare (1.1.1.1)"]
     end
 
-    Browser -->|HTTPS / WSS (Puerto 3000/3001)| ViteDev
-    ViteDev -->|Proxy HTTP/WS| ExpressRuntime
+    Browser -->|HTTPS / WSS (Puerto 3000)| ViteDev
+    ViteDev -->|Proxy HTTP/WS a :3001| ExpressRuntime
     ExpressRuntime --> RestAPI & SocketEngine
     RestAPI --> CryptoEngine
     RestAPI -->|MongoDB Connection Pool con TLS/SRV| PrimaryDB
-    AppServerLayer -->|SMTP Auth + STARTTLS| GoogleSMTP
+    AppServerLayer -->|SMTP Auth + TLS Implícito| GoogleSMTP
     AppServerLayer -->|DNS SRV Resolution| DNSResolvers
 ```
 
