@@ -52,6 +52,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { MobileQRScannerModal } from './common/MobileQRScannerModal';
 import { ThemeToggle } from './common/ThemeToggle';
+import { HexCornerMosaic } from './SidebarDecor';
 
 interface AlumnoDashboardProps {
   user?: User;
@@ -900,7 +901,9 @@ Equipo de Acompañamiento Académico UFT`;
 
       {/* Main Workspace Column */}
       <main className="flex-1 flex flex-col md:h-screen md:overflow-y-auto min-w-0 relative z-10" id="student-main-panel-workspace">
-        
+        <HexCornerMosaic corner="top-right" size={230} offset={64} />
+        <HexCornerMosaic corner="bottom-right" size={280} />
+
         {/* Mobile Header Bar */}
         <header className="md:hidden bg-[#092c4c] text-white px-4 py-3 flex flex-col space-y-2 shrink-0">
           <div className="flex justify-between items-center">
@@ -968,7 +971,7 @@ Equipo de Acompañamiento Académico UFT`;
         </header>
 
         {/* Desktop Top Header Bar with navigation trial breadcrumb & action triggers */}
-        <header className="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shrink-0 shadow-sm">
+        <header className="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shrink-0 shadow-sm sticky top-0 z-20">
           <div className="flex items-center gap-3 text-slate-400">
             <span className="text-sm font-semibold text-slate-600">Portal Estudiantil</span>
             <span className="text-slate-300">/</span>
