@@ -198,109 +198,117 @@ erDiagram
 
 ### D. Diagrama de Clases y Modelos de Dominio
 
+> Nota: los nombres de clases y campos se muestran en español para que el
+> diagrama sea legible por cualquier persona del equipo; en el código
+> fuente (`src/types.ts`) estos mismos campos están en inglés (`id`,
+> `name`, `rut`, etc.), siguiendo la convención habitual de TypeScript.
+
 ```mermaid
 classDiagram
-    class User {
+    class Usuario {
         +string id
-        +string name
+        +string nombre
         +string rut
         +string rutHash
-        +string email
-        +string role
-        +string tutorType
-        +string[] assignedTutorIds
-        +string career
-        +string password
-        +isLeadTutor() bool
+        +string correo
+        +string rol
+        +string tipoDeTutor
+        +string[] tutoresACargo
+        +string carrera
+        +string clave
+        +esTutorLider() bool
     }
 
-    class Session {
+    class Sesion {
         +string id
-        +string program
-        +string type
-        +string title
-        +string subject
-        +string date
-        +string timeSlot
+        +string programa
+        +string tipo
+        +string titulo
+        +string asignatura
+        +string fecha
+        +string bloqueHorario
         +string docenteId
         +string tutorId
-        +string[] studentIds
-        +int maxSpots
-        +string location
-        +Record attendance
-        +string syllabus
-        +bool isCompleted
-        +Record ratings
-        +getComplianceStatus() string
+        +string[] alumnosIds
+        +int cupoMaximo
+        +string ubicacion
+        +Record asistencia
+        +string temario
+        +bool completada
+        +Record calificaciones
+        +calcularEstadoCumplimiento() string
     }
 
-    class SessionFeedback {
-        +string studentId
-        +string studentName
-        +int rating
-        +string comment
-        +string createdAt
+    class Calificacion {
+        +string alumnoId
+        +string nombreAlumno
+        +int puntaje
+        +string comentario
+        +string creadoEl
     }
 
-    class IssueReport {
+    class ReporteIncidencia {
         +string id
-        +string sessionId
+        +string sesionId
         +string tutorId
-        +string description
-        +string requestType
-        +string proposedTime
-        +string status
-        +string createdAt
+        +string descripcion
+        +string tipoSolicitud
+        +string horarioPropuesto
+        +string estado
+        +string creadoEl
     }
 
-    class StudentRequest {
+    class SolicitudAlumno {
         +string id
-        +string studentId
-        +string studentName
-        +string studentCareer
-        +string program
-        +string message
-        +string preferredTime
-        +string status
-        +string assignedSessionId
-        +string createdAt
+        +string alumnoId
+        +string nombreAlumno
+        +string carreraAlumno
+        +string programa
+        +string mensaje
+        +string horarioPreferido
+        +string estado
+        +string sesionAsignadaId
+        +string creadoEl
     }
 
-    class UserAvailability {
-        +string userId
-        +string role
-        +string userName
-        +string career
-        +DaySlot[] days
-        +string updatedAt
+    class DisponibilidadUsuario {
+        +string usuarioId
+        +string rol
+        +string nombreUsuario
+        +string carrera
+        +BloqueDia[] dias
+        +string actualizadoEl
     }
 
-    class WebNotification {
+    class Notificacion {
         +string id
-        +string toEmail
-        +string toName
-        +string subject
-        +string message
-        +string timestamp
-        +bool read
+        +string correoDestino
+        +string nombreDestino
+        +string asunto
+        +string mensaje
+        +string fechaHora
+        +bool leida
     }
 
-    class SmtpSettings {
+    class ConfiguracionSmtp {
         +string host
-        +int port
-        +bool secure
-        +string user
-        +string pass
-        +string fromName
-        +string updatedAt
+        +int puerto
+        +bool seguro
+        +string usuario
+        +string clave
+        +string nombreRemitente
+        +string actualizadoEl
     }
 
-    User "1" --> "*" Session : "coordina / tutor"
-    Session "1" *-- "*" SessionFeedback : "contiene"
-    Session "1" o-- "*" IssueReport : "reporta"
-    User "1" --> "1" UserAvailability : "configura"
-    User "1" --> "*" StudentRequest : "solicita"
-    Session "1" <-- "0..1" StudentRequest : "resuelve"
+    Usuario "1" --> "*" Sesion : "coordina / tutoriza"
+    Sesion "1" *-- "*" Calificacion : "contiene"
+    Sesion "1" o-- "*" ReporteIncidencia : "origina"
+    Usuario "1" --> "*" ReporteIncidencia : "reporta"
+    Usuario "1" --> "1" DisponibilidadUsuario : "configura"
+    Usuario "1" --> "*" SolicitudAlumno : "solicita"
+    Sesion "1" <-- "0..1" SolicitudAlumno : "resuelve"
+    Usuario "1" --> "*" Notificacion : "recibe"
+    ConfiguracionSmtp ..> Notificacion : "despacha vía SMTP"
 ```
 
 ### E. Diagrama de Componentes de Frontend y Backend
