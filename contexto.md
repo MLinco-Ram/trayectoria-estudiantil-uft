@@ -403,6 +403,36 @@ flowchart TD
     MasterRouter --> ControllersPkg
     ControllersPkg --> ServicesPkg
     ControllersPkg --> MongoDriver --> MongoAtlas
+
+    classDef entry fill:#092c4c,stroke:#5ce1e6,stroke-width:2px,color:#ffffff
+    classDef dash fill:#3a9ad9,stroke:#092c4c,stroke-width:1.5px,color:#ffffff
+    classDef feature fill:#eaf6fb,stroke:#3a9ad9,stroke-width:1px,color:#092c4c
+    classDef shared fill:#ffffff,stroke:#0a0a0a,stroke-width:1px,color:#092c4c
+    classDef clientsvc fill:#7bd6e0,stroke:#092c4c,stroke-width:1.5px,color:#092c4c
+    classDef backend fill:#092c4c,stroke:#3a9ad9,stroke-width:1.5px,color:#ffffff
+    classDef service fill:#0f7ea8,stroke:#092c4c,stroke-width:1.5px,color:#ffffff
+    classDef db fill:#0a0a0a,stroke:#5ce1e6,stroke-width:2px,color:#5ce1e6
+
+    class App,AuthCtx,ProtRoute entry
+    class DocenteDash,TutorDash,AlumnoDash,AdminDash dash
+    class DocCalendar,DocTutors,DocAtt,DocFlex,DocAlerts,DocAnnc,DocAnalytics,DocComments,TutSchedule,TutAvail,TutIssue,TutAssigned,TutCompliance,AluExplore,AluBookings,AluHistory,AluAvail,AluIssue feature
+    class QRModal,ThemeTgl,ModalNotifs shared
+    class ApiClients,SocketSvc clientsvc
+    class MasterRouter,AuthC,UsersC,SessionsC,ReportsC,ReqsC,NotifsC,SettingsC,BroadcastC backend
+    class CryptoS,EmailS,CronS service
+    class MongoDriver,MongoAtlas db
+
+    style UI fill:#f4f8fc,stroke:#092c4c,stroke-width:2px
+    style Portales fill:#ffffff,stroke:#3a9ad9,stroke-width:1.5px
+    style DocenteComponents fill:#eef7fb,stroke:#3a9ad9,stroke-width:1px
+    style TutorComponents fill:#eef7fb,stroke:#0f7ea8,stroke-width:1px
+    style AlumnoComponents fill:#eef7fb,stroke:#5ce1e6,stroke-width:1px
+    style SharedComponents fill:#ffffff,stroke:#64748b,stroke-width:1px,stroke-dasharray: 4 3
+    style ClientServices fill:#eaf6fb,stroke:#092c4c,stroke-width:2px
+    style ServerComponents fill:#f1f5fb,stroke:#092c4c,stroke-width:2px
+    style ControllersPkg fill:#ffffff,stroke:#092c4c,stroke-width:1px
+    style ServicesPkg fill:#ffffff,stroke:#0f7ea8,stroke-width:1px
+    style DBCluster fill:#eef2f6,stroke:#092c4c,stroke-width:2px
 ```
 
 ### F. Diagrama de Despliegue de Infraestructura
@@ -448,6 +478,26 @@ flowchart TD
     RestAPI -->|"MongoDB Connection Pool con TLS/SRV"| PrimaryDB
     AppServerLayer -->|"SMTP Auth + TLS Implícito"| GoogleSMTP
     AppServerLayer -->|"DNS SRV Resolution"| DNSResolvers
+
+    classDef client fill:#eaf6fb,stroke:#092c4c,stroke-width:2px,color:#092c4c
+    classDef webserver fill:#3a9ad9,stroke:#092c4c,stroke-width:1.5px,color:#ffffff
+    classDef appserver fill:#092c4c,stroke:#5ce1e6,stroke-width:1.5px,color:#ffffff
+    classDef dbnode fill:#0a0a0a,stroke:#5ce1e6,stroke-width:2px,color:#5ce1e6
+    classDef external fill:#ffffff,stroke:#0f7ea8,stroke-width:1.5px,color:#092c4c
+
+    class Browser client
+    class ViteDev webserver
+    class ExpressRuntime,RestAPI,SocketEngine,CryptoEngine appserver
+    class PrimaryDB,SecondaryDB,Collections dbnode
+    class GoogleSMTP,DNSResolvers external
+
+    style ClientNode fill:#f4f8fc,stroke:#092c4c,stroke-width:2px
+    style ApplicationHost fill:#eef2f6,stroke:#092c4c,stroke-width:2px
+    style WebServerLayer fill:#ffffff,stroke:#3a9ad9,stroke-width:1.5px
+    style AppServerLayer fill:#ffffff,stroke:#092c4c,stroke-width:1.5px
+    style CloudDatabase fill:#eef2f6,stroke:#5ce1e6,stroke-width:2px
+    style ReplicaSet fill:#ffffff,stroke:#0a0a0a,stroke-width:1px
+    style ExternalServices fill:#f4f8fc,stroke:#0f7ea8,stroke-width:1.5px
 ```
 
 ---
