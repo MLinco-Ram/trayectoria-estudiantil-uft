@@ -113,86 +113,118 @@ flowchart TD
 
 ### C. Diagrama de Entidad-Relación (Modelo de Datos)
 
+> Nota: los nombres de tablas y campos se muestran en español para
+> facilitar la lectura; en la base de datos real (colecciones de MongoDB
+> Atlas) los campos usan los mismos nombres en inglés del código fuente
+> (`src/types.ts`). Se incluyen las 7 colecciones reales del sistema
+> (`users`, `sessions`, `student_requests`, `reports`, `notifications`,
+> `availabilities`, `settings`) más `CALIFICACION`, que no es una
+> colección propia sino una sub-estructura embebida dentro de `SESION`
+> (campo `ratings`).
+
 ```mermaid
 erDiagram
-    USER ||--o{ SESSION : "imparte / coordina"
-    USER ||--o{ USER_AVAILABILITY : "declara"
-    USER ||--o{ ISSUE_REPORT : "reporta"
-    USER ||--o{ STUDENT_REQUEST : "solicita"
-    SESSION ||--o{ SESSION_FEEDBACK : "recibe"
-    SESSION ||--o{ ISSUE_REPORT : "origina"
+    USUARIO ||--o{ SESION : "imparte / coordina"
+    USUARIO ||--o| DISPONIBILIDAD_USUARIO : "declara (a lo más una)"
+    USUARIO ||--o{ REPORTE_INCIDENCIA : "reporta"
+    USUARIO ||--o{ SOLICITUD_ALUMNO : "solicita"
+    USUARIO ||--o{ NOTIFICACION : "recibe"
+    SESION ||--o{ CALIFICACION : "recibe"
+    SESION ||--o{ REPORTE_INCIDENCIA : "origina"
+    SESION |o--o{ SOLICITUD_ALUMNO : "resuelve (opcional)"
 
-    USER {
+    USUARIO {
         string id PK
-        string name
-        string rut "AES-256-GCM"
-        string rutHash "HMAC-SHA256 Index"
-        string email
-        string role "docente | tutor | alumno | admin"
-        string tutorType "tutor_par | tutor_de_tutores"
-        stringArray assignedTutorIds "IDs tutores a cargo"
-        string career
-        string password "bcrypt"
+        string nombre
+        string rut "Cifrado AES-256-GCM"
+        string rutHash "Índice ciego HMAC-SHA256"
+        string correo
+        string rol "docente | tutor | alumno | admin"
+        string tipoDeTutor "tutor_par | tutor_de_tutores"
+        stringArray tutoresACargo "IDs de tutores supervisados"
+        string carrera
+        string clave "Hash bcrypt"
     }
 
-    SESSION {
+    SESION {
         string id PK
-        string program "tutorias | psicoeducativo"
-        string type "general | personalizada | taller"
-        string title
-        string subject
-        string date "YYYY-MM-DD"
-        string timeSlot
+        string programa "tutorias | psicoeducativo"
+        string tipo "general | personalizada | taller"
+        string titulo
+        string asignatura
+        string fecha "YYYY-MM-DD"
+        string bloqueHorario
         string docenteId FK
         string tutorId FK
-        stringArray studentIds FK
-        int maxSpots
-        string location
-        map attendance "studentId -> presente|ausente"
-        string syllabus "Cronograma / Temario"
-        boolean isCompleted
-        map ratings "studentId -> feedback"
+        stringArray alumnosIds FK
+        int cupoMaximo
+        string ubicacion
+        map asistencia "alumnoId -> presente|ausente"
+        string temario "Cronograma / Temario"
+        boolean completada
+        map calificaciones "alumnoId -> calificación (ver CALIFICACION)"
     }
 
-    SESSION_FEEDBACK {
-        string studentId FK
-        string studentName
-        int rating "1 a 5 estrellas"
-        string comment
-        string createdAt
+    CALIFICACION {
+        string alumnoId FK
+        string nombreAlumno
+        int puntaje "1 a 5 estrellas"
+        string comentario
+        string creadoEl
     }
 
-    USER_AVAILABILITY {
-        string userId FK
-        string role "alumno | tutor"
-        string userName
-        string career
-        array days "Lunes a Domingo con slots"
-        string updatedAt
+    DISPONIBILIDAD_USUARIO {
+        string usuarioId FK
+        string rol "alumno | tutor"
+        string nombreUsuario
+        string carrera
+        array dias "Lunes a Domingo con bloques horarios"
+        string actualizadoEl
     }
 
-    ISSUE_REPORT {
+    REPORTE_INCIDENCIA {
         string id PK
-        string sessionId FK
+        string sesionId FK
         string tutorId FK
-        string description
-        string requestType "reasignar_horario | reasignar_tutor"
-        string proposedTime
-        string status "pendiente | resuelto"
-        string createdAt
+        string descripcion
+        string tipoSolicitud "reasignar_horario | reasignar_tutor"
+        string horarioPropuesto
+        string estado "pendiente | resuelto"
+        string creadoEl
     }
 
-    STUDENT_REQUEST {
+    SOLICITUD_ALUMNO {
         string id PK
-        string studentId FK
-        string studentName
-        string studentCareer
-        string program "tutorias | psicoeducativo"
-        string message
-        string preferredTime
-        string status "pendiente | resuelto"
-        string assignedSessionId FK
-        string createdAt
+        string alumnoId FK
+        string nombreAlumno
+        string carreraAlumno
+        string programa "tutorias | psicoeducativo"
+        string mensaje
+        string horarioPreferido
+        string estado "pendiente | resuelto"
+        string sesionAsignadaId FK "opcional, se llena al resolver"
+        string creadoEl
+    }
+
+    NOTIFICACION {
+        string id PK
+        string correoDestino FK "vincula con USUARIO.correo"
+        string nombreDestino
+        string asunto
+        string mensaje
+        string fechaHora
+        boolean leida
+    }
+
+    CONFIGURACION_SMTP {
+        string tipo PK "siempre 'smtp' (documento único de configuración)"
+        string host
+        int puerto
+        boolean seguro "TLS implícito (puerto 465)"
+        string usuario
+        string clave "Contraseña de aplicación"
+        string nombreRemitente
+        string actualizadoEl
     }
 ```
 
