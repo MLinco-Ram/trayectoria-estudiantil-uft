@@ -1,0 +1,6 @@
+{
+  "name": "Trayectoria Estudiantil UFT",
+  "description": "Sistema para la gestión y calendarización de tutorías, talleres psicoeducativos y asistencia en la Universidad Finis Terrae.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
