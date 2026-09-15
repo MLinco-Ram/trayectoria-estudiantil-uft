@@ -158,54 +158,57 @@ function hexPointsFlat(cx: number, cy: number, r: number): string {
   return pts.join(' ');
 }
 
+function hexVerticesFlat(cx: number, cy: number, r: number): [number, number][] {
+  const pts: [number, number][] = [];
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 180) * (60 * i);
+    pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  return pts;
+}
+
 interface HexShape {
   cx: number;
   cy: number;
   r: number;
   fill?: string;
-  stroke?: string;
-  strokeWidth?: number;
   opacity?: number;
   pattern?: boolean;
   isBlack?: boolean;
 }
 
-const HEX_WHITE = '#ffffff';
-const HEX_WHITE_STROKE = '#c9d6da';
+// Hexágonos "de red": solo contorno grueso azul marino/negro + una capa cyan
+// entrelazada y puntos de nodo, igual que el fondo del Login. En modo oscuro
+// el contorno oscuro pasa a blanco para seguir siendo visible.
+interface NetworkHex { cx: number; cy: number; r: number }
 
-// Composición base en un lienzo vertical de 190 x 470. El bloque principal
-// vive en los primeros ~300px; de ahí en adelante hay una "cola" de
-// hexágonos cada vez más chicos y espaciados que se van perdiendo hacia el
-// resto del lienzo, para que el mosaico no se vea como un bloque flotando
-// con un vacío abrupto cuando se estira en pantallas grandes/altas.
-const HEX_CLUSTER: HexShape[] = [
+// Composición base en un lienzo vertical de 190 x 490: unos pocos hexágonos
+// sólidos de acento (negro y el cyan con rejilla) sobre una red de líneas
+// hexagonales entrelazadas que fluye del bloque superior al inferior, sin
+// vacíos ni puntos sueltos.
+const HEX_ACCENTS: HexShape[] = [
   // Gran hexágono cyan con rejilla diagonal, recortado en el borde superior
   { cx: 128, cy: 4, r: 72, pattern: true },
-  // Hexágono teal, solo contorno
-  { cx: 34, cy: 96, r: 46, fill: 'none', stroke: HEX_TEAL, strokeWidth: 4 },
-  // Gran hexágono negro sólido, se superpone con los anteriores
+  // Gran hexágono negro sólido de acento
   { cx: 112, cy: 152, r: 60, fill: HEX_BLACK, opacity: 0.92, isBlack: true },
-  // Hexágono blanco pequeño con borde sutil
-  { cx: 174, cy: 128, r: 26, fill: HEX_WHITE, stroke: HEX_WHITE_STROKE, strokeWidth: 2 },
-  // Hexágono teal sólido, esquina inferior derecha
-  { cx: 163, cy: 232, r: 42, fill: HEX_TEAL, opacity: 0.95 },
-  // Hexágono negro pequeño, recortado por el borde inferior
-  { cx: 66, cy: 292, r: 30, fill: HEX_BLACK, opacity: 0.9, isBlack: true },
-  // Hexágono blanco diminuto
-  { cx: 26, cy: 226, r: 15, fill: HEX_WHITE, stroke: HEX_WHITE_STROKE, strokeWidth: 1.5 },
-  // Hexágono negro diminuto, esquina
-  { cx: 140, cy: 298, r: 13, fill: HEX_BLACK, opacity: 0.85, isBlack: true },
+  // Hexágono negro pequeño de acento
+  { cx: 66, cy: 292, r: 30, fill: HEX_BLACK, opacity: 0.85, isBlack: true },
+];
 
-  // --- Cola fluida: hexágonos más grandes y superpuestos entre sí, en vez
-  // de puntos sueltos, para que se sienta como una cadena continua ---
-  { cx: 112, cy: 324, r: 27, fill: 'none', stroke: HEX_TEAL, strokeWidth: 3.5, opacity: 0.88 },
-  { cx: 142, cy: 348, r: 23, fill: HEX_BLACK, opacity: 0.82, isBlack: true },
-  { cx: 104, cy: 370, r: 21, fill: HEX_WHITE, stroke: HEX_WHITE_STROKE, strokeWidth: 2, opacity: 0.92 },
-  { cx: 134, cy: 392, r: 19, fill: HEX_CYAN, opacity: 0.82 },
-  { cx: 98, cy: 412, r: 17, fill: HEX_BLACK, opacity: 0.75, isBlack: true },
-  { cx: 128, cy: 432, r: 15, fill: 'none', stroke: HEX_TEAL, strokeWidth: 3, opacity: 0.75 },
-  { cx: 100, cy: 450, r: 13, fill: HEX_CYAN, opacity: 0.68 },
-  { cx: 126, cy: 466, r: 11, fill: HEX_BLACK, opacity: 0.6, isBlack: true },
+const HEX_NETWORK: NetworkHex[] = [
+  { cx: 34, cy: 96, r: 46 },
+  { cx: 174, cy: 128, r: 27 },
+  { cx: 163, cy: 232, r: 42 },
+  { cx: 26, cy: 226, r: 16 },
+  { cx: 140, cy: 300, r: 20 },
+  { cx: 112, cy: 328, r: 28 },
+  { cx: 146, cy: 352, r: 24 },
+  { cx: 106, cy: 376, r: 21 },
+  { cx: 136, cy: 398, r: 19 },
+  { cx: 98, cy: 418, r: 17 },
+  { cx: 128, cy: 438, r: 15 },
+  { cx: 100, cy: 456, r: 13 },
+  { cx: 126, cy: 472, r: 11 },
 ];
 
 const CLUSTER_VB_W = 190;
@@ -270,13 +273,51 @@ export function HexCornerMosaic({ corner = 'top-right', size = 260, className = 
             <line x1="0" y1="0" x2="14" y2="0" stroke={HEX_NAVY} strokeWidth="1" opacity="0.35" />
           </pattern>
         </defs>
-        {HEX_CLUSTER.map((h, i) => (
+
+        {/* Red de hexágonos de solo contorno (azul marino/blanco en oscuro + cyan entrelazado + nodos) */}
+        {HEX_NETWORK.map((h, i) => (
           <polygon
-            key={i}
+            key={`net-navy-${i}`}
+            points={hexPointsFlat(h.cx, h.cy, h.r)}
+            fill="none"
+            stroke={isDark ? '#ffffff' : HEX_NAVY}
+            strokeWidth={Math.max(2, h.r * 0.09)}
+            opacity={isDark ? 0.9 : 0.8}
+          />
+        ))}
+        {HEX_NETWORK.map((h, i) => {
+          const cx = h.cx + h.r * 0.3;
+          const cy = h.cy - h.r * 0.22;
+          const r = h.r * 0.72;
+          return (
+            <polygon
+              key={`net-cyan-${i}`}
+              points={hexPointsFlat(cx, cy, r)}
+              fill="none"
+              stroke={HEX_CYAN}
+              strokeWidth={Math.max(1.5, r * 0.08)}
+              opacity="0.85"
+            />
+          );
+        })}
+        {HEX_NETWORK.map((h, i) => {
+          const cx = h.cx + h.r * 0.3;
+          const cy = h.cy - h.r * 0.22;
+          const r = h.r * 0.72;
+          const dotR = Math.min(3.4, Math.max(1.6, r * 0.13));
+          return hexVerticesFlat(cx, cy, r).map(([vx, vy], j) => (
+            <circle key={`net-dot-${i}-${j}`} cx={vx} cy={vy} r={dotR} fill={HEX_CYAN} opacity="0.85" />
+          ));
+        })}
+
+        {/* Hexágonos sólidos de acento (negro y cyan con rejilla) */}
+        {HEX_ACCENTS.map((h, i) => (
+          <polygon
+            key={`accent-${i}`}
             points={hexPointsFlat(h.cx, h.cy, h.r)}
             fill={h.pattern ? `url(#${patternId})` : (h.fill ?? HEX_CYAN)}
-            stroke={h.isBlack && isDark ? '#ffffff' : h.stroke}
-            strokeWidth={h.isBlack && isDark ? Math.max(1.5, h.r * 0.045) : h.strokeWidth}
+            stroke={h.isBlack && isDark ? '#ffffff' : undefined}
+            strokeWidth={h.isBlack && isDark ? Math.max(1.5, h.r * 0.045) : undefined}
             opacity={h.opacity ?? 1}
           />
         ))}
