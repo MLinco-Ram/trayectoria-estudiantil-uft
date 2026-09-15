@@ -207,13 +207,23 @@ interface HexCornerMosaicProps {
 // derecho para que el mosaico nunca se superponga con ella.
 const SCROLLBAR_CLEARANCE = 18;
 
+// "size" se trata como el alto de referencia a 1440px de ancho de viewport.
+// Se escala con vw (clamp) para que el mosaico crezca/encoja proporcionalmente
+// en cualquier resolución en vez de quedar fijo en píxeles.
+function responsiveHeight(size: number): string {
+  const min = Math.round(size * 0.68);
+  const max = Math.round(size * 1.55);
+  const preferredVw = (size / 1440) * 100;
+  return `clamp(${min}px, ${preferredVw.toFixed(2)}vw, ${max}px)`;
+}
+
 export function HexCornerMosaic({ corner = 'top-right', size = 260, className = '', offset = 0 }: HexCornerMosaicProps) {
   const { isDark } = useTheme();
-  const width = size * (CLUSTER_VB_W / CLUSTER_VB_H);
+  const height = responsiveHeight(size);
   const rotationStyle = corner === 'bottom-right' ? { transform: 'rotate(180deg)' } : undefined;
   const positionStyle = corner === 'top-right'
-    ? { top: offset, right: SCROLLBAR_CLEARANCE, width, height: size }
-    : { bottom: offset, right: SCROLLBAR_CLEARANCE, width, height: size };
+    ? { top: offset, right: SCROLLBAR_CLEARANCE, height, aspectRatio: `${CLUSTER_VB_W} / ${CLUSTER_VB_H}` }
+    : { bottom: offset, right: SCROLLBAR_CLEARANCE, height, aspectRatio: `${CLUSTER_VB_W} / ${CLUSTER_VB_H}` };
   const patternId = `uft-hex-hatch-${corner}`;
 
   return (
