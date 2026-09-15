@@ -1,0 +1,181 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Dancing+Script:wght@500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-script: "Dancing Script", cursive;
+
+  --color-brand-navy: #092c4c;
+  --color-brand-celeste: #3a9ad9;
+  --color-brand-cyan: #7bd6e0;
+  --color-brand-light: #f4f8fc;
+  --color-brand-accent: #02c39a;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-brand-light);
+  color: #1e293b;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* ============================================================
+   SOPORTE INTEGRAL DE MODO OSCURO (DARK MODE) EN TODAS LAS VISTAS
+   ============================================================ */
+
+/* 1. Fondo general del body y wrappers principales */
+html.dark body,
+html.dark #admin-dashboard-wrapper,
+html.dark #docente-dashboard-wrapper,
+html.dark #tutor-dashboard-wrapper,
+html.dark #alumno-dashboard-wrapper {
+  background-color: #070d1e !important;
+  color: #f1f5f9 !important;
+}
+
+/* 2. Tarjetas, paneles y contenedores con fondo blanco o claro */
+html.dark .bg-white,
+html.dark .bg-slate-50,
+html.dark .bg-\[\#f8fafc\] {
+  background-color: #0f1a30 !important;
+  color: #f8fafc !important;
+}
+
+html.dark .bg-slate-100 {
+  background-color: #172645 !important;
+  color: #f8fafc !important;
+}
+
+html.dark .bg-slate-200 {
+  background-color: #1e325a !important;
+}
+
+/* 3. Encabezados y barras superiores */
+html.dark header.bg-white,
+html.dark header.bg-slate-50 {
+  background-color: #0d172e !important;
+  border-color: #1e2e4f !important;
+}
+
+/* 4. Tablas (thead, tbody, tr, th, td, filas alternadas y hover) */
+html.dark table {
+  background-color: #0f1a30 !important;
+  color: #e2e8f0 !important;
+}
+
+html.dark thead,
+html.dark thead tr,
+html.dark tr.bg-slate-50,
+html.dark tr.bg-slate-50\/75,
+html.dark th {
+  background-color: #15223c !important;
+  color: #94a3b8 !important;
+  border-color: #1e2e4f !important;
+}
+
+html.dark tbody tr {
+  border-color: #1e2e4f !important;
+}
+
+html.dark tbody tr:hover,
+html.dark tr.hover\:bg-slate-50\/50:hover,
+html.dark tr.hover\:bg-slate-50:hover {
+  background-color: #182847 !important;
+}
+
+html.dark tbody tr:nth-child(even) {
+  background-color: #0b1426 !important;
+}
+
+html.dark td {
+  border-color: #1e2e4f !important;
+  color: #cbd5e1 !important;
+}
+
+/* 5. Inputs, Formularios, Selects y Textareas */
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark select,
+html.dark textarea {
+  background-color: #13203b !important;
+  color: #f8fafc !important;
+  border-color: #24355a !important;
+}
+
+html.dark input:focus,
+html.dark select:focus,
+html.dark textarea:focus {
+  border-color: #3a9ad9 !important;
+  box-shadow: 0 0 0 2px rgba(58, 154, 217, 0.3) !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* 6. Botones inactivos y tabs */
+html.dark button.bg-white,
+html.dark button.bg-slate-50 {
+  background-color: #13203b !important;
+  color: #cbd5e1 !important;
+  border-color: #24355a !important;
+}
+
+html.dark button.bg-white:hover,
+html.dark button.bg-slate-50:hover {
+  background-color: #1a2c52 !important;
+  color: #ffffff !important;
+}
+
+/* 7. Textos y etiquetas */
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-slate-700 {
+  color: #f1f5f9 !important;
+}
+
+html.dark .text-slate-600,
+html.dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+html.dark .text-slate-400 {
+  color: #64748b !important;
+}
+
+html.dark .text-brand-navy {
+  color: #7bd6e0 !important;
+}
+
+/* 8. Bordes y divisores */
+html.dark .border-slate-100,
+html.dark .border-slate-200,
+html.dark .border-slate-300,
+html.dark .divide-slate-100,
+html.dark .divide-slate-200,
+html.dark .divide-slate-300 {
+  border-color: #1e2e4f !important;
+}
+
+/* 9. Modales flotantes */
+html.dark .bg-white.rounded-2xl.shadow-2xl,
+html.dark .bg-white.rounded-2xl.shadow-xl,
+html.dark .bg-white.rounded-2xl.shadow-lg {
+  background-color: #0f1a30 !important;
+  border-color: #24355a !important;
+}
+
+/* 10. Sombras oscuras */
+html.dark .shadow-xs,
+html.dark .shadow-sm,
+html.dark .shadow-md,
+html.dark .shadow-lg,
+html.dark .shadow-xl {
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.6) !important;
+}
