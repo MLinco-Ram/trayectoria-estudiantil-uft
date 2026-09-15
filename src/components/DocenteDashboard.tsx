@@ -26,7 +26,7 @@ import { DocenteAnnouncementsTab } from './docente/DocenteAnnouncementsTab';
 import { DocenteAnalyticsTab } from './docente/DocenteAnalyticsTab';
 import { DocenteCommentsTab } from './docente/DocenteCommentsTab';
 import { ThemeToggle } from './common/ThemeToggle';
-import { HexCornerMosaic } from './SidebarDecor';
+import { HexPanelBackdrop } from './SidebarDecor';
 
 import { LogOut, GraduationCap, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -223,8 +223,7 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
 
       {/* Contenedor Principal con Cabecera Superior */}
       <div className="flex-1 flex flex-col min-w-0 md:h-screen md:overflow-y-auto relative z-10">
-        <HexCornerMosaic corner="top-right" size={230} offset={64} />
-        <HexCornerMosaic corner="bottom-right" size={280} />
+        <HexPanelBackdrop topOffset={64} />
         {/* Barra Superior */}
         <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-xs shrink-0">
           <div className="flex items-center gap-3">
