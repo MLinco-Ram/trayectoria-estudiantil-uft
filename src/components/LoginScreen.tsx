@@ -6,145 +6,10 @@ import { LogIn, UserPlus, CheckCircle2, Lock, User as UserIcon, Mail, Eye, EyeOf
 import ForgotPasswordModal from './ForgotPasswordModal';
 import TermsAndConditionsModal from './TermsAndConditionsModal';
 import { useAuth, getRoleHomePath } from '../context/AuthContext';
+import { HexNetworkBackdrop } from './SidebarDecor';
 
 interface LoginScreenProps {
   onLoginSuccess?: (user: User) => void;
-}
-
-// Colores corporativos Finis Terrae
-const PETAL_NAVY = '#0d2f52';
-const PETAL_TEAL = '#0f7ea8';
-const PETAL_CYAN = '#5ce1e6';
-const PETAL_BLACK = '#0a0a0a';
-
-type Petal = { col: number; row: number; corner: 'tl' | 'tr' | 'bl' | 'br'; color: string; r?: number };
-type Dot = { col: number; row: number; color: string; r: number };
-
-const CELL = 140;
-const petalPath = (col: number, row: number, corner: Petal['corner'], r: number = CELL) => {
-  const x0 = col * CELL;
-  const y0 = row * CELL;
-  const anchors: Record<Petal['corner'], [number, number, number, number, number, number]> = {
-    tl: [x0, y0, x0 + r, y0, x0, y0 + r],
-    tr: [x0 + CELL, y0, x0 + CELL - r, y0, x0 + CELL, y0 + r],
-    bl: [x0, y0 + CELL, x0, y0 + CELL - r, x0 + r, y0 + CELL],
-    br: [x0 + CELL, y0 + CELL, x0 + CELL, y0 + CELL - r, x0 + CELL - r, y0 + CELL],
-  };
-  const [cx, cy, sx, sy, ex, ey] = anchors[corner];
-  return `M ${cx} ${cy} L ${sx} ${sy} A ${r} ${r} 0 0 1 ${ex} ${ey} Z`;
-};
-
-// Patrón Truchet lado izquierdo (Gran formato como en la imagen de referencia)
-const LEFT_PETALS: Petal[] = [
-  // Fila 0
-  { col: 0, row: 0, corner: 'br', color: PETAL_TEAL },
-  { col: 1, row: 0, corner: 'bl', color: PETAL_BLACK },
-  { col: 2, row: 0, corner: 'br', color: PETAL_CYAN },
-  // Fila 1
-  { col: 0, row: 1, corner: 'tr', color: PETAL_CYAN },
-  { col: 2, row: 1, corner: 'tl', color: PETAL_CYAN, r: CELL * 1.1 },
-  { col: 2, row: 1, corner: 'br', color: PETAL_BLACK, r: CELL * 0.8 },
-  // Fila 2
-  { col: 0, row: 2, corner: 'tr', color: PETAL_CYAN },
-  { col: 1, row: 2, corner: 'tl', color: PETAL_NAVY },
-  { col: 2, row: 2, corner: 'tr', color: PETAL_TEAL },
-  // Fila 3
-  { col: 0, row: 3, corner: 'br', color: PETAL_NAVY },
-  { col: 1, row: 3, corner: 'bl', color: PETAL_BLACK },
-  { col: 2, row: 3, corner: 'tl', color: PETAL_TEAL },
-  // Fila 4
-  { col: 0, row: 4, corner: 'tr', color: PETAL_TEAL },
-  { col: 1, row: 4, corner: 'br', color: PETAL_CYAN },
-  { col: 2, row: 4, corner: 'bl', color: PETAL_NAVY },
-];
-
-const LEFT_DOTS: Dot[] = [
-  { col: 1, row: 1, color: PETAL_NAVY, r: 24 },
-  { col: 0, row: 2, color: PETAL_NAVY, r: 16 },
-  { col: 2, row: 3, color: PETAL_CYAN, r: 20 },
-];
-
-// Patrón Truchet lado derecho (Gran formato como en la imagen de referencia)
-const RIGHT_PETALS: Petal[] = [
-  // Fila 0
-  { col: 1, row: 0, corner: 'bl', color: PETAL_TEAL },
-  { col: 2, row: 0, corner: 'br', color: PETAL_NAVY },
-  // Fila 1
-  { col: 0, row: 1, corner: 'tl', color: PETAL_TEAL },
-  { col: 1, row: 1, corner: 'tr', color: PETAL_CYAN },
-  { col: 2, row: 1, corner: 'bl', color: PETAL_NAVY },
-  // Fila 2
-  { col: 0, row: 2, corner: 'bl', color: PETAL_BLACK, r: CELL * 0.85 },
-  { col: 1, row: 2, corner: 'tl', color: PETAL_NAVY },
-  { col: 2, row: 2, corner: 'tr', color: PETAL_CYAN },
-  // Fila 3
-  { col: 0, row: 3, corner: 'tl', color: PETAL_TEAL },
-  { col: 1, row: 3, corner: 'br', color: PETAL_CYAN },
-  { col: 2, row: 3, corner: 'bl', color: PETAL_BLACK },
-  // Fila 4
-  { col: 0, row: 4, corner: 'tr', color: PETAL_CYAN },
-  { col: 1, row: 4, corner: 'tl', color: PETAL_NAVY },
-  { col: 2, row: 4, corner: 'br', color: PETAL_TEAL },
-];
-
-const RIGHT_DOTS: Dot[] = [
-  { col: 1, row: 0, color: PETAL_CYAN, r: 18 },
-  { col: 1, row: 2, color: PETAL_NAVY, r: 24 },
-  { col: 2, row: 3, color: PETAL_CYAN, r: 20 },
-];
-
-const GRID_COLS = 3;
-const GRID_ROWS = 5;
-const GRID_W = GRID_COLS * CELL;
-const GRID_H = GRID_ROWS * CELL;
-
-// Fondo con mosaicos gigantes a ambos lados
-function LoginBackdrop() {
-  return (
-    <>
-      {/* Mosaico Izquierdo Gigante */}
-      <div
-        className="fixed top-0 left-0 pointer-events-none select-none z-0 overflow-hidden h-full w-[45vw] max-w-[620px] min-w-[320px] opacity-95 flex items-center"
-        aria-hidden="true"
-      >
-        <svg
-          width="100%"
-          height="100%"
-          viewBox={`0 0 ${GRID_W} ${GRID_H}`}
-          preserveAspectRatio="xMinYMid slice"
-          className="w-full h-full"
-        >
-          {LEFT_PETALS.map((p, i) => (
-            <path key={`lp-${i}`} d={petalPath(p.col, p.row, p.corner, p.r)} fill={p.color} />
-          ))}
-          {LEFT_DOTS.map((d, i) => (
-            <circle key={`ld-${i}`} cx={d.col * CELL + CELL / 2} cy={d.row * CELL + CELL / 2} r={d.r} fill={d.color} />
-          ))}
-        </svg>
-      </div>
-
-      {/* Mosaico Derecho Gigante */}
-      <div
-        className="fixed top-0 right-0 pointer-events-none select-none z-0 overflow-hidden h-full w-[45vw] max-w-[620px] min-w-[320px] opacity-95 flex items-center justify-end"
-        aria-hidden="true"
-      >
-        <svg
-          width="100%"
-          height="100%"
-          viewBox={`0 0 ${GRID_W} ${GRID_H}`}
-          preserveAspectRatio="xMaxYMid slice"
-          className="w-full h-full"
-        >
-          {RIGHT_PETALS.map((p, i) => (
-            <path key={`rp-${i}`} d={petalPath(p.col, p.row, p.corner, p.r)} fill={p.color} />
-          ))}
-          {RIGHT_DOTS.map((d, i) => (
-            <circle key={`rd-${i}`} cx={d.col * CELL + CELL / 2} cy={d.row * CELL + CELL / 2} r={d.r} fill={d.color} />
-          ))}
-        </svg>
-      </div>
-    </>
-  );
 }
 
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
@@ -348,9 +213,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-[#007ba7] selection:text-white">
-      {/* Mosaicos gigantes a ambos lados en pantalla completa */}
-      <LoginBackdrop />
+    <div className="min-h-screen bg-[#eaf6fb] flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-[#007ba7] selection:text-white">
+      {/* Fondo de red hexagonal en pantalla completa */}
+      <HexNetworkBackdrop />
 
       {/* Contenedor de la tarjeta con capa de sombra azul oscuro desplazada (Layered Card Effect) */}
       <div className="relative w-full max-w-md my-6 z-10 animate-fade-in">

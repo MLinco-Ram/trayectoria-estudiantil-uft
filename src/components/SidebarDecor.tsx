@@ -1,164 +1,253 @@
 import React from 'react';
+import { useTheme } from '../context/ThemeContext';
 
-// Mosaico de pétalos en cuarto de círculo (estilo "Truchet tile") homogéneo y expandido
-const PETAL_NAVY = '#0d2f52';
-const PETAL_TEAL = '#0f7ea8';
-const PETAL_CYAN = '#5ce1e6';
-const PETAL_BLACK = '#0a0a0a';
+// Paleta corporativa Finis Terrae para los patrones geométricos hexagonales
+const HEX_NAVY = '#0d2f52';
+const HEX_TEAL = '#0f7ea8';
+const HEX_CYAN = '#5ce1e6';
+const HEX_BLACK = '#0a0a0a';
 
-type Petal = { col: number; row: number; corner: 'tl' | 'tr' | 'bl' | 'br'; color: string; r?: number };
-type Dot = { col: number; row: number; color: string; r: number };
+// Hexágono "pointy-top" (vértice hacia arriba)
+function hexPoints(cx: number, cy: number, r: number): string {
+  const pts: string[] = [];
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 180) * (60 * i - 90);
+    pts.push(`${(cx + r * Math.cos(a)).toFixed(2)},${(cy + r * Math.sin(a)).toFixed(2)}`);
+  }
+  return pts.join(' ');
+}
 
-const CELL = 80;
-const petalPath = (col: number, row: number, corner: Petal['corner'], r: number = CELL) => {
-  const x0 = col * CELL;
-  const y0 = row * CELL;
-  const anchors: Record<Petal['corner'], [number, number, number, number, number, number]> = {
-    tl: [x0, y0, x0 + r, y0, x0, y0 + r],
-    tr: [x0 + CELL, y0, x0 + CELL - r, y0, x0 + CELL, y0 + r],
-    bl: [x0, y0 + CELL, x0, y0 + CELL - r, x0 + r, y0 + CELL],
-    br: [x0 + CELL, y0 + CELL, x0 + CELL, y0 + CELL - r, x0 + CELL - r, y0 + CELL],
-  };
-  const [cx, cy, sx, sy, ex, ey] = anchors[corner];
-  return `M ${cx} ${cy} L ${sx} ${sy} A ${r} ${r} 0 0 1 ${ex} ${ey} Z`;
-};
+// ---------------------------------------------------------------------------
+// Fondo de red hexagonal (usado en Login y Registro de Alumno)
+// Dos racimos de hexágonos de distintos portes, concentrados en la esquina
+// inferior izquierda y en la esquina superior derecha (no una grilla pareja),
+// con una capa azul marino y otra cyan clara entrelazadas y puntos de nodo.
+// ---------------------------------------------------------------------------
+const NET_CYAN_LIGHT = '#7fd3e8';
 
-// Grilla homogénea de 6 columnas por 5 filas para un flujo continuo y orgánico
-const PETALS: Petal[] = [
-  // Fila 0
-  { col: 1, row: 0, corner: 'br', color: PETAL_TEAL },
-  { col: 2, row: 0, corner: 'bl', color: PETAL_NAVY },
-  { col: 3, row: 0, corner: 'br', color: PETAL_CYAN },
-  { col: 4, row: 0, corner: 'bl', color: PETAL_TEAL },
-  { col: 5, row: 0, corner: 'tl', color: PETAL_NAVY },
+function netHexVertices(cx: number, cy: number, r: number): [number, number][] {
+  const pts: [number, number][] = [];
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 180) * (60 * i - 90);
+    pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  return pts;
+}
 
-  // Fila 1
-  { col: 0, row: 1, corner: 'tr', color: PETAL_CYAN },
-  { col: 1, row: 1, corner: 'tl', color: PETAL_NAVY },
-  { col: 2, row: 1, corner: 'tl', color: PETAL_CYAN, r: CELL * 1.15 },
-  { col: 3, row: 1, corner: 'bl', color: PETAL_BLACK, r: CELL * 0.7 },
-  { col: 4, row: 1, corner: 'tr', color: PETAL_CYAN },
-  { col: 5, row: 1, corner: 'bl', color: PETAL_TEAL },
+const NET_VB_W = 1080;
+const NET_VB_H = 620;
 
-  // Fila 2
-  { col: 0, row: 2, corner: 'tr', color: PETAL_NAVY },
-  { col: 1, row: 2, corner: 'tr', color: PETAL_TEAL },
-  { col: 1, row: 2, corner: 'bl', color: PETAL_BLACK, r: CELL * 0.55 },
-  { col: 2, row: 2, corner: 'tl', color: PETAL_TEAL },
-  { col: 3, row: 2, corner: 'bl', color: PETAL_NAVY },
-  { col: 4, row: 2, corner: 'tl', color: PETAL_NAVY },
-  { col: 5, row: 2, corner: 'tr', color: PETAL_CYAN },
+interface NetHex { cx: number; cy: number; r: number }
 
-  // Fila 3
-  { col: 0, row: 3, corner: 'br', color: PETAL_TEAL },
-  { col: 1, row: 3, corner: 'bl', color: PETAL_NAVY },
-  { col: 2, row: 3, corner: 'tr', color: PETAL_CYAN },
-  { col: 3, row: 3, corner: 'tl', color: PETAL_TEAL, r: CELL * 1.1 },
-  { col: 4, row: 3, corner: 'br', color: PETAL_CYAN },
-  { col: 5, row: 3, corner: 'tl', color: PETAL_BLACK, r: CELL * 0.65 },
+// Masa sólida de hexágonos entrelazados (tocándose/superpuestos) cerca de la
+// esquina, con tamaños variados, más una "cola" de hexágonos sueltos cada vez
+// más pequeños y espaciados que se van perdiendo hacia el centro del lienzo.
+const CORE_R = 30;
+const BASE_HORIZ = Math.sqrt(3) * CORE_R;
+const BASE_VERT = CORE_R * 1.5;
+const CORE_SPACING = 1.55; // separa los centros para que los hexágonos no se vean tan pegados
+const CORE_HORIZ = BASE_HORIZ * CORE_SPACING;
+const CORE_VERT = BASE_VERT * CORE_SPACING;
+const CORE_COLS = 5;
+const CORE_ROWS = 4;
+const SIZE_MULTIPLIERS = [0.72, 0.86, 1, 1.14, 1.3];
 
-  // Fila 4
-  { col: 1, row: 4, corner: 'tr', color: PETAL_NAVY },
-  { col: 2, row: 4, corner: 'br', color: PETAL_TEAL },
-  { col: 3, row: 4, corner: 'bl', color: PETAL_NAVY },
-  { col: 4, row: 4, corner: 'tl', color: PETAL_TEAL },
-  { col: 5, row: 4, corner: 'tr', color: PETAL_NAVY },
+function buildClusterTemplate(): [number, number, number][] {
+  const points: [number, number, number][] = [];
+  for (let row = 0; row <= CORE_ROWS; row++) {
+    for (let col = 0; col <= CORE_COLS; col++) {
+      const x = col * CORE_HORIZ + (row % 2 !== 0 ? CORE_HORIZ / 2 : 0);
+      const y = row * CORE_VERT;
+      const mult = SIZE_MULTIPLIERS[(col * 7 + row * 13) % SIZE_MULTIPLIERS.length];
+      points.push([x, y, CORE_R * mult]);
+    }
+  }
+  // Cola de hexágonos sueltos, cada vez más chicos y espaciados (usa unidades sin el
+  // factor extra de separación para no salirse demasiado del lienzo)
+  const tail: [number, number, number][] = [
+    [BASE_HORIZ * 6.4, BASE_VERT * 5.2, 20],
+    [BASE_HORIZ * 7.4, BASE_VERT * 6.2, 16],
+    [BASE_HORIZ * 5.8, BASE_VERT * 6.6, 15],
+    [BASE_HORIZ * 8.2, BASE_VERT * 7.1, 13],
+    [BASE_HORIZ * 7.0, BASE_VERT * 7.9, 12],
+    [BASE_HORIZ * 9.0, BASE_VERT * 8.1, 11],
+  ];
+  return [...points, ...tail];
+}
+
+const NET_CLUSTER_TEMPLATE = buildClusterTemplate();
+
+function buildCorner(cornerX: number, cornerY: number, flipX: 1 | -1, flipY: 1 | -1): NetHex[] {
+  return NET_CLUSTER_TEMPLATE.map(([dx, dy, r]) => ({
+    cx: cornerX + flipX * dx,
+    cy: cornerY + flipY * dy,
+    r,
+  }));
+}
+
+// Racimo esquina inferior izquierda + racimo esquina superior derecha
+const NET_ALL_HEXES: NetHex[] = [
+  ...buildCorner(0, NET_VB_H, 1, -1),
+  ...buildCorner(NET_VB_W, 0, -1, 1),
 ];
 
-const DOTS: Dot[] = [
-  { col: 1, row: 1, color: PETAL_NAVY, r: 12 },
-  { col: 3, row: 1, color: PETAL_CYAN, r: 10 },
-  { col: 2, row: 3, color: PETAL_NAVY, r: 10 },
-  { col: 4, row: 2, color: PETAL_TEAL, r: 12 },
+export function HexNetworkBackdrop() {
+  return (
+    <svg
+      className="fixed inset-0 w-full h-full pointer-events-none select-none z-0"
+      viewBox={`0 0 ${NET_VB_W} ${NET_VB_H}`}
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+    >
+      {/* Capa azul marino */}
+      {NET_ALL_HEXES.map((h, i) => (
+        <polygon
+          key={`navy-${i}`}
+          points={hexPoints(h.cx, h.cy, h.r)}
+          fill="none"
+          stroke={HEX_NAVY}
+          strokeWidth={Math.max(1.4, h.r * 0.055)}
+          opacity="0.55"
+        />
+      ))}
+
+      {/* Capa cyan clara, ligeramente desplazada y más pequeña, para entrelazar */}
+      {NET_ALL_HEXES.map((h, i) => {
+        const cx = h.cx + h.r * 0.34;
+        const cy = h.cy + h.r * 0.34;
+        const r = h.r * 0.88;
+        return (
+          <polygon
+            key={`cyan-${i}`}
+            points={hexPoints(cx, cy, r)}
+            fill="none"
+            stroke={NET_CYAN_LIGHT}
+            strokeWidth={Math.max(1.2, r * 0.05)}
+            opacity="0.85"
+          />
+        );
+      })}
+
+      {/* Puntos de nodo en los vértices de la capa cyan (aspecto de red/circuito) */}
+      {NET_ALL_HEXES.map((h, i) => {
+        const cx = h.cx + h.r * 0.34;
+        const cy = h.cy + h.r * 0.34;
+        const r = h.r * 0.88;
+        const dotR = Math.min(2.6, Math.max(1.3, r * 0.08));
+        return netHexVertices(cx, cy, r).map(([vx, vy], j) => (
+          <circle key={`dot-${i}-${j}`} cx={vx} cy={vy} r={dotR} fill={HEX_CYAN} opacity="0.85" />
+        ));
+      })}
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Mosaico disperso de hexágonos "flat-top" para las esquinas de los paneles
+// (hexágonos de tamaños variados, algunos sólidos, otros solo con contorno,
+// uno con textura de rejilla diagonal, superpuestos entre sí)
+// ---------------------------------------------------------------------------
+
+// Hexágono "flat-top" (lados planos arriba/abajo, vértices a los costados)
+function hexPointsFlat(cx: number, cy: number, r: number): string {
+  const pts: string[] = [];
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 180) * (60 * i);
+    pts.push(`${(cx + r * Math.cos(a)).toFixed(2)},${(cy + r * Math.sin(a)).toFixed(2)}`);
+  }
+  return pts.join(' ');
+}
+
+interface HexShape {
+  cx: number;
+  cy: number;
+  r: number;
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
+  opacity?: number;
+  pattern?: boolean;
+  isBlack?: boolean;
+}
+
+const HEX_WHITE = '#ffffff';
+const HEX_WHITE_STROKE = '#c9d6da';
+
+// Composición base en un lienzo vertical de 190 x 300
+const HEX_CLUSTER: HexShape[] = [
+  // Gran hexágono cyan con rejilla diagonal, recortado en el borde superior
+  { cx: 128, cy: 4, r: 72, pattern: true },
+  // Hexágono teal, solo contorno
+  { cx: 34, cy: 96, r: 46, fill: 'none', stroke: HEX_TEAL, strokeWidth: 4 },
+  // Gran hexágono negro sólido, se superpone con los anteriores
+  { cx: 112, cy: 152, r: 60, fill: HEX_BLACK, opacity: 0.92, isBlack: true },
+  // Hexágono blanco pequeño con borde sutil
+  { cx: 174, cy: 128, r: 26, fill: HEX_WHITE, stroke: HEX_WHITE_STROKE, strokeWidth: 2 },
+  // Hexágono teal sólido, esquina inferior derecha
+  { cx: 163, cy: 232, r: 42, fill: HEX_TEAL, opacity: 0.95 },
+  // Hexágono negro pequeño, recortado por el borde inferior
+  { cx: 66, cy: 292, r: 30, fill: HEX_BLACK, opacity: 0.9, isBlack: true },
+  // Hexágono blanco diminuto
+  { cx: 26, cy: 226, r: 15, fill: HEX_WHITE, stroke: HEX_WHITE_STROKE, strokeWidth: 1.5 },
+  // Hexágono negro diminuto, esquina
+  { cx: 140, cy: 298, r: 13, fill: HEX_BLACK, opacity: 0.85, isBlack: true },
 ];
 
-const GRID_COLS = 4;
-const GRID_ROWS = 7;
-const CELL_SIZE = 120;
-const FULL_W = GRID_COLS * CELL_SIZE;
-const FULL_H = GRID_ROWS * CELL_SIZE;
+const CLUSTER_VB_W = 190;
+const CLUSTER_VB_H = 300;
 
-// 1 Mosaico completo, homogéneo y continuo en gran formato
-const LARGE_PETALS: Petal[] = [
-  // Fila 0
-  { col: 1, row: 0, corner: 'br', color: PETAL_TEAL },
-  { col: 2, row: 0, corner: 'bl', color: PETAL_NAVY },
-  { col: 3, row: 0, corner: 'br', color: PETAL_CYAN },
-  // Fila 1
-  { col: 0, row: 1, corner: 'tr', color: PETAL_CYAN },
-  { col: 1, row: 1, corner: 'tl', color: PETAL_NAVY },
-  { col: 2, row: 1, corner: 'tl', color: PETAL_CYAN, r: CELL_SIZE * 1.15 },
-  { col: 3, row: 1, corner: 'bl', color: PETAL_BLACK, r: CELL_SIZE * 0.75 },
-  // Fila 2
-  { col: 0, row: 2, corner: 'tr', color: PETAL_NAVY },
-  { col: 1, row: 2, corner: 'tr', color: PETAL_TEAL },
-  { col: 1, row: 2, corner: 'bl', color: PETAL_BLACK, r: CELL_SIZE * 0.6 },
-  { col: 2, row: 2, corner: 'tl', color: PETAL_TEAL },
-  { col: 3, row: 2, corner: 'bl', color: PETAL_NAVY },
-  // Fila 3
-  { col: 0, row: 3, corner: 'br', color: PETAL_TEAL },
-  { col: 1, row: 3, corner: 'bl', color: PETAL_NAVY },
-  { col: 2, row: 3, corner: 'tr', color: PETAL_CYAN },
-  { col: 3, row: 3, corner: 'tl', color: PETAL_TEAL, r: CELL_SIZE * 1.1 },
-  // Fila 4
-  { col: 1, row: 4, corner: 'tr', color: PETAL_NAVY },
-  { col: 2, row: 4, corner: 'br', color: PETAL_TEAL },
-  { col: 3, row: 4, corner: 'bl', color: PETAL_BLACK, r: CELL_SIZE * 0.8 },
-  // Fila 5
-  { col: 0, row: 5, corner: 'tl', color: PETAL_CYAN },
-  { col: 1, row: 5, corner: 'br', color: PETAL_TEAL },
-  { col: 2, row: 5, corner: 'tl', color: PETAL_NAVY },
-  { col: 3, row: 5, corner: 'tr', color: PETAL_CYAN },
-  // Fila 6
-  { col: 0, row: 6, corner: 'tr', color: PETAL_TEAL },
-  { col: 1, row: 6, corner: 'bl', color: PETAL_NAVY },
-  { col: 2, row: 6, corner: 'br', color: PETAL_CYAN },
-  { col: 3, row: 6, corner: 'tl', color: PETAL_TEAL },
-];
+interface HexCornerMosaicProps {
+  corner?: 'top-right' | 'bottom-right';
+  size?: number;
+  className?: string;
+  offset?: number;
+}
 
-const LARGE_DOTS: Dot[] = [
-  { col: 1, row: 1, color: PETAL_NAVY, r: 18 },
-  { col: 3, row: 1, color: PETAL_CYAN, r: 14 },
-  { col: 2, row: 3, color: PETAL_NAVY, r: 16 },
-  { col: 3, row: 4, color: PETAL_TEAL, r: 15 },
-  { col: 1, row: 5, color: PETAL_NAVY, r: 18 },
-];
+// Ancho aproximado de la barra de scroll del navegador: se resta como margen
+// derecho para que el mosaico nunca se superponga con ella.
+const SCROLLBAR_CLEARANCE = 18;
 
-/**
- * 1 Mosaico completo en gran formato ubicado por detrás del sidebar en el lado izquierdo
- */
-export function SidebarPetalStrip({ sidebarWidthPx = 288 }: { sidebarWidthPx?: number }) {
+export function HexCornerMosaic({ corner = 'top-right', size = 260, className = '', offset = 0 }: HexCornerMosaicProps) {
+  const { isDark } = useTheme();
+  const width = size * (CLUSTER_VB_W / CLUSTER_VB_H);
+  const rotationStyle = corner === 'bottom-right' ? { transform: 'rotate(180deg)' } : undefined;
+  const positionStyle = corner === 'top-right'
+    ? { top: offset, right: SCROLLBAR_CLEARANCE, width, height: size }
+    : { bottom: offset, right: SCROLLBAR_CLEARANCE, width, height: size };
+  const patternId = `uft-hex-hatch-${corner}`;
+
   return (
     <div
-      className="hidden md:block fixed top-0 bottom-0 left-0 z-0 pointer-events-none select-none overflow-hidden h-full opacity-90 flex items-center"
-      style={{
-        width: '580px',
-        maxWidth: '45vw',
-      }}
+      className={`fixed pointer-events-none select-none opacity-95 -z-10 ${className}`}
+      style={positionStyle}
       aria-hidden="true"
     >
       <svg
-        width="100%"
-        height="100%"
-        viewBox={`0 0 ${FULL_W} ${FULL_H}`}
-        preserveAspectRatio="xMinYMid slice"
+        viewBox={`0 0 ${CLUSTER_VB_W} ${CLUSTER_VB_H}`}
+        className="w-full h-full"
+        style={rotationStyle}
+        preserveAspectRatio="xMaxYMin slice"
       >
-        {LARGE_PETALS.map((p, i) => (
-          <path key={i} d={petalPath(p.col, p.row, p.corner, p.r)} fill={p.color} />
-        ))}
-        {LARGE_DOTS.map((d, i) => (
-          <circle key={i} cx={d.col * CELL_SIZE + CELL_SIZE / 2} cy={d.row * CELL_SIZE + CELL_SIZE / 2} r={d.r} fill={d.color} />
+        <defs>
+          <pattern id={patternId} width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="14" height="14" fill={HEX_CYAN} />
+            <line x1="0" y1="0" x2="0" y2="14" stroke={HEX_NAVY} strokeWidth="1" opacity="0.35" />
+            <line x1="0" y1="0" x2="14" y2="0" stroke={HEX_NAVY} strokeWidth="1" opacity="0.35" />
+          </pattern>
+        </defs>
+        {HEX_CLUSTER.map((h, i) => (
+          <polygon
+            key={i}
+            points={hexPointsFlat(h.cx, h.cy, h.r)}
+            fill={h.pattern ? `url(#${patternId})` : (h.fill ?? HEX_CYAN)}
+            stroke={h.isBlack && isDark ? '#ffffff' : h.stroke}
+            strokeWidth={h.isBlack && isDark ? Math.max(1.5, h.r * 0.045) : h.strokeWidth}
+            opacity={h.opacity ?? 1}
+          />
         ))}
       </svg>
     </div>
   );
-}
-
-/**
- * Adorno decorativo homogéneo en formato extra grande para la esquina
- */
-export function DashboardCornerOrnament({ size = 1050 }: { size?: number }) {
-  return <SidebarPetalStrip />;
 }
 
 export function SidebarFinisLogo() {
