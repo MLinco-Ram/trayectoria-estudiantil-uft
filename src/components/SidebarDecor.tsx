@@ -143,9 +143,13 @@ export function HexNetworkBackdrop() {
 }
 
 // ---------------------------------------------------------------------------
-// Mosaico disperso de hexágonos "flat-top" para las esquinas de los paneles
-// (hexágonos de tamaños variados, algunos sólidos, otros solo con contorno,
-// uno con textura de rejilla diagonal, superpuestos entre sí)
+// Telón de hexágonos grandes para los paneles (Alumno/Docente/Tutor):
+// hexágonos monocromáticos (cada uno completo en negro O en cyan, nunca dos
+// capas superpuestas del mismo hexágono), de tamaño grande, dispersos con
+// leve desorden para que se superpongan entre sí de forma orgánica, más
+// algunos puntos de nodo conectados por una línea corta ("circuito").
+// Cubre una franja vertical completa del lado derecho del panel, no solo
+// una esquina.
 // ---------------------------------------------------------------------------
 
 // Hexágono "flat-top" (lados planos arriba/abajo, vértices a los costados)
@@ -158,168 +162,91 @@ function hexPointsFlat(cx: number, cy: number, r: number): string {
   return pts.join(' ');
 }
 
-function hexVerticesFlat(cx: number, cy: number, r: number): [number, number][] {
-  const pts: [number, number][] = [];
-  for (let i = 0; i < 6; i++) {
-    const a = (Math.PI / 180) * (60 * i);
-    pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+function hexVertexFlat(cx: number, cy: number, r: number, i: number): [number, number] {
+  const a = (Math.PI / 180) * (60 * i);
+  return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+}
+
+// PRNG determinístico (evita Math.random para que el patrón no cambie entre renders)
+function seededRandom(seed: number): number {
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+interface PanelHex { cx: number; cy: number; r: number; cyan: boolean }
+
+const PANEL_VB_W = 460;
+const PANEL_VB_H = 1300;
+const PANEL_HEX_R = 88;
+const PANEL_COL_STEP = PANEL_HEX_R * 1.5;
+const PANEL_ROW_STEP = PANEL_HEX_R * Math.sqrt(3);
+
+function buildPanelHexes(): PanelHex[] {
+  const hexes: PanelHex[] = [];
+  const cols = Math.ceil(PANEL_VB_W / PANEL_COL_STEP) + 1;
+  const rows = Math.ceil(PANEL_VB_H / PANEL_ROW_STEP) + 2;
+  for (let col = -1; col <= cols; col++) {
+    for (let row = -1; row <= rows; row++) {
+      const seed = col * 97 + row * 13 + 1;
+      const baseX = col * PANEL_COL_STEP;
+      const baseY = row * PANEL_ROW_STEP + (col % 2 !== 0 ? PANEL_ROW_STEP / 2 : 0);
+      const jitterX = (seededRandom(seed) - 0.5) * PANEL_HEX_R * 0.55;
+      const jitterY = (seededRandom(seed + 0.37) - 0.5) * PANEL_HEX_R * 0.55;
+      const r = PANEL_HEX_R * (0.82 + seededRandom(seed + 0.71) * 0.36);
+      const cyan = seededRandom(seed + 0.13) < 0.32;
+      hexes.push({ cx: baseX + jitterX, cy: baseY + jitterY, r, cyan });
+    }
   }
-  return pts;
+  return hexes;
 }
 
-interface HexShape {
-  cx: number;
-  cy: number;
-  r: number;
-  fill?: string;
-  opacity?: number;
-  pattern?: boolean;
-  isBlack?: boolean;
-}
+const PANEL_HEXES = buildPanelHexes();
 
-// Hexágonos "de red": solo contorno grueso azul marino/negro + una capa cyan
-// entrelazada y puntos de nodo, igual que el fondo del Login. En modo oscuro
-// el contorno oscuro pasa a blanco para seguir siendo visible.
-interface NetworkHex { cx: number; cy: number; r: number }
-
-// Composición base en un lienzo vertical de 190 x 490: unos pocos hexágonos
-// sólidos de acento (negro y el cyan con rejilla) sobre una red de líneas
-// hexagonales entrelazadas que fluye del bloque superior al inferior, sin
-// vacíos ni puntos sueltos.
-const HEX_ACCENTS: HexShape[] = [
-  // Gran hexágono cyan con rejilla diagonal, recortado en el borde superior
-  { cx: 128, cy: 4, r: 72, pattern: true },
-  // Gran hexágono negro sólido de acento
-  { cx: 112, cy: 152, r: 60, fill: HEX_BLACK, opacity: 0.92, isBlack: true },
-  // Hexágono negro pequeño de acento
-  { cx: 66, cy: 292, r: 30, fill: HEX_BLACK, opacity: 0.85, isBlack: true },
+// Un par de puntos de nodo unidos por una línea corta ("circuito"), en
+// posiciones fijas dentro del lienzo para que se vean intencionales.
+const PANEL_NODE_LINKS: [number, number, number, number][] = [
+  [120, 60, 120, 230],
+  [300, 520, 260, 650],
 ];
 
-const HEX_NETWORK: NetworkHex[] = [
-  { cx: 34, cy: 96, r: 46 },
-  { cx: 174, cy: 128, r: 27 },
-  { cx: 163, cy: 232, r: 42 },
-  { cx: 26, cy: 226, r: 16 },
-  { cx: 140, cy: 300, r: 20 },
-  { cx: 112, cy: 328, r: 28 },
-  { cx: 146, cy: 352, r: 24 },
-  { cx: 106, cy: 376, r: 21 },
-  { cx: 136, cy: 398, r: 19 },
-  { cx: 98, cy: 418, r: 17 },
-  { cx: 128, cy: 438, r: 15 },
-  { cx: 100, cy: 456, r: 13 },
-  { cx: 126, cy: 472, r: 11 },
-];
-
-const CLUSTER_VB_W = 190;
-const CLUSTER_VB_H = 490;
-
-interface HexCornerMosaicProps {
-  corner?: 'top-right' | 'bottom-right';
-  size?: number;
+interface HexPanelBackdropProps {
   className?: string;
-  offset?: number;
+  topOffset?: number;
 }
 
-// Ancho aproximado de la barra de scroll del navegador: se resta como margen
-// derecho para que el mosaico nunca se superponga con ella.
-const SCROLLBAR_CLEARANCE = 18;
-
-// "size" se trata como el alto de referencia a 900px de alto de viewport.
-// Se escala con vmin (el menor entre ancho y alto) para que el mosaico
-// crezca de forma pareja tanto en pantallas anchas como en pantallas altas,
-// sin quedar desproporcionadamente chico ni dejar huecos raros entre los
-// dos racimos (superior e inferior) en resoluciones grandes.
-//
-// Importante: el ancho se calcula con la MISMA fórmula clamp() (en vez de
-// usar CSS "aspect-ratio" sobre un elemento con ancho automático). Un
-// "position: fixed" sin left/width explícito, cuyo hijo SVG usa width:100%,
-// crea una dependencia circular de tamaño que algunos navegadores resuelven
-// mal, estirando el mosaico de forma gigante y distorsionada. Calculando
-// ancho y alto por separado evitamos depender de ese comportamiento.
-function responsiveClamp(pxAt900: number): string {
-  const min = Math.round(pxAt900 * 0.75);
-  const max = Math.round(pxAt900 * 2.2);
-  const preferredVmin = (pxAt900 / 900) * 100;
-  return `clamp(${min}px, ${preferredVmin.toFixed(2)}vmin, ${max}px)`;
-}
-
-export function HexCornerMosaic({ corner = 'top-right', size = 260, className = '', offset = 0 }: HexCornerMosaicProps) {
+export function HexPanelBackdrop({ className = '', topOffset = 64 }: HexPanelBackdropProps) {
   const { isDark } = useTheme();
-  const height = responsiveClamp(size);
-  const width = responsiveClamp(size * (CLUSTER_VB_W / CLUSTER_VB_H));
-  const rotationStyle = corner === 'bottom-right' ? { transform: 'rotate(180deg)' } : undefined;
-  const positionStyle = corner === 'top-right'
-    ? { top: offset, right: SCROLLBAR_CLEARANCE, width, height }
-    : { bottom: offset, right: SCROLLBAR_CLEARANCE, width, height };
-  const patternId = `uft-hex-hatch-${corner}`;
+  const darkLineColor = isDark ? '#ffffff' : HEX_BLACK;
 
   return (
     <div
-      className={`fixed pointer-events-none select-none opacity-95 -z-10 ${className}`}
-      style={positionStyle}
+      className={`fixed right-0 pointer-events-none select-none opacity-90 -z-10 ${className}`}
+      style={{ top: topOffset, bottom: 0, width: 'clamp(240px, 30vw, 560px)' }}
       aria-hidden="true"
     >
       <svg
-        viewBox={`0 0 ${CLUSTER_VB_W} ${CLUSTER_VB_H}`}
+        viewBox={`0 0 ${PANEL_VB_W} ${PANEL_VB_H}`}
         className="w-full h-full"
-        style={rotationStyle}
         preserveAspectRatio="xMaxYMin slice"
       >
-        <defs>
-          <pattern id={patternId} width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <rect width="14" height="14" fill={HEX_CYAN} />
-            <line x1="0" y1="0" x2="0" y2="14" stroke={HEX_NAVY} strokeWidth="1" opacity="0.35" />
-            <line x1="0" y1="0" x2="14" y2="0" stroke={HEX_NAVY} strokeWidth="1" opacity="0.35" />
-          </pattern>
-        </defs>
-
-        {/* Red de hexágonos de solo contorno (azul marino/blanco en oscuro + cyan entrelazado + nodos) */}
-        {HEX_NETWORK.map((h, i) => (
+        {PANEL_HEXES.map((h, i) => (
           <polygon
-            key={`net-navy-${i}`}
+            key={i}
             points={hexPointsFlat(h.cx, h.cy, h.r)}
             fill="none"
-            stroke={isDark ? '#ffffff' : HEX_NAVY}
-            strokeWidth={Math.max(2, h.r * 0.09)}
-            opacity={isDark ? 0.9 : 0.8}
+            stroke={h.cyan ? HEX_CYAN : darkLineColor}
+            strokeWidth={h.cyan ? 3.2 : 2.2}
+            opacity={h.cyan ? 0.85 : 0.7}
           />
         ))}
-        {HEX_NETWORK.map((h, i) => {
-          const cx = h.cx + h.r * 0.3;
-          const cy = h.cy - h.r * 0.22;
-          const r = h.r * 0.72;
-          return (
-            <polygon
-              key={`net-cyan-${i}`}
-              points={hexPointsFlat(cx, cy, r)}
-              fill="none"
-              stroke={HEX_CYAN}
-              strokeWidth={Math.max(1.5, r * 0.08)}
-              opacity="0.85"
-            />
-          );
-        })}
-        {HEX_NETWORK.map((h, i) => {
-          const cx = h.cx + h.r * 0.3;
-          const cy = h.cy - h.r * 0.22;
-          const r = h.r * 0.72;
-          const dotR = Math.min(3.4, Math.max(1.6, r * 0.13));
-          return hexVerticesFlat(cx, cy, r).map(([vx, vy], j) => (
-            <circle key={`net-dot-${i}-${j}`} cx={vx} cy={vy} r={dotR} fill={HEX_CYAN} opacity="0.85" />
-          ));
-        })}
 
-        {/* Hexágonos sólidos de acento (negro y cyan con rejilla) */}
-        {HEX_ACCENTS.map((h, i) => (
-          <polygon
-            key={`accent-${i}`}
-            points={hexPointsFlat(h.cx, h.cy, h.r)}
-            fill={h.pattern ? `url(#${patternId})` : (h.fill ?? HEX_CYAN)}
-            stroke={h.isBlack && isDark ? '#ffffff' : undefined}
-            strokeWidth={h.isBlack && isDark ? Math.max(1.5, h.r * 0.045) : undefined}
-            opacity={h.opacity ?? 1}
-          />
+        {/* Nodos de circuito: puntos conectados por una línea corta */}
+        {PANEL_NODE_LINKS.map(([x1, y1, x2, y2], i) => (
+          <g key={`link-${i}`}>
+            <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={darkLineColor} strokeWidth="2" opacity="0.6" />
+            <circle cx={x1} cy={y1} r="5" fill={darkLineColor} opacity="0.85" />
+            <circle cx={x2} cy={y2} r="5" fill={darkLineColor} opacity="0.85" />
+          </g>
         ))}
       </svg>
     </div>

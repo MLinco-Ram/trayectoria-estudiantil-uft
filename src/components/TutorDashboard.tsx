@@ -41,7 +41,7 @@ import {
 } from 'lucide-react';
 import { SessionQRModal } from './common/SessionQRModal';
 import { ThemeToggle } from './common/ThemeToggle';
-import { HexCornerMosaic } from './SidebarDecor';
+import { HexPanelBackdrop } from './SidebarDecor';
 
 import { useAuth } from '../context/AuthContext';
 
@@ -707,8 +707,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
 
       {/* Main Workspace Column */}
       <main className="flex-1 flex flex-col md:h-screen md:overflow-y-auto min-w-0 relative z-10" id="tutor-main-panel-workspace">
-        <HexCornerMosaic corner="top-right" size={230} offset={64} />
-        <HexCornerMosaic corner="bottom-right" size={280} />
+        <HexPanelBackdrop topOffset={64} />
 
         {/* Mobile Header Bar */}
         <header className="md:hidden bg-[#092c4c] text-white px-4 py-3 flex flex-col space-y-2 shrink-0">
