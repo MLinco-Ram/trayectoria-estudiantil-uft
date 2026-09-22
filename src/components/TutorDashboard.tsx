@@ -706,7 +706,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       </aside>
 
       {/* Main Workspace Column */}
-      <main className="flex-1 flex flex-col md:h-screen md:overflow-y-auto min-w-0 relative z-10" id="tutor-main-panel-workspace">
+      <main className="flex-1 flex flex-col md:h-screen md:overflow-y-auto min-w-0 relative z-10" id="tutor-main-panel-workspace" data-hex-scroll-container>
         <HexPanelBackdrop topOffset={64} />
 
         {/* Mobile Header Bar */}
