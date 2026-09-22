@@ -4,6 +4,7 @@ import { useTheme } from '../context/ThemeContext';
 // Paleta corporativa Finis Terrae para los patrones geométricos hexagonales
 const HEX_NAVY = '#0d2f52';
 const HEX_TEAL = '#0f7ea8';
+const HEX_BLUE = '#2f7fd1';
 const HEX_CYAN = '#5ce1e6';
 const HEX_BLACK = '#0a0a0a';
 
@@ -143,13 +144,11 @@ export function HexNetworkBackdrop() {
 }
 
 // ---------------------------------------------------------------------------
-// Telón de hexágonos grandes para los paneles (Alumno/Docente/Tutor):
-// hexágonos monocromáticos (cada uno completo en negro O en cyan, nunca dos
-// capas superpuestas del mismo hexágono), de tamaño grande, dispersos con
-// leve desorden para que se superpongan entre sí de forma orgánica, más
-// algunos puntos de nodo conectados por una línea corta ("circuito").
-// Cubre una franja vertical completa del lado derecho del panel, no solo
-// una esquina.
+// Telón de hexágonos para los paneles (Alumno/Docente/Tutor): dispersión
+// orgánica (no grilla) de hexágonos sólidos en navy/azul/cyan combinados con
+// hexágonos de solo contorno (negro, blanco en modo oscuro), de tamaños
+// variados, distribuidos a lo largo de toda la franja vertical derecha sin
+// dejar huecos grandes y con algunos que se recortan en el borde derecho.
 // ---------------------------------------------------------------------------
 
 // Hexágono "flat-top" (lados planos arriba/abajo, vértices a los costados)
@@ -173,55 +172,73 @@ function seededRandom(seed: number): number {
   return x - Math.floor(x);
 }
 
-type PanelHexVariant = 'outline' | 'cyan-solid' | 'cyan-hatch' | 'black-solid' | 'cyan-outline';
+type PanelHexVariant = 'outline' | 'navy-solid' | 'blue-solid' | 'cyan-solid' | 'black-solid';
 
 interface PanelHex { cx: number; cy: number; r: number; variant: PanelHexVariant }
 
-const PANEL_VB_W = 460;
+const PANEL_VB_W = 480;
 const PANEL_VB_H = 1300;
-const PANEL_HEX_R = 88;
-const PANEL_COL_STEP = PANEL_HEX_R * 1.5;
-const PANEL_ROW_STEP = PANEL_HEX_R * Math.sqrt(3);
+const PANEL_HEX_COUNT = 30;
+// Cuántas ondulaciones suaves da la franja de arriba a abajo del lienzo.
+const PANEL_WAVE_FREQ = 1.4;
 
-// Distribución de estilos, de mayor a menor frecuencia: la mayoría son solo
-// contorno (para no saturar), con acentos sólidos en cyan/negro y algunos
-// con la textura de rejilla diagonal, igual que la referencia.
-function pickVariant(seed: number): PanelHexVariant {
+// Distribución de estilos: el contorno predomina (sirve de textura liviana de
+// fondo), luego cyan y azul como los sólidos más comunes, navy un poco menos
+// y negro como acento visible pero no dominante (paleta: cyan, azul, negro,
+// blanco -- el blanco aparece al invertir el contorno en modo oscuro).
+function pickPanelVariant(seed: number): PanelHexVariant {
   const v = seededRandom(seed);
-  if (v < 0.4) return 'outline';
-  if (v < 0.62) return 'cyan-solid';
-  if (v < 0.76) return 'cyan-hatch';
-  if (v < 0.9) return 'black-solid';
-  return 'cyan-outline';
+  if (v < 0.24) return 'outline';
+  if (v < 0.48) return 'cyan-solid';
+  if (v < 0.70) return 'blue-solid';
+  if (v < 0.83) return 'navy-solid';
+  return 'black-solid';
 }
 
+// Orden usado para "correr" el color al siguiente cuando el sorteo repite el
+// del hexágono anterior en la secuencia, así nunca quedan dos iguales juntos.
+const PANEL_VARIANT_CYCLE: PanelHexVariant[] = ['outline', 'cyan-solid', 'blue-solid', 'navy-solid', 'black-solid'];
+
+// Los primeros hexágonos de la franja (justo debajo del header, siempre
+// visibles sin hacer scroll) se fuerzan a color sólido para que esa zona
+// nunca se vea "pelada" de color, sin depender del azar del sorteo.
+const PANEL_FORCED_TOP_VARIANTS: PanelHexVariant[] = ['navy-solid', 'cyan-solid', 'blue-solid'];
+
+// Franja pegada al borde derecho: una línea central se ondula suavemente
+// (sin cruzar hacia el centro/izquierda del panel) a medida que baja, y cada
+// hexágono se ubica cerca de esa línea con algo de desvío aleatorio, para
+// que las figuras se sientan como un flujo continuo sobre el lado derecho
+// en vez de una grilla pareja o una diagonal que atraviesa el panel.
+// Los tamaños son mayormente chicos/medianos, con algunos grandes como acento.
 function buildPanelHexes(): PanelHex[] {
   const hexes: PanelHex[] = [];
-  const cols = Math.ceil(PANEL_VB_W / PANEL_COL_STEP) + 1;
-  const rows = Math.ceil(PANEL_VB_H / PANEL_ROW_STEP) + 2;
-  for (let col = -1; col <= cols; col++) {
-    for (let row = -1; row <= rows; row++) {
-      const seed = col * 97 + row * 13 + 1;
-      const baseX = col * PANEL_COL_STEP;
-      const baseY = row * PANEL_ROW_STEP + (col % 2 !== 0 ? PANEL_ROW_STEP / 2 : 0);
-      const jitterX = (seededRandom(seed) - 0.5) * PANEL_HEX_R * 0.5;
-      const jitterY = (seededRandom(seed + 0.37) - 0.5) * PANEL_HEX_R * 0.5;
-      const r = PANEL_HEX_R * (0.8 + seededRandom(seed + 0.71) * 0.4);
-      const variant = pickVariant(seed + 0.13);
-      hexes.push({ cx: baseX + jitterX, cy: baseY + jitterY, r, variant });
+  const step = PANEL_VB_H / PANEL_HEX_COUNT;
+  let lastVariant: PanelHexVariant | null = null;
+  for (let i = 0; i < PANEL_HEX_COUNT; i++) {
+    const seed = i * 29 + 3;
+    const t = i / (PANEL_HEX_COUNT - 1);
+    const cy = i * step + step * 0.5 + (seededRandom(seed) - 0.5) * step * 0.7;
+    const waveCenter = PANEL_VB_W * (0.74 + 0.14 * Math.sin(t * Math.PI * 2 * PANEL_WAVE_FREQ));
+    const drift = (seededRandom(seed + 0.41) - 0.5) * PANEL_VB_W * 0.22;
+    const cx = Math.max(waveCenter + drift, PANEL_VB_W * 0.38);
+    const r = 16 + Math.pow(seededRandom(seed + 0.77), 1.8) * 70;
+    let variant: PanelHexVariant;
+    if (i < PANEL_FORCED_TOP_VARIANTS.length) {
+      variant = PANEL_FORCED_TOP_VARIANTS[i];
+    } else {
+      variant = pickPanelVariant(seed + 0.19);
+      if (variant === lastVariant) {
+        const nextIndex = (PANEL_VARIANT_CYCLE.indexOf(variant) + 1) % PANEL_VARIANT_CYCLE.length;
+        variant = PANEL_VARIANT_CYCLE[nextIndex];
+      }
     }
+    lastVariant = variant;
+    hexes.push({ cx, cy, r, variant });
   }
   return hexes;
 }
 
 const PANEL_HEXES = buildPanelHexes();
-
-// Un par de puntos de nodo unidos por una línea corta ("circuito"), en
-// posiciones fijas dentro del lienzo para que se vean intencionales.
-const PANEL_NODE_LINKS: [number, number, number, number][] = [
-  [120, 60, 120, 230],
-  [300, 520, 260, 650],
-];
 
 interface HexPanelBackdropProps {
   className?: string;
@@ -230,13 +247,30 @@ interface HexPanelBackdropProps {
 
 export function HexPanelBackdrop({ className = '', topOffset = 64 }: HexPanelBackdropProps) {
   const { isDark } = useTheme();
-  const darkLineColor = isDark ? '#ffffff' : HEX_BLACK;
-  const hatchId = 'uft-panel-hatch';
+  const lineColor = isDark ? '#ffffff' : HEX_BLACK;
+  // El panel vive dentro de un <main overflow-y-auto>, que tiene su propia
+  // barra de scroll (no es la del navegador/ventana). `position: fixed;
+  // right: 0` ignora esa barra y se dibuja por detrás de ella. Medimos el
+  // ancho real reservado por ESE contenedor (offsetWidth - clientWidth) y
+  // corremos el panel esa distancia exacta hacia la izquierda.
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const [scrollbarWidth, setScrollbarWidth] = React.useState(0);
+
+  React.useEffect(() => {
+    const scrollContainer = rootRef.current?.closest('[data-hex-scroll-container]');
+    if (!scrollContainer) return;
+    const update = () => setScrollbarWidth(scrollContainer.offsetWidth - scrollContainer.clientWidth);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(scrollContainer);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div
-      className={`fixed right-0 pointer-events-none select-none opacity-95 -z-10 ${className}`}
-      style={{ top: topOffset, bottom: 0, width: 'clamp(260px, 32vw, 600px)' }}
+      ref={rootRef}
+      className={`fixed pointer-events-none select-none opacity-95 -z-10 ${className}`}
+      style={{ top: topOffset, bottom: 0, right: scrollbarWidth, width: 'clamp(260px, 32vw, 600px)' }}
       aria-hidden="true"
     >
       <svg
@@ -244,45 +278,33 @@ export function HexPanelBackdrop({ className = '', topOffset = 64 }: HexPanelBac
         className="w-full h-full"
         preserveAspectRatio="xMaxYMin slice"
       >
-        <defs>
-          <pattern id={hatchId} width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <rect width="16" height="16" fill={HEX_CYAN} />
-            <line x1="0" y1="0" x2="0" y2="16" stroke={HEX_NAVY} strokeWidth="1.2" opacity="0.4" />
-            <line x1="0" y1="0" x2="16" y2="0" stroke={HEX_NAVY} strokeWidth="1.2" opacity="0.4" />
-          </pattern>
-        </defs>
-
         {/* Hexágonos de solo contorno primero, sirven de "relleno" detrás de los sólidos */}
-        {PANEL_HEXES.filter(h => h.variant === 'outline' || h.variant === 'cyan-outline').map((h, i) => (
+        {PANEL_HEXES.filter(h => h.variant === 'outline').map((h, i) => (
           <polygon
             key={`outline-${i}`}
             points={hexPointsFlat(h.cx, h.cy, h.r)}
             fill="none"
-            stroke={h.variant === 'cyan-outline' ? HEX_CYAN : darkLineColor}
-            strokeWidth={h.variant === 'cyan-outline' ? 3.5 : 2.2}
-            opacity={h.variant === 'cyan-outline' ? 0.9 : 0.65}
+            stroke={lineColor}
+            strokeWidth={1.8}
+            opacity="0.4"
           />
         ))}
 
-        {/* Hexágonos sólidos (cyan, cyan con rejilla, negro) por encima */}
-        {PANEL_HEXES.filter(h => h.variant === 'cyan-solid' || h.variant === 'cyan-hatch' || h.variant === 'black-solid').map((h, i) => (
+        {/* Hexágonos sólidos (navy, azul, cyan, negro) por encima */}
+        {PANEL_HEXES.filter(h => h.variant !== 'outline').map((h, i) => (
           <polygon
             key={`solid-${i}`}
             points={hexPointsFlat(h.cx, h.cy, h.r)}
-            fill={h.variant === 'cyan-hatch' ? `url(#${hatchId})` : h.variant === 'black-solid' ? HEX_BLACK : HEX_CYAN}
+            fill={
+              h.variant === 'navy-solid' ? HEX_NAVY :
+              h.variant === 'blue-solid' ? HEX_BLUE :
+              h.variant === 'black-solid' ? HEX_BLACK :
+              HEX_CYAN
+            }
             stroke={h.variant === 'black-solid' && isDark ? '#ffffff' : 'none'}
             strokeWidth={h.variant === 'black-solid' && isDark ? 3 : 0}
-            opacity={h.variant === 'black-solid' ? 0.9 : 0.92}
+            opacity="0.9"
           />
-        ))}
-
-        {/* Nodos de circuito: puntos conectados por una línea corta */}
-        {PANEL_NODE_LINKS.map(([x1, y1, x2, y2], i) => (
-          <g key={`link-${i}`}>
-            <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={darkLineColor} strokeWidth="2" opacity="0.6" />
-            <circle cx={x1} cy={y1} r="5" fill={darkLineColor} opacity="0.85" />
-            <circle cx={x2} cy={y2} r="5" fill={darkLineColor} opacity="0.85" />
-          </g>
         ))}
       </svg>
     </div>

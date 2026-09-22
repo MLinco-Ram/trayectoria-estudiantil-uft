@@ -900,7 +900,7 @@ Equipo de Acompañamiento Académico UFT`;
       </aside>
 
       {/* Main Workspace Column */}
-      <main className="flex-1 flex flex-col md:h-screen md:overflow-y-auto min-w-0 relative z-10" id="student-main-panel-workspace">
+      <main className="flex-1 flex flex-col md:h-screen md:overflow-y-auto min-w-0 relative z-10" id="student-main-panel-workspace" data-hex-scroll-container>
         <HexPanelBackdrop topOffset={64} />
 
         {/* Mobile Header Bar */}

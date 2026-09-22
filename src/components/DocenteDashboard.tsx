@@ -222,7 +222,7 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
       />
 
       {/* Contenedor Principal con Cabecera Superior */}
-      <div className="flex-1 flex flex-col min-w-0 md:h-screen md:overflow-y-auto relative z-10">
+      <div className="flex-1 flex flex-col min-w-0 md:h-screen md:overflow-y-auto relative z-10" data-hex-scroll-container>
         <HexPanelBackdrop topOffset={64} />
         {/* Barra Superior */}
         <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-xs shrink-0">
