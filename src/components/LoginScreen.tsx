@@ -218,9 +218,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     <div className="min-h-screen bg-white dark:bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-[#007ba7] selection:text-white transition-colors duration-200">
       {/* Botón en la esquina para alternar Modo Claro / Modo Oscuro */}
       <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-30">
-        <ThemeToggle 
-          showLabel={true} 
-          className="bg-white/95 dark:bg-slate-900/95 shadow-lg border-2 border-slate-900/20 dark:border-slate-700 px-3.5 py-2 rounded-2xl backdrop-blur-xs hover:scale-105 transition-all text-xs font-bold" 
+        <ThemeToggle
+          showLabel={true}
+          className="bg-white/95 dark:bg-slate-900/95 shadow-lg border-2 border-slate-900/20 dark:border-slate-700 px-3.5 py-2 rounded-2xl backdrop-blur-xs hover:scale-105 transition-all text-xs font-bold"
         />
       </div>
 
@@ -235,22 +235,12 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           {/* Encabezado con título caligráfico y subtítulo institucional */}
           <div className="relative z-10 text-center select-none pt-2 pb-1">
             <div className="flex items-center justify-center gap-1.5">
-              <span className="font-script text-3xl sm:text-4xl text-slate-900 dark:text-white leading-none italic" style={{ fontFamily: 'var(--font-script), cursive' }}>
+              <span className="font-script text-3xl sm:text-4xl whitespace-nowrap text-slate-900 dark:text-white leading-none italic" style={{ fontFamily: 'var(--font-script), cursive' }}>
                 Trayectoria estudiantil
               </span>
-              <div className="inline-flex flex-col items-center justify-center relative -top-0.5">
-                <span className="font-extrabold text-2xl sm:text-3xl text-slate-900 dark:text-white leading-none tracking-tight">
-                  TE
-                </span>
-                {/* Doble onda estilizada debajo del TE */}
-                <svg className="w-9 h-2.5 text-slate-900 dark:text-white -mt-0.5" viewBox="0 0 40 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M2 3C10 3 14 10 24 10C30 10 36 6 38 2" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-                  <path d="M8 8C14 8 18 11 26 11C31 11 36 9 37 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                </svg>
-              </div>
             </div>
-            
-            <h1 className="text-sm sm:text-base font-extrabold tracking-tight text-slate-900 dark:text-slate-200 mt-2">
+
+            <h1 className="font-script text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-200 leading-none italic mt-2" style={{ fontFamily: 'var(--font-script), cursive' }}>
               Centro de Apoyo del Aprendizaje
             </h1>
           </div>
