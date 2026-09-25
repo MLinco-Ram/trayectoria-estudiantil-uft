@@ -14,7 +14,8 @@ import {
   MessageSquare,
   ShieldCheck,
   User as UserIcon,
-  Mail
+  Mail,
+  GraduationCap
 } from 'lucide-react';
 
 export type DocenteTabType = 
@@ -88,15 +89,15 @@ export const DocenteSidebar: React.FC<DocenteSidebarProps> = ({
           </div>
           <div className="font-extrabold text-brand-navy text-sm leading-snug">{user.name}</div>
           <div className="flex items-center gap-1.5 text-slate-500 text-xs">
-            <Mail className="h-3.5 w-3.5 text-brand-celeste shrink-0" />
-            <span className="truncate">{user.email || 'Docente UFT'}</span>
+            <GraduationCap className="h-3.5 w-3.5 text-brand-celeste shrink-0" />
+            <span className="truncate">{user.career || 'Coordinación Docente UFT'}</span>
           </div>
 
           {showLogoutDropdown && (
             <div className="bg-[#0a0a0a] border border-white/10 rounded-lg p-2.5 space-y-2 animate-fade-in text-xs absolute left-0 right-0 z-50 shadow-lg top-[100%] mt-1">
               <div className="pb-1.5 border-b border-white/10 text-[11px] text-slate-300">
                 <p className="font-bold text-white truncate">{user.name}</p>
-                <p className="text-[10px] text-brand-celeste truncate">{user.email}</p>
+                <p className="text-[10px] text-brand-celeste truncate">{user.career || 'Docente Coordinador'}</p>
                 <p className="text-[9px] text-slate-400 font-mono mt-0.5">RUT: {user.rut}</p>
               </div>
               <button
@@ -155,14 +156,12 @@ export const DocenteSidebar: React.FC<DocenteSidebarProps> = ({
           <span>Cerrar Sesión</span>
         </button>
 
-        <div className="flex justify-center items-center">
-          <div className="bg-white px-4 py-2 rounded-2xl shadow-md flex items-center justify-center w-full">
-            <img
-              src="/logo-uft-oficial.png"
-              alt="Universidad Finis Terrae"
-              className="h-7 w-auto object-contain"
-            />
-          </div>
+        <div className="flex justify-center items-center pt-2">
+          <img
+            src="/UFT_LogoHorizontal_Blanco.png"
+            alt="Universidad Finis Terrae"
+            className="h-8 w-auto object-contain select-none pointer-events-none"
+          />
         </div>
       </div>
     </aside>

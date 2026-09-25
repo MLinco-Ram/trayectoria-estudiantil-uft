@@ -109,7 +109,18 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
             student.email,
             student.name,
             `Aviso de Inasistencia: "${session.title}"`,
-            `Estimado/a ${student.name}, registramos tu inasistencia en la sesión de tutoría "${session.title}" de hoy (${session.date} - ${session.timeSlot}). Si tuviste algún inconveniente de fuerza mayor, por favor comunícate con la coordinación.`
+            `Registramos tu inasistencia en la sesión de tutoría "${session.title}" del día ${session.date}. Ingresa a la plataforma para revisar los detalles.`
+          );
+        }
+      } else if (status === 'presente') {
+        // Enviar aviso para completar la encuesta de satisfacción
+        const student = allUsers.find(u => u.id === studentId);
+        if (student && student.email) {
+          triggerNotification(
+            student.email,
+            student.name,
+            `Encuesta de Satisfacción: "${session.title}"`,
+            `Tu tutoría "${session.title}" del día ${session.date} ha finalizado. Por favor ingresa a la plataforma en tu Historial de Clases para responder la encuesta de satisfacción de 12 preguntas y evaluar tu experiencia.`
           );
         }
       }

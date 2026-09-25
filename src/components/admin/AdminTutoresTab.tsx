@@ -51,7 +51,6 @@ export const AdminTutoresTab: React.FC<AdminTutoresTabProps> = ({
             <tr>
               <th className="py-3.5 px-5">Nombre y Carrera</th>
               <th className="py-3.5 px-4">RUT</th>
-              <th className="py-3.5 px-4">Correo Institucional</th>
               <th className="py-3.5 px-4">Rol</th>
               <th className="py-3.5 px-5 text-right">Acciones</th>
             </tr>
@@ -59,7 +58,7 @@ export const AdminTutoresTab: React.FC<AdminTutoresTabProps> = ({
           <tbody className="divide-y divide-slate-100">
             {filteredTutores.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-slate-400 text-sm">
+                <td colSpan={4} className="py-8 text-center text-slate-400 text-sm">
                   No se encontraron tutores con el criterio de búsqueda.
                 </td>
               </tr>
@@ -75,9 +74,6 @@ export const AdminTutoresTab: React.FC<AdminTutoresTabProps> = ({
                   </td>
                   <td className="py-3.5 px-4 font-mono text-xs font-semibold text-slate-700">
                     {tut.rut}
-                  </td>
-                  <td className="py-3.5 px-4 font-mono text-xs text-slate-600">
-                    {tut.email}
                   </td>
                   <td className="py-3.5 px-4">
                     {tut.tutorType === 'tutor_de_tutores' ? (

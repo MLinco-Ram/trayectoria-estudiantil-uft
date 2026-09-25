@@ -37,7 +37,8 @@ export type SessionType =
 export interface SessionFeedback {
   studentId: string;
   studentName?: string;
-  rating: number; // 1 to 5 stars
+  rating: number; // 1 to 5 stars (promedio general)
+  answers?: Record<number, number>; // questionId (1..12) -> score (1..5)
   comment: string;
   createdAt: string;
 }

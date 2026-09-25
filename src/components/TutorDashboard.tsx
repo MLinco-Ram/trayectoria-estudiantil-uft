@@ -41,7 +41,6 @@ import {
 } from 'lucide-react';
 import { SessionQRModal } from './common/SessionQRModal';
 import { ThemeToggle } from './common/ThemeToggle';
-import { HexPanelBackdrop } from './SidebarDecor';
 
 import { useAuth } from '../context/AuthContext';
 
@@ -335,7 +334,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       : 'Seguimiento de Tutorías y Asistencias';
 
     const subject = `[Recordatorio de Coordinación] ${topicLabel} - Trayectoria UFT`;
-    const message = `Hola ${targetTutor.name},\n\nTu Tutor Coordinador (${effectiveUser.name}) ha revisado tus tutorías asignadas y te solicita actualizar los registros pendientes (${topicLabel}).\n\nPor favor ingresa a tu portal para registrar la información correspondiente y mantener al día las métricas institucionales.\n\nSaludos cordiales,\n${effectiveUser.name}\nTutor de Tutores • Trayectoria Estudiantil UFT`;
+    const message = `Tu Tutor Coordinador (${effectiveUser.name}) ha revisado tus tutorías asignadas y te solicita actualizar los registros pendientes (${topicLabel}). Por favor ingresa a tu portal para registrar la información correspondiente.`;
 
     triggerNotification(
       targetTutor.email,
@@ -344,14 +343,14 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       message
     );
 
-    setLeadReminderFeedback(`¡Recordatorio enviado exitosamente a ${targetTutor.name} (${targetTutor.email})!`);
+    setLeadReminderFeedback(`¡Recordatorio enviado exitosamente a ${targetTutor.name}!`);
     setTimeout(() => setLeadReminderFeedback(null), 4500);
   };
 
   // Enviar recordatorio para una tutoría puntual
   const handleSendSessionSpecificReminder = (targetTutor: User, targetSession: Session, reason: string) => {
     const subject = `[Revisión de Cumplimiento] Tutoría "${targetSession.title}" - Trayectoria UFT`;
-    const message = `Hola ${targetTutor.name},\n\nTu Tutor Coordinador (${effectiveUser.name}) ha revisado el cumplimiento de tu tutoría "${targetSession.title}" (${targetSession.date} ${targetSession.timeSlot}) y solicita tu atención:\n\n• Motivo: ${reason}\n\nPor favor ingresa al portal de tutor para completar la información pendiente.\n\nSaludos,\n${effectiveUser.name}\nTutor de Tutores`;
+    const message = `Tu Tutor Coordinador (${effectiveUser.name}) ha revisado el cumplimiento de tu tutoría "${targetSession.title}" del día ${targetSession.date} y solicita tu atención: ${reason}. Por favor ingresa a tu portal para revisar y completar la información.`;
 
     triggerNotification(
       targetTutor.email,
@@ -406,11 +405,14 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
   // Quick Attendance tracking inside Tutor view
   const handleTutorAttendance = (sessionId: string, studentId: string, status: 'presente' | 'ausente') => {
     const current = getSavedSessions();
+    let newStatus: 'presente' | 'ausente' | 'pendiente' = status;
+    let targetSessionObj: Session | null = null;
+
     const updated: Session[] = current.map(s => {
       if (s.id === sessionId) {
         const currentAtt = s.attendance || {};
-        const newStatus = (currentAtt[studentId] === status ? 'pendiente' : status) as 'presente' | 'ausente' | 'pendiente';
-        return {
+        newStatus = (currentAtt[studentId] === status ? 'pendiente' : status) as 'presente' | 'ausente' | 'pendiente';
+        const updatedSess: Session = {
           ...s,
           attendance: {
             ...currentAtt,
@@ -418,12 +420,42 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
           },
           isCompleted: true
         };
+        targetSessionObj = updatedSess;
+        return updatedSess;
       }
       return s;
     });
 
     saveSessions(updated);
     setSessions(updated);
+
+    if (targetSessionObj) {
+      // Sincronizar en backend / MongoDB
+      fetch(`/api/sessions/${sessionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(targetSessionObj)
+      }).catch(err => console.warn('Error sync attendance a Mongo:', err));
+
+      const student = allUsers.find(u => u.id === studentId);
+      if (student && student.email) {
+        if (newStatus === 'presente') {
+          triggerNotification(
+            student.email,
+            student.name,
+            `Encuesta de Satisfacción: "${(targetSessionObj as Session).title}"`,
+            `Tu tutoría "${(targetSessionObj as Session).title}" del día ${(targetSessionObj as Session).date} ha finalizado. Por favor ingresa a la plataforma en tu Historial de Clases para responder la encuesta de satisfacción de 12 preguntas y evaluar tu experiencia.`
+          );
+        } else if (newStatus === 'ausente') {
+          triggerNotification(
+            student.email,
+            student.name,
+            `Aviso de Inasistencia: "${(targetSessionObj as Session).title}"`,
+            `Registramos tu inasistencia en la sesión de tutoría "${(targetSessionObj as Session).title}" del día ${(targetSessionObj as Session).date}. Ingresa a la plataforma para revisar los detalles.`
+          );
+        }
+      }
+    }
   };
 
   // Submit re-routing or re-scheduling ticket to coordinator
@@ -547,20 +579,20 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       );
     });
 
-    setFormFeedback(`¡Inconveniente enviado con éxito! Se ha notificado por correo a los ${allDocentes.length} docentes coordinadores y se envió un comprobante a tu correo (${user.email}).`);
+    setFormFeedback(`¡Inconveniente enviado con éxito! Se ha notificado por correo a los ${allDocentes.length} docentes coordinadores y se envió un comprobante a tu correo institucional.`);
     setDescription('');
     setProposedTime('');
   };
 
   return (
-    <div className="min-h-screen md:h-screen md:overflow-hidden bg-[#f8fafc] flex flex-col md:flex-row font-sans" id="tutor-dashboard-wrapper">
+    <div className="min-h-screen md:h-screen md:overflow-hidden bg-white dark:bg-slate-950 flex flex-col md:flex-row font-sans transition-colors duration-200" id="tutor-dashboard-wrapper">
       {/* Sidebar for Desktop */}
       <aside className="hidden md:flex w-72 bg-black text-white flex-col shrink-0 justify-between relative overflow-hidden rounded-r-[2.5rem] sticky top-0 h-screen z-10 select-none">
         <div className="flex flex-col flex-1 overflow-y-auto relative z-10">
           {/* Tarjeta de Perfil del Tutor */}
           <div className="p-5 mx-4 mt-5 mb-4 bg-white rounded-2xl shadow-md space-y-2.5 relative shrink-0">
             <div className="flex items-center justify-between">
-              <div
+              <div 
                 className="flex items-center gap-1.5 text-brand-celeste font-bold text-sm cursor-pointer w-fit"
                 onClick={() => setShowLogoutDropdown(!showLogoutDropdown)}
                 title="Click para ver opciones de sesión"
@@ -585,7 +617,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
               <div className="bg-[#0a0a0a] border border-white/10 rounded-lg p-2.5 space-y-2 animate-fade-in text-xs absolute left-0 right-0 z-50 shadow-lg top-[100%] mt-1">
                 <div className="pb-1.5 border-b border-white/10 text-[11px] text-slate-300">
                   <p className="font-bold text-white truncate">{effectiveUser.name}</p>
-                  <p className="text-[10px] text-brand-celeste truncate">{effectiveUser.email}</p>
+                  <p className="text-[10px] text-brand-celeste truncate">{isLeadTutor ? 'Tutor de Tutores' : effectiveUser.career || 'Tutor Par'}</p>
                   <p className="text-[9px] text-slate-400 font-mono mt-0.5">RUT: {effectiveUser.rut}</p>
                 </div>
                 <button
@@ -693,21 +725,18 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
             <span>Cerrar Sesión</span>
           </button>
 
-          <div className="flex justify-center items-center">
-            <div className="bg-white px-4 py-2 rounded-2xl shadow-md flex items-center justify-center w-full">
-              <img
-                src="/logo-uft-oficial.png"
-                alt="Universidad Finis Terrae"
-                className="h-7 w-auto object-contain"
-              />
-            </div>
+          <div className="flex justify-center items-center pt-2">
+            <img
+              src="/UFT_LogoHorizontal_Blanco.png"
+              alt="Universidad Finis Terrae"
+              className="h-8 w-auto object-contain select-none pointer-events-none"
+            />
           </div>
         </div>
       </aside>
 
       {/* Main Workspace Column */}
-      <main className="flex-1 flex flex-col md:h-screen md:overflow-y-auto min-w-0 relative z-10" id="tutor-main-panel-workspace" data-hex-scroll-container>
-        <HexPanelBackdrop topOffset={64} />
+      <main className="flex-1 flex flex-col md:h-screen md:overflow-y-auto min-w-0 relative z-10 bg-white dark:bg-slate-950 transition-colors duration-200" id="tutor-main-panel-workspace">
 
         {/* Mobile Header Bar */}
         <header className="md:hidden bg-[#092c4c] text-white px-4 py-3 flex flex-col space-y-2 shrink-0">
@@ -854,7 +883,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                             </p>
                             <p className="flex items-center space-x-1.5">
                               <Users className="h-3.5 w-3.5 text-slate-400 shrink-0 inline mr-1" />
-                              <span>Coordinador Responsable: <strong>{coordinator?.name}</strong> {coordinator?.email ? `(${coordinator.email})` : ''}</span>
+                              <span>Coordinador Responsable: <strong>{coordinator?.name || 'Coordinación Académica UFT'}</strong></span>
                             </p>
                           </div>
                         </div>
@@ -945,7 +974,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                                 <div className="text-xs">
                                   <p className="font-bold text-slate-800">{student.name}</p>
                                   <p className="text-[10px] text-slate-400 font-mono">
-                                    {student.career} • {student.rut} {student.email ? `• ✉️ ${student.email}` : ''}
+                                    {student.career} • {student.rut}
                                   </p>
                                 </div>
 
@@ -1423,8 +1452,6 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                                 <div className="text-xs text-[#3a9ad9] font-medium flex items-center gap-1.5 mt-0.5">
                                   <GraduationCap className="w-3.5 h-3.5" />
                                   <span>{tutor.career || 'Tutor Par'}</span>
-                                  <span className="text-slate-300">•</span>
-                                  <span className="text-slate-500 font-mono text-[11px]">✉️ {tutor.email}</span>
                                 </div>
                               </div>
                             </div>
@@ -2118,7 +2145,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                                                     >
                                                       <div className="truncate mr-2">
                                                         <span className="font-semibold text-slate-800">{st.name}</span>
-                                                        <span className="text-[10px] text-slate-400 ml-1.5 font-mono">{st.rut || st.email}</span>
+                                                        <span className="text-[10px] text-slate-400 ml-1.5 font-mono">{st.rut || st.career || 'Estudiante'}</span>
                                                       </div>
                                                       <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase shrink-0 ${
                                                         att === 'presente'

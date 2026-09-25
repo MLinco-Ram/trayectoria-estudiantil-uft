@@ -26,7 +26,6 @@ import { DocenteAnnouncementsTab } from './docente/DocenteAnnouncementsTab';
 import { DocenteAnalyticsTab } from './docente/DocenteAnalyticsTab';
 import { DocenteCommentsTab } from './docente/DocenteCommentsTab';
 import { ThemeToggle } from './common/ThemeToggle';
-import { HexPanelBackdrop } from './SidebarDecor';
 
 import { LogOut, GraduationCap, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -210,7 +209,7 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
   const pendingReportsCount = reports.filter(r => r.status === 'pendiente').length;
 
   return (
-    <div className="min-h-screen md:h-screen md:overflow-hidden bg-[#f8fafc] flex flex-col md:flex-row text-slate-800 font-sans" id="docente-dashboard-wrapper">
+    <div className="min-h-screen md:h-screen md:overflow-hidden bg-white dark:bg-slate-950 flex flex-col md:flex-row text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200" id="docente-dashboard-wrapper">
       {/* Sidebar de Navegación Modular Fija */}
       <DocenteSidebar
         user={user}
@@ -222,8 +221,7 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
       />
 
       {/* Contenedor Principal con Cabecera Superior */}
-      <div className="flex-1 flex flex-col min-w-0 md:h-screen md:overflow-y-auto relative z-10" data-hex-scroll-container>
-        <HexPanelBackdrop topOffset={64} />
+      <div className="flex-1 flex flex-col min-w-0 md:h-screen md:overflow-y-auto relative z-10 bg-white dark:bg-slate-950 transition-colors duration-200">
         {/* Barra Superior */}
         <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-xs shrink-0">
           <div className="flex items-center gap-3">

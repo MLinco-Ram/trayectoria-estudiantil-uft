@@ -6,7 +6,8 @@ import { LogIn, UserPlus, CheckCircle2, Lock, User as UserIcon, Mail, Eye, EyeOf
 import ForgotPasswordModal from './ForgotPasswordModal';
 import TermsAndConditionsModal from './TermsAndConditionsModal';
 import { useAuth, getRoleHomePath } from '../context/AuthContext';
-import { HexNetworkBackdrop } from './SidebarDecor';
+import { useTheme } from '../context/ThemeContext';
+import { ThemeToggle } from './common/ThemeToggle';
 
 interface LoginScreenProps {
   onLoginSuccess?: (user: User) => void;
@@ -15,6 +16,7 @@ interface LoginScreenProps {
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { isDark } = useTheme();
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -213,37 +215,42 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#eaf6fb] flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-[#007ba7] selection:text-white">
-      {/* Fondo de red hexagonal en pantalla completa */}
-      <HexNetworkBackdrop />
+    <div className="min-h-screen bg-white dark:bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-[#007ba7] selection:text-white transition-colors duration-200">
+      {/* Botón en la esquina para alternar Modo Claro / Modo Oscuro */}
+      <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-30">
+        <ThemeToggle 
+          showLabel={true} 
+          className="bg-white/95 dark:bg-slate-900/95 shadow-lg border-2 border-slate-900/20 dark:border-slate-700 px-3.5 py-2 rounded-2xl backdrop-blur-xs hover:scale-105 transition-all text-xs font-bold" 
+        />
+      </div>
 
       {/* Contenedor de la tarjeta con capa de sombra azul oscuro desplazada (Layered Card Effect) */}
       <div className="relative w-full max-w-md my-6 z-10 animate-fade-in">
         
         {/* Capa trasera azul marino desplazada */}
-        <div className="absolute -top-3.5 -left-3.5 w-full h-full bg-[#0d2f52] rounded-[2.5rem] shadow-xl z-0" />
+        <div className="absolute -top-3.5 -left-3.5 w-full h-full bg-[#0d2f52] dark:bg-slate-800 rounded-[2.5rem] shadow-xl z-0" />
 
         {/* Tarjeta frontal blanca con borde definido */}
-        <div className="relative z-10 w-full bg-white rounded-[2.5rem] border-2 border-slate-900 shadow-2xl overflow-hidden p-6 sm:p-8 space-y-5">
+        <div className="relative z-10 w-full bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-slate-900 dark:border-slate-700 shadow-2xl overflow-hidden p-6 sm:p-8 space-y-5">
           {/* Encabezado con título caligráfico y subtítulo institucional */}
           <div className="relative z-10 text-center select-none pt-2 pb-1">
             <div className="flex items-center justify-center gap-1.5">
-              <span className="font-script text-3xl sm:text-4xl text-slate-900 leading-none italic" style={{ fontFamily: 'var(--font-script), cursive' }}>
+              <span className="font-script text-3xl sm:text-4xl text-slate-900 dark:text-white leading-none italic" style={{ fontFamily: 'var(--font-script), cursive' }}>
                 Trayectoria estudiantil
               </span>
               <div className="inline-flex flex-col items-center justify-center relative -top-0.5">
-                <span className="font-extrabold text-2xl sm:text-3xl text-slate-900 leading-none tracking-tight">
+                <span className="font-extrabold text-2xl sm:text-3xl text-slate-900 dark:text-white leading-none tracking-tight">
                   TE
                 </span>
                 {/* Doble onda estilizada debajo del TE */}
-                <svg className="w-9 h-2.5 text-slate-900 -mt-0.5" viewBox="0 0 40 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg className="w-9 h-2.5 text-slate-900 dark:text-white -mt-0.5" viewBox="0 0 40 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M2 3C10 3 14 10 24 10C30 10 36 6 38 2" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
                   <path d="M8 8C14 8 18 11 26 11C31 11 36 9 37 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
                 </svg>
               </div>
             </div>
             
-            <h1 className="text-sm sm:text-base font-extrabold tracking-tight text-slate-900 mt-2">
+            <h1 className="text-sm sm:text-base font-extrabold tracking-tight text-slate-900 dark:text-slate-200 mt-2">
               Centro de Apoyo del Aprendizaje
             </h1>
           </div>
@@ -280,10 +287,10 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               /* LOGIN FORM */
               <form onSubmit={handleLogin} className="space-y-4">
                 
-                {/* Input RUT con círculo blanco e icono */}
-                <div className="flex items-center bg-[#007ba7] rounded-full p-1.5 border-2 border-slate-900 shadow-md">
-                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-slate-800 shrink-0 border border-slate-200 shadow-inner">
-                    <UserIcon className="w-5 h-5 text-slate-700" />
+                {/* Input RUT con recuadro redondeado */}
+                <div className="flex items-center bg-[#007ba7] dark:bg-[#083556] rounded-full p-1.5 border-2 border-slate-900 dark:border-slate-700 shadow-md">
+                  <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-slate-800 dark:text-slate-200 shrink-0 border border-slate-200 dark:border-slate-700 shadow-inner">
+                    <UserIcon className="w-5 h-5 text-slate-700 dark:text-slate-300" />
                   </div>
                   <input
                     type="text"
@@ -296,11 +303,11 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   />
                 </div>
 
-                {/* Input Contraseña con círculo blanco e icono */}
+                {/* Input Contraseña con recuadro redondeado */}
                 <div>
-                  <div className="flex items-center bg-[#007ba7] rounded-full p-1.5 border-2 border-slate-900 shadow-md">
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-slate-800 shrink-0 border border-slate-200 shadow-inner">
-                      <Lock className="w-5 h-5 text-slate-700" />
+                  <div className="flex items-center bg-[#007ba7] dark:bg-[#083556] rounded-full p-1.5 border-2 border-slate-900 dark:border-slate-700 shadow-md">
+                    <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-slate-800 dark:text-slate-200 shrink-0 border border-slate-200 dark:border-slate-700 shadow-inner">
+                      <Lock className="w-5 h-5 text-slate-700 dark:text-slate-300" />
                     </div>
                     <input
                       type={showPassword ? 'text' : 'password'}
@@ -324,7 +331,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     <button
                       type="button"
                       onClick={() => setShowForgotPassword(true)}
-                      className="text-[11px] font-extrabold text-slate-900 hover:text-[#007ba7] hover:underline transition-colors cursor-pointer"
+                      className="text-[11px] font-extrabold text-slate-900 dark:text-slate-300 hover:text-[#007ba7] dark:hover:text-brand-celeste hover:underline transition-colors cursor-pointer"
                     >
                       ¿Olvidaste tu contraseña?
                     </button>
@@ -332,15 +339,15 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 </div>
 
                 {error && (
-                  <div className="p-3 bg-red-50 text-red-700 text-xs rounded-2xl border border-red-200 font-semibold animate-fade-in" id="login-error">
+                  <div className="p-3 bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 text-xs rounded-2xl border border-red-200 dark:border-red-900 font-semibold animate-fade-in" id="login-error">
                     {error}
                   </div>
                 )}
 
-                {/* Botón Ingresar */}
+                {/* Botón Ingresar con recuadro redondeado */}
                 <button
                   type="submit"
-                  className="w-full bg-[#007ba7] hover:bg-[#00688f] text-white py-3.5 px-6 rounded-full font-extrabold text-sm shadow-lg hover:shadow-xl transition-all flex items-center justify-center space-x-2 cursor-pointer border-2 border-slate-900 mt-3"
+                  className="w-full bg-[#007ba7] hover:bg-[#00688f] text-white py-3.5 px-6 rounded-full font-extrabold text-sm shadow-lg hover:shadow-xl transition-all flex items-center justify-center space-x-2 cursor-pointer border-2 border-slate-900 dark:border-slate-700 mt-3"
                 >
                   <LogIn className="h-5 w-5" />
                   <span>Ingresar al sistema</span>
@@ -350,14 +357,14 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               /* REGISTER ALUMNO FORM */
               <form onSubmit={handleRegister} className="space-y-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1">Nombre completo</label>
-                  <div className="flex items-center bg-[#007ba7] rounded-full p-1.5 border-2 border-slate-900 shadow-md">
-                    <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-slate-800 shrink-0 border border-slate-200 shadow-inner">
-                      <UserIcon className="w-4 h-4 text-slate-700" />
+                  <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">Nombre completo</label>
+                  <div className="flex items-center bg-[#007ba7] dark:bg-[#083556] rounded-full p-1.5 border-2 border-slate-900 dark:border-slate-700 shadow-md overflow-hidden">
+                    <div className="w-9 h-9 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-slate-800 dark:text-slate-200 shrink-0 border border-slate-200 dark:border-slate-700 shadow-inner">
+                      <UserIcon className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                     </div>
                     <input
                       type="text"
-                      className="flex-1 bg-transparent px-3 text-xs font-bold text-white placeholder-white/75 focus:outline-none"
+                      className="flex-1 bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75"
                       placeholder="Ej. Camila Linco"
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
@@ -366,14 +373,14 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1">RUT</label>
-                  <div className="flex items-center bg-[#007ba7] rounded-full p-1.5 border-2 border-slate-900 shadow-md">
-                    <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-slate-800 shrink-0 border border-slate-200 shadow-inner">
-                      <UserIcon className="w-4 h-4 text-slate-700" />
+                  <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">RUT</label>
+                  <div className="flex items-center bg-[#007ba7] dark:bg-[#083556] rounded-full p-1.5 border-2 border-slate-900 dark:border-slate-700 shadow-md overflow-hidden">
+                    <div className="w-9 h-9 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-slate-800 dark:text-slate-200 shrink-0 border border-slate-200 dark:border-slate-700 shadow-inner">
+                      <UserIcon className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                     </div>
                     <input
                       type="text"
-                      className="flex-1 bg-transparent px-3 text-xs font-bold text-white placeholder-white/75 focus:outline-none font-mono"
+                      className="flex-1 bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75 font-mono"
                       placeholder="12.345.678-9"
                       value={regRut}
                       onChange={(e) => setRegRut(formatRut(e.target.value))}
@@ -382,16 +389,16 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-red-600 mb-1">
+                  <label className="block text-xs font-bold text-red-600 dark:text-red-400 mb-1">
                     Correo institucional (@uft.cl / @mail.uft.cl)
                   </label>
-                  <div className="flex items-center bg-white rounded-full p-1.5 border-2 border-slate-900 shadow-md">
-                    <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-800 shrink-0 border border-slate-200 shadow-inner">
-                      <Mail className="w-4 h-4 text-[#007ba7]" />
+                  <div className="flex items-center bg-white dark:bg-slate-800 rounded-full p-1.5 border-2 border-slate-900 dark:border-slate-700 shadow-md overflow-hidden">
+                    <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-slate-800 dark:text-slate-200 shrink-0 border border-slate-200 dark:border-slate-700 shadow-inner">
+                      <Mail className="w-4 h-4 text-[#007ba7] dark:text-brand-celeste" />
                     </div>
                     <input
                       type="email"
-                      className="flex-1 bg-transparent px-3 text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none"
+                      className="flex-1 bg-transparent border-0 outline-none px-3 text-xs font-bold text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"
                       placeholder="ejemplo@uft.cl"
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
@@ -400,10 +407,10 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1">Carrera</label>
+                  <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">Carrera</label>
                   <div className="relative">
                     <select
-                      className="w-full appearance-none pl-4 pr-10 py-2.5 bg-[#0d2f52] text-white rounded-full border-2 border-slate-900 focus:outline-none text-xs font-bold cursor-pointer shadow-md"
+                      className="w-full appearance-none pl-4 pr-10 py-2.5 bg-[#0d2f52] dark:bg-slate-800 text-white rounded-full border-2 border-slate-900 dark:border-slate-700 focus:outline-none text-xs font-bold cursor-pointer shadow-md"
                       value={regCareer}
                       onChange={(e) => setRegCareer(e.target.value)}
                     >
@@ -420,11 +427,11 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-xs font-bold text-slate-800 mb-1">Contraseña</label>
-                    <div className="flex items-center bg-[#007ba7] rounded-full p-1.5 border-2 border-slate-900 shadow-md">
+                    <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">Contraseña</label>
+                    <div className="flex items-center bg-[#007ba7] dark:bg-[#083556] rounded-full p-1.5 border-2 border-slate-900 dark:border-slate-700 shadow-md overflow-hidden">
                       <input
                         type={showRegPassword ? 'text' : 'password'}
-                        className="flex-1 bg-transparent px-3 text-xs font-bold text-white placeholder-white/75 focus:outline-none"
+                        className="flex-1 bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75"
                         placeholder="Mínimo 4"
                         value={regPassword}
                         onChange={(e) => setRegPassword(e.target.value)}
@@ -439,11 +446,11 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-800 mb-1">Confirmar</label>
-                    <div className="flex items-center bg-[#007ba7] rounded-full p-1.5 border-2 border-slate-900 shadow-md">
+                    <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">Confirmar</label>
+                    <div className="flex items-center bg-[#007ba7] dark:bg-[#083556] rounded-full p-1.5 border-2 border-slate-900 dark:border-slate-700 shadow-md overflow-hidden">
                       <input
                         type={showRegConfirm ? 'text' : 'password'}
-                        className="flex-1 bg-transparent px-3 text-xs font-bold text-white placeholder-white/75 focus:outline-none"
+                        className="flex-1 bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75"
                         placeholder="Repite"
                         value={regConfirmPassword}
                         onChange={(e) => setRegConfirmPassword(e.target.value)}
@@ -504,9 +511,13 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         </div>
       </div>
 
-      {/* Logo oficial fijo abajo a la izquierda */}
+      {/* Logo oficial fijo abajo a la izquierda (blanco en modo oscuro, negro en modo claro) */}
       <div className="fixed bottom-4 left-6 md:bottom-6 md:left-8 z-20 pointer-events-none select-none flex items-center gap-3">
-        <img src="/logo-uft-oficial.png" alt="Universidad Finis Terrae" className="h-12 md:h-16 w-auto object-contain" />
+        <img 
+          src={isDark ? "/UFT_LogoHorizontal_Blanco.png" : "/UFT_LogoHorizontal_Negro.png"} 
+          alt="Universidad Finis Terrae" 
+          className="h-10 md:h-14 w-auto object-contain transition-all duration-200" 
+        />
       </div>
 
       {/* Forgot Password Modal */}

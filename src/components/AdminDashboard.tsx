@@ -502,15 +502,15 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col" id="admin-dashboard-wrapper">
+    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans flex flex-col transition-colors duration-200" id="admin-dashboard-wrapper">
       {/* Header Institucional */}
       <header className="bg-[#092c4c] text-white sticky top-0 z-40 shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <img 
-              src="/uft_logo_white.png" 
+              src="/UFT_LogoHorizontal_Blanco.png" 
               alt="Universidad Finis Terrae" 
-              className="h-12 w-auto object-contain"
+              className="h-10 w-auto object-contain select-none pointer-events-none"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
               }}

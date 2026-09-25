@@ -70,8 +70,8 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
           triggerNotification(
             tutor.email,
             tutor.name,
-            `Nueva Sesión Asignada: ${newSession.title}`,
-            `Hola ${tutor.name}, se ha programado a tu cargo la sesión "${newSession.title}" para el día ${newSession.date} en el horario ${newSession.timeSlot} en ${newSession.location}.`
+            `Nueva Sesión Asignada: "${newSession.title}"`,
+            `Se ha programado a tu cargo la sesión "${newSession.title}" para el día ${newSession.date}. Ingresa a la plataforma para revisar los detalles.`
           );
         }
       }

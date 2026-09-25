@@ -45,7 +45,7 @@ export const DocenteAlertsTab: React.FC<DocenteAlertsTabProps> = ({
             newTutor.email,
             newTutor.name,
             `Asignación de Tutoría Sustituta: "${session.title}"`,
-            `Hola ${newTutor.name}, se te ha asignado como tutor sustituto en la sesión "${session.title}" programada para el ${session.date} (${session.timeSlot}).`
+            `Se te ha asignado como tutor sustituto en la sesión "${session.title}" programada para el día ${session.date}. Ingresa a la plataforma para revisar los detalles.`
           );
         }
       }
