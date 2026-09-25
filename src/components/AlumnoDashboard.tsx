@@ -548,7 +548,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <div className="min-h-screen md:h-screen md:overflow-hidden bg-white dark:bg-slate-950 flex flex-col md:flex-row font-sans transition-colors duration-200" id="alumno-dashboard-wrapper">
+    <div className="h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-white dark:bg-slate-950 flex flex-col md:flex-row font-sans transition-colors duration-200" id="alumno-dashboard-wrapper">
       {/* Sidebar for Desktop */}
       <aside className="hidden md:flex w-72 bg-black text-white flex-col shrink-0 justify-between relative overflow-hidden rounded-r-[2.5rem] sticky top-0 h-screen z-10 select-none">
         <div className="flex flex-col flex-1 overflow-y-auto relative z-10">
@@ -680,8 +680,8 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         </div>
       </aside>
 
-      {/* Main Workspace Column */}
-      <main className="flex-1 flex flex-col md:h-screen md:overflow-y-auto min-w-0 relative z-10 bg-white dark:bg-slate-950 transition-colors duration-200" id="student-main-panel-workspace">
+      {/* Main Workspace Column with contained smooth scrolling */}
+      <main className="flex-1 flex flex-col h-full overflow-y-auto overscroll-y-contain min-w-0 relative z-10 bg-white dark:bg-slate-950 transition-colors duration-200" id="student-main-panel-workspace">
 
         {/* Mobile Header Bar */}
         <header className="md:hidden bg-[#092c4c] dark:bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between shrink-0 shadow-md border-b border-[#153a5c] dark:border-slate-800 sticky top-0 z-30">
@@ -754,25 +754,13 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
             PREGRADO UFT
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
-            <div className="space-y-0.5 min-w-0 flex-1">
+          <div className="pt-1">
+            <div className="space-y-0.5 min-w-0">
               <h2 className="text-sm sm:text-base font-extrabold uppercase text-slate-800 dark:text-white tracking-tight leading-tight truncate">
                 {user.name}
               </h2>
               <p className="text-xs text-brand-celeste font-bold truncate">{user.career}</p>
               <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">RUT: {user.rut}</p>
-            </div>
-
-            {/* Quick Action: Escanear QR button right at top of student profile */}
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setIsQRScannerOpen(true)}
-                className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-[#3a9ad9] to-[#0ea5e9] hover:from-[#2980b9] hover:to-[#0284c7] text-white font-extrabold text-xs rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <QrCode className="h-4 w-4 shrink-0" />
-                <span>Escanear Asistencia QR</span>
-              </button>
             </div>
           </div>
 
@@ -1786,7 +1774,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       {/* Barra de Navegación Inferior para Celulares / Mobile Responsive */}
       <nav 
         aria-label="Navegación móvil"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#092c4c] dark:bg-slate-900/98 border-t border-[#153a5c] dark:border-slate-800 px-2 py-1.5 shadow-2xl flex items-center justify-around backdrop-blur-md transition-colors"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#092c4c] dark:bg-slate-900 border-t border-[#153a5c] dark:border-slate-800 px-2 py-1.5 shadow-2xl flex items-center justify-around transform-gpu select-none"
         style={{ paddingBottom: 'max(0.6rem, env(safe-area-inset-bottom))' }}
       >
         {/* 1. Tutorías */}
