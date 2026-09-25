@@ -154,8 +154,8 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
         triggerNotification(
           studentUser.email,
           studentUser.name,
-          `¡Tu solicitud de horario flexible ha sido adjudicada! - ${newSession.title}`,
-          `Hola ${studentUser.name},\n\nLa coordinación docente ha aprobado y agendado tu sesión flexible con el siguiente detalle:\n\n• Actividad: ${newSession.title}\n• Fecha: ${newSession.date} (${selectedDayName})\n• Horario: ${newSession.timeSlot}\n• Ubicación: ${newSession.location}\n• Tutor(a): ${tutorUser ? tutorUser.name : 'Coordinación Docente'}\n\nPor favor revisa tu portal estudiantil para más detalles.`
+          `Tu solicitud de horario flexible ha sido adjudicada: "${newSession.title}"`,
+          `La coordinación docente ha aprobado tu solicitud de horario flexible para la tutoría "${newSession.title}" del día ${newSession.date}. Ingresa a la plataforma para revisar los detalles.`
         );
       }
 
@@ -164,8 +164,8 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
         triggerNotification(
           tutorUser.email,
           tutorUser.name,
-          `Nueva Tutoría Individual Asignada: ${newSession.title}`,
-          `Hola ${tutorUser.name},\n\nSe te ha asignado una nueva tutoría individual para apoyar al alumno ${resolvingReq.studentName} (${resolvingReq.studentCareer}):\n\n• Fecha: ${newSession.date} (${selectedDayName})\n• Horario: ${newSession.timeSlot}\n• Sala / Ubicación: ${newSession.location}\n\nPor favor revisa tu portal de tutores.`
+          `Nueva Tutoría Individual Asignada: "${newSession.title}"`,
+          `Se te ha asignado una nueva tutoría individual para el día ${newSession.date}. Ingresa a la plataforma para revisar los detalles.`
         );
       }
 

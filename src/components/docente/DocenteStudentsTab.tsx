@@ -257,7 +257,7 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
               <tr>
                 <th className="py-3 px-5">Alumno / Carrera</th>
                 <th className="py-3 px-4">RUT</th>
-                <th className="py-3 px-4">Correo</th>
+                <th className="py-3 px-4">Estado</th>
                 <th className="py-3 px-5 text-right">Acciones</th>
               </tr>
             </thead>
@@ -269,7 +269,11 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
                     <div className="text-[#3a9ad9]">{alum.career}</div>
                   </td>
                   <td className="py-3 px-4 font-mono font-semibold">{alum.rut}</td>
-                  <td className="py-3 px-4 font-mono">{alum.email}</td>
+                  <td className="py-3 px-4">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Activo
+                    </span>
+                  </td>
                   <td className="py-3 px-5 text-right">
                     <button
                       onClick={() => {

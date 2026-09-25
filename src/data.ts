@@ -23,6 +23,21 @@ export const SUBJECTS = [
   { code: 'ANS', name: 'Control de Ansiedad', program: 'psicoeducativo' }
 ];
 
+export const SATISFACTION_SURVEY_QUESTIONS = [
+  { id: 1, title: 'Claridad en las explicaciones', question: '¿El tutor/docente explicó los conceptos y temas de manera clara y comprensible?' },
+  { id: 2, title: 'Dominio de los contenidos', question: '¿El tutor/docente demostró un adecuado dominio y conocimiento de la materia tratada?' },
+  { id: 3, title: 'Puntualidad y cumplimiento', question: '¿La sesión inició y finalizó puntualmente conforme al horario programado?' },
+  { id: 4, title: 'Resolución de dudas', question: '¿Se promovió la participación y se respondieron adecuadamente las dudas formuladas?' },
+  { id: 5, title: 'Materiales y recursos', question: '¿Los materiales de apoyo, ejercicios o recursos utilizados fueron útiles y pertinentes?' },
+  { id: 6, title: 'Estructura y organización', question: '¿La sesión contó con un orden claro, estructurado y enfocado en los objetivos académicos?' },
+  { id: 7, title: 'Trato y disposición', question: '¿El trato brindado por el tutor/docente fue cordial, respetuoso y empático?' },
+  { id: 8, title: 'Aporte al aprendizaje', question: '¿Esta sesión contribuyó significativamente a mejorar tu comprensión de la asignatura o temática?' },
+  { id: 9, title: 'Ritmo y dinamismo', question: '¿El ritmo de trabajo y la dinámica empleada fueron adecuados para facilitar el aprendizaje?' },
+  { id: 10, title: 'Aplicación práctica', question: '¿Se desarrollaron ejercicios o casos prácticos aplicables a las evaluaciones del curso?' },
+  { id: 11, title: 'Cumplimiento de expectativas', question: '¿La sesión cumplió con tus expectativas iniciales para este contenido o taller?' },
+  { id: 12, title: 'Recomendación general', question: '¿Recomendarías asistir a estas tutorías/talleres a otros compañeros de la carrera?' }
+];
+
 // Arreglos vacíos por defecto (toda la data proviene exclusivamente de MongoDB Atlas)
 export const MOCK_USERS: User[] = [];
 export const INITIAL_SESSIONS: Session[] = [];

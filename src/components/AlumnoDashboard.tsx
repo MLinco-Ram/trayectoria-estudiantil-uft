@@ -14,7 +14,8 @@ import {
   getSavedStudentRequests,
   saveStudentRequests,
   getTodayDateStr,
-  getDynamicPresetDates
+  getDynamicPresetDates,
+  SATISFACTION_SURVEY_QUESTIONS
 } from '../data';
 import { getSocket } from '../services/socket';
 import { 
@@ -52,7 +53,6 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { MobileQRScannerModal } from './common/MobileQRScannerModal';
 import { ThemeToggle } from './common/ThemeToggle';
-import { HexPanelBackdrop } from './SidebarDecor';
 
 interface AlumnoDashboardProps {
   user?: User;
@@ -120,13 +120,53 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   const [reqProgram, setReqProgram] = useState<'tutorias' | 'psicoeducativo'>('tutorias');
   const [formFeedback, setFormFeedback] = useState<string | null>(null);
 
-  // Feedback & Satisfaction state (Calificación de 1 a 5 estrellas y comentarios)
+  // Feedback & Satisfaction state (Encuesta de Satisfacción de 12 preguntas)
   const [evaluatingSession, setEvaluatingSession] = useState<Session | null>(null);
-  const [ratingStars, setRatingStars] = useState<number>(5);
-  const [ratingHover, setRatingHover] = useState<number>(0);
+  const [surveyAnswers, setSurveyAnswers] = useState<Record<number, number>>({});
   const [ratingComment, setRatingComment] = useState<string>('');
   const [ratingSuccessMsg, setRatingSuccessMsg] = useState<string | null>(null);
   const [isSubmittingRating, setIsSubmittingRating] = useState<boolean>(false);
+
+  // Helper para abrir la encuesta con respuestas previas o iniciales
+  const handleOpenEvaluationModal = (session: Session) => {
+    const existing = session.ratings?.[user.id];
+    setEvaluatingSession(session);
+    setRatingSuccessMsg(null);
+    if (existing) {
+      setRatingComment(existing.comment || '');
+      if (existing.answers && Object.keys(existing.answers).length > 0) {
+        setSurveyAnswers(existing.answers);
+      } else {
+        const initialMap: Record<number, number> = {};
+        SATISFACTION_SURVEY_QUESTIONS.forEach(q => {
+          initialMap[q.id] = existing.rating || 5;
+        });
+        setSurveyAnswers(initialMap);
+      }
+    } else {
+      const initialMap: Record<number, number> = {};
+      SATISFACTION_SURVEY_QUESTIONS.forEach(q => {
+        initialMap[q.id] = 5;
+      });
+      setSurveyAnswers(initialMap);
+      setRatingComment('');
+    }
+  };
+
+  const handleSetAnswer = (questionId: number, score: number) => {
+    setSurveyAnswers(prev => ({
+      ...prev,
+      [questionId]: score
+    }));
+  };
+
+  const handleSetAllAnswers = (score: number) => {
+    const newAnswers: Record<number, number> = {};
+    SATISFACTION_SURVEY_QUESTIONS.forEach(q => {
+      newAnswers[q.id] = score;
+    });
+    setSurveyAnswers(newAnswers);
+  };
 
   // Expandable syllabus state for history classes
   const [expandedHistorySyllabusIds, setExpandedHistorySyllabusIds] = useState<Record<string, boolean>>({});
@@ -138,16 +178,21 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
     }));
   };
 
-  // Submit Satisfaction Evaluation
+  // Submit Satisfaction Evaluation (12 preguntas)
   const handleSubmitRating = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!evaluatingSession) return;
+
+    const totalQuestions = SATISFACTION_SURVEY_QUESTIONS.length;
+    const sum = SATISFACTION_SURVEY_QUESTIONS.reduce((acc, q) => acc + (surveyAnswers[q.id] || 5), 0);
+    const calculatedAvg = Math.round((sum / totalQuestions) * 10) / 10;
 
     setIsSubmittingRating(true);
     const feedbackObj = {
       studentId: user.id,
       studentName: user.name,
-      rating: ratingStars,
+      rating: calculatedAvg,
+      answers: surveyAnswers,
       comment: ratingComment.trim(),
       createdAt: new Date().toISOString()
     };
@@ -185,12 +230,12 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
     }
 
     setIsSubmittingRating(false);
-    setRatingSuccessMsg('¡Muchas gracias! Tu evaluación y comentarios han sido registrados con éxito.');
+    setRatingSuccessMsg('¡Muchas gracias! Tu encuesta de satisfacción de 12 preguntas ha sido registrada con éxito.');
     setTimeout(() => {
       setEvaluatingSession(null);
       setRatingSuccessMsg(null);
       setRatingComment('');
-      setRatingStars(5);
+      setSurveyAnswers({});
     }, 2000);
   };
 
@@ -417,277 +462,15 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       }).catch(err => console.warn('Sync Mongo en background:', err));
     }
 
-    // Notify student via email notification con datos reales de MongoDB
-    const tutorObj = session.tutorId ? allUsers.find(t => t.id === session.tutorId) : null;
-    const docenteObj = allUsers.find(d => d.id === session.docenteId);
-    const tipoPrograma = session.program === 'tutorias' ? 'Programa de Tutorías Académicas UFT' : 'Programa Psicoeducativo y Apoyo Estudiantil';
-    const tutorInfo = tutorObj ? `\n• Tutor(a) Asignado(a): ${tutorObj.name} (${tutorObj.email})` : '';
-    const docenteInfo = docenteObj ? `\n• Coordinador(a) / Docente: ${docenteObj.name}` : '';
-    const materiaInfo = session.subject ? `\n• Asignatura / Área: ${session.subject}` : '';
-
-    // 1. Correo de Confirmación de Inscripción con diseño institucional UFT
-    const confirmationSubject = `Confirmación de Inscripción: ${session.title}`;
-    const confirmationMessage = `Estimado/a ${user.name},
-
-Te confirmamos exitosamente tu inscripción a la sesión académica con el siguiente detalle:
-
-• Actividad: ${session.title}
-• Programa: ${tipoPrograma}${materiaInfo}
-• Fecha: ${session.date}
-• Horario: ${session.timeSlot}
-• Lugar / Modalidad: ${session.location}${tutorInfo}${docenteInfo}
-• RUT Alumno: ${user.rut}
-• Carrera: ${user.career || 'Pregrado UFT'}
-
-Por favor guarda este comprobante. Ante cualquier inconveniente, puedes gestionar tu cupo desde el portal estudiantil.
-
-Atentamente,
-Dirección de Trayectoria Estudiantil - Universidad Finis Terrae`;
-
-    const confirmationHtml = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${confirmationSubject}</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
-  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 30px 10px;">
-    <tr>
-      <td align="center">
-        <!-- Main Card Container -->
-        <table width="100%" max-width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06); border: 1px solid #e2e8f0;">
-          
-          <!-- Header Banner -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #092c4c 0%, #153a5c 100%); padding: 32px 28px; text-align: center;">
-              <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                <tr>
-                  <td align="center" style="padding-bottom: 12px;">
-                    <div style="display: inline-block; background-color: #3a9ad9; color: #ffffff; font-weight: 900; font-size: 18px; width: 42px; height: 42px; line-height: 42px; border-radius: 10px; text-align: center;">T</div>
-                  </td>
-                </tr>
-                <tr>
-                  <td align="center">
-                    <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">Trayectoria <span style="color: #3a9ad9;">UFT.</span></h1>
-                    <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">Universidad Finis Terrae</p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Success Badge Section -->
-          <tr>
-            <td style="padding: 28px 28px 12px 28px; text-align: center;">
-              <div style="display: inline-block; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 30px; padding: 6px 18px; margin-bottom: 12px;">
-                <span style="color: #059669; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">✓ Reserva Confirmada</span>
-              </div>
-              <h2 style="margin: 0; color: #0f172a; font-size: 18px; font-weight: 800; line-height: 1.3;">${session.title}</h2>
-              <p style="margin: 6px 0 0 0; color: #64748b; font-size: 13px;">Hola <strong>${user.name}</strong>, tu cupo ha sido reservado exitosamente.</p>
-            </td>
-          </tr>
-
-          <!-- Session Details Box -->
-          <tr>
-            <td style="padding: 12px 28px 20px 28px;">
-              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; padding: 18px;">
-                
-                <tr>
-                  <td style="padding-bottom: 12px; border-bottom: 1px solid #e2e8f0;">
-                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                      <tr>
-                        <td width="30" valign="top" style="font-size: 16px;">📅</td>
-                        <td>
-                          <span style="color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; display: block;">Fecha de la Sesión</span>
-                          <strong style="color: #092c4c; font-size: 14px;">${session.date}</strong>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
-                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                      <tr>
-                        <td width="30" valign="top" style="font-size: 16px;">⏰</td>
-                        <td>
-                          <span style="color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; display: block;">Horario del Módulo</span>
-                          <strong style="color: #092c4c; font-size: 14px;">${session.timeSlot}</strong>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
-                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                      <tr>
-                        <td width="30" valign="top" style="font-size: 16px;">📍</td>
-                        <td>
-                          <span style="color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; display: block;">Ubicación / Sala</span>
-                          <strong style="color: #092c4c; font-size: 14px;">${session.location}</strong>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="padding-top: 12px;">
-                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                      <tr>
-                        <td width="30" valign="top" style="font-size: 16px;">🎓</td>
-                        <td>
-                          <span style="color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; display: block;">Programa y Responsables</span>
-                          <strong style="color: #092c4c; font-size: 13px;">${tipoPrograma}</strong>
-                          ${session.subject ? `<div style="color: #475569; font-size: 12px; margin-top: 2px;">• Asignatura: <strong>${session.subject}</strong></div>` : ''}
-                          ${tutorObj ? `<div style="color: #475569; font-size: 12px; margin-top: 2px;">• Tutor(a) Par: <strong>${tutorObj.name}</strong> (${tutorObj.email})</div>` : ''}
-                          ${docenteObj ? `<div style="color: #475569; font-size: 12px; margin-top: 2px;">• Coordinación Docente: <strong>${docenteObj.name}</strong></div>` : ''}
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-
-              </table>
-            </td>
-          </tr>
-
-          <!-- Student Profile Meta -->
-          <tr>
-            <td style="padding: 0 28px 20px 28px;">
-              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; border-radius: 10px; padding: 12px 16px; font-size: 11px; color: #475569;">
-                <tr>
-                  <td><strong>RUT:</strong> ${user.rut}</td>
-                  <td align="right"><strong>Carrera:</strong> ${user.career || 'Pregrado UFT'}</td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Notice / Instructions -->
-          <tr>
-            <td style="padding: 0 28px 24px 28px;">
-              <div style="background-color: #eff6ff; border-left: 4px solid #3a9ad9; border-radius: 0 8px 8px 0; padding: 12px 14px;">
-                <h4 style="margin: 0 0 4px 0; color: #1e3a8a; font-size: 12px; font-weight: 800;">💡 Recomendaciones Importantes:</h4>
-                <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #1e40af; line-height: 1.5;">
-                  <li>Llega 5 minutos antes al módulo asignado.</li>
-                  <li>Recuerda registrar tu asistencia al iniciar la actividad.</li>
-                  <li>Si no puedes asistir, cancela tu reserva desde el portal con anticipación.</li>
-                </ul>
-              </div>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 28px; text-align: center;">
-              <p style="margin: 0; color: #94a3b8; font-size: 11px; font-weight: 600;">
-                © 2026 Dirección de Trayectoria Estudiantil • Universidad Finis Terrae
-              </p>
-              <p style="margin: 4px 0 0 0; color: #cbd5e1; font-size: 10px;">
-                Este es un mensaje institucional generado automáticamente por el Portal de Trayectoria Estudiantil.
-              </p>
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-`;
-
+    // Notificar al alumno de forma minimalista protegiendo datos sensibles
     triggerNotification(
       user.email,
       user.name,
-      confirmationSubject,
-      confirmationMessage,
-      confirmationHtml
+      `Confirmación de Reserva: ${session.title}`,
+      `has reservado tu cupo en la tutoria "${session.title}" del día ${session.date}. Ingresa a la plataforma para revisar los detalles completos.`
     );
 
-    // 2. Correo de Aviso / Recordatorio de Asistencia Obligatoria y Puntualidad
-    const reminderSubject = `Recordatorio de Asistencia: ${session.title} (${session.date} - ${session.timeSlot})`;
-    const reminderMessage = `Hola ${user.name},
-
-Te recordamos que tienes una sesión agendada para el día ${session.date} a las ${session.timeSlot} en ${session.location}.
-
-Recuerda:
-1. Asistir puntualmente a la sala/box asignado (${session.location}).
-2. Registrar tu asistencia con el docente o tutor a cargo al inicio del bloque.
-3. Si no puedes asistir, cancela tu reserva con anticipación en el portal para liberar el cupo a otro compañero.
-
-¡Mucho éxito en tu sesión!
-Equipo de Acompañamiento Académico UFT`;
-
-    const reminderHtml = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>${reminderSubject}</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
-  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 30px 10px;">
-    <tr>
-      <td align="center">
-        <table width="100%" max-width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06); border: 1px solid #e2e8f0;">
-          
-          <tr>
-            <td style="background: #092c4c; padding: 24px; text-align: center;">
-              <h2 style="margin: 0; color: #ffffff; font-size: 18px; font-weight: 800;">🔔 Recordatorio de Acompañamiento Académico</h2>
-              <p style="margin: 4px 0 0 0; color: #3a9ad9; font-size: 12px; font-weight: 700;">Universidad Finis Terrae</p>
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding: 24px 28px;">
-              <h3 style="margin: 0 0 8px 0; color: #0f172a; font-size: 16px; font-weight: 800;">Hola ${user.name},</h3>
-              <p style="margin: 0 0 16px 0; color: #475569; font-size: 13px; line-height: 1.5;">
-                Te recordamos que tienes una actividad académica agendada para:
-              </p>
-
-              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
-                <div style="font-size: 14px; font-weight: 800; color: #092c4c; margin-bottom: 8px;">${session.title}</div>
-                <div style="font-size: 12px; color: #334155; margin-bottom: 4px;">📅 <strong>Fecha:</strong> ${session.date}</div>
-                <div style="font-size: 12px; color: #334155; margin-bottom: 4px;">⏰ <strong>Horario:</strong> ${session.timeSlot}</div>
-                <div style="font-size: 12px; color: #334155;">📍 <strong>Lugar:</strong> ${session.location}</div>
-              </div>
-
-              <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin: 0;">
-                Tu asistencia y puntualidad son fundamentales para aprovechar esta instancia de reforzamiento.
-              </p>
-            </td>
-          </tr>
-
-          <tr>
-            <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px; text-align: center; font-size: 11px; color: #94a3b8;">
-              Dirección de Trayectoria Estudiantil • Universidad Finis Terrae
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-`;
-
-    triggerNotification(
-      user.email,
-      user.name,
-      reminderSubject,
-      reminderMessage,
-      reminderHtml
-    );
-
-    setBookingFeedback(`¡Inscripción confirmada! Te hemos enviado el comprobante detallado y el aviso recordatorio de asistencia a tu correo institucional: ${user.email}`);
+    setBookingFeedback("¡Inscripción confirmada! Te hemos enviado el comprobante a tu correo institucional.");
     reloadData();
 
     // Clear feedback
@@ -740,7 +523,7 @@ Equipo de Acompañamiento Académico UFT`;
           user.email,
           user.name,
           `Cancelación de Reserva: ${targetSession.title}`,
-          `Hola ${user.name}, has liberado tu cupo en la sesión "${targetSession.title}" del día ${targetSession.date} a las ${targetSession.timeSlot}.`
+          `has liberado tu cupo en la tutoria "${targetSession.title}" del día ${targetSession.date}.`
         );
       }
 
@@ -765,7 +548,7 @@ Equipo de Acompañamiento Académico UFT`;
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <div className="min-h-screen md:h-screen md:overflow-hidden bg-[#f8fafc] flex flex-col md:flex-row font-sans" id="alumno-dashboard-wrapper">
+    <div className="min-h-screen md:h-screen md:overflow-hidden bg-white dark:bg-slate-950 flex flex-col md:flex-row font-sans transition-colors duration-200" id="alumno-dashboard-wrapper">
       {/* Sidebar for Desktop */}
       <aside className="hidden md:flex w-72 bg-black text-white flex-col shrink-0 justify-between relative overflow-hidden rounded-r-[2.5rem] sticky top-0 h-screen z-10 select-none">
         <div className="flex flex-col flex-1 overflow-y-auto relative z-10">
@@ -789,7 +572,7 @@ Equipo de Acompañamiento Académico UFT`;
               <div className="bg-[#0a0a0a] border border-white/10 rounded-lg p-2.5 space-y-2 animate-fade-in text-xs absolute left-0 right-0 z-50 shadow-lg top-[100%] mt-1">
                 <div className="pb-1.5 border-b border-white/10 text-[11px] text-slate-300">
                   <p className="font-bold text-white truncate">{user.name}</p>
-                  <p className="text-[10px] text-brand-celeste truncate">{user.email}</p>
+                  <p className="text-[10px] text-brand-celeste truncate">{user.career || 'Estudiante UFT'}</p>
                   <p className="text-[9px] text-slate-400 font-mono mt-0.5">RUT: {user.rut}</p>
                 </div>
                 <button
@@ -887,21 +670,18 @@ Equipo de Acompañamiento Académico UFT`;
             <span>Cerrar Sesión</span>
           </button>
 
-          <div className="flex justify-center items-center pt-1">
-            <div className="bg-white px-4 py-2 rounded-2xl shadow-md flex items-center justify-center w-full">
-              <img
-                src="/logo-uft-oficial.png"
-                alt="Universidad Finis Terrae"
-                className="h-7 w-auto object-contain"
-              />
-            </div>
+          <div className="flex justify-center items-center pt-2">
+            <img
+              src="/UFT_LogoHorizontal_Blanco.png"
+              alt="Universidad Finis Terrae"
+              className="h-8 w-auto object-contain select-none pointer-events-none"
+            />
           </div>
         </div>
       </aside>
 
       {/* Main Workspace Column */}
-      <main className="flex-1 flex flex-col md:h-screen md:overflow-y-auto min-w-0 relative z-10" id="student-main-panel-workspace" data-hex-scroll-container>
-        <HexPanelBackdrop topOffset={64} />
+      <main className="flex-1 flex flex-col md:h-screen md:overflow-y-auto min-w-0 relative z-10 bg-white dark:bg-slate-950 transition-colors duration-200" id="student-main-panel-workspace">
 
         {/* Mobile Header Bar */}
         <header className="md:hidden bg-[#092c4c] text-white px-4 py-3 flex flex-col space-y-2 shrink-0">
@@ -1188,10 +968,10 @@ Equipo de Acompañamiento Académico UFT`;
                             <div className="bg-indigo-50/70 p-2 rounded-lg border border-indigo-100/80 space-y-0.5">
                               <p className="flex items-center space-x-1.5 text-indigo-900 font-bold">
                                 <UserCheck className="h-3 w-3 text-indigo-600 inline mr-1 shrink-0" />
-                                <span>Tutor asignado: {tutorObj.name}</span>
+                                <span>Tutor(a) asignado(a): {tutorObj.name}</span>
                               </p>
                               <p className="text-[9.5px] text-indigo-700 font-medium pl-4">
-                                ✉️ {tutorObj.email || 'Sin correo registrado'}
+                                🎓 {tutorObj.career || 'Tutor Par UFT'}
                               </p>
                             </div>
                           )}
@@ -1306,28 +1086,20 @@ Equipo de Acompañamiento Académico UFT`;
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setEvaluatingSession(s);
-                                    setRatingStars(feedback.rating);
-                                    setRatingComment(feedback.comment || '');
-                                  }}
+                                  onClick={() => handleOpenEvaluationModal(s)}
                                   className="text-[10px] text-amber-700 hover:text-amber-900 underline font-bold cursor-pointer block"
                                 >
-                                  Modificar mi evaluación
+                                  Modificar mi evaluación (12 preguntas)
                                 </button>
                               </div>
                             ) : (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setEvaluatingSession(s);
-                                  setRatingStars(5);
-                                  setRatingComment('');
-                                }}
-                                className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold rounded-xl shadow-xs hover:shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                                onClick={() => handleOpenEvaluationModal(s)}
+                                className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold rounded-xl shadow-xs hover:shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
                               >
                                 <Star className="w-3.5 h-3.5 fill-white" />
-                                <span>Calificar Tutoría</span>
+                                <span>Responder Encuesta (12 Preguntas)</span>
                               </button>
                             )}
                           </div>
@@ -1676,7 +1448,7 @@ Equipo de Acompañamiento Académico UFT`;
                 </div>
                 <div>
                   <h3 className="font-bold text-sm text-white">Bandeja de Mensajes y Comunicados</h3>
-                  <p className="text-[11px] text-slate-300">Avisos oficiales y notificaciones enviadas a {user.email}</p>
+                  <p className="text-[11px] text-slate-300">Avisos oficiales y notificaciones del sistema institucional</p>
                 </div>
               </div>
               <button
@@ -1842,19 +1614,19 @@ Equipo de Acompañamiento Académico UFT`;
         </div>
       )}
 
-      {/* MODAL DE EVALUACIÓN DE SATISFACCIÓN (1 A 5 ESTRELLAS Y COMENTARIOS) */}
+      {/* MODAL DE EVALUACIÓN DE SATISFACCIÓN (12 PREGUNTAS TÍPICAS Y COMENTARIOS) */}
       {evaluatingSession && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-lg w-full overflow-hidden animate-scale-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-scale-up">
             {/* Header del Modal */}
-            <div className="bg-gradient-to-r from-[#092c4c] to-[#153a5c] text-white p-6 relative">
-              <div className="flex items-center space-x-2.5">
+            <div className="bg-gradient-to-r from-[#092c4c] to-[#153a5c] text-white p-5 sm:p-6 relative shrink-0">
+              <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-2xl bg-amber-400/20 text-amber-300 flex items-center justify-center font-bold">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold tracking-tight">Evaluación de Satisfacción</h3>
-                  <p className="text-xs text-slate-300">Califica la calidad y dinámica de tu sesión académica</p>
+                  <h3 className="text-base font-bold tracking-tight">Encuesta de Satisfacción (12 Preguntas)</h3>
+                  <p className="text-xs text-slate-300">Evalúa la calidad pedagógica, puntualidad y dinámica de tu tutoría</p>
                 </div>
               </div>
               <button
@@ -1870,82 +1642,128 @@ Equipo de Acompañamiento Académico UFT`;
             </div>
 
             {/* Cuerpo del Formulario */}
-            <form onSubmit={handleSubmitRating} className="p-6 space-y-5">
+            <form onSubmit={handleSubmitRating} className="p-5 sm:p-6 flex flex-col overflow-hidden space-y-4">
               {/* Información de la sesión evaluada */}
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/70 space-y-1.5">
-                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Sesión a Evaluar:</span>
-                <h4 className="text-sm font-bold text-[#092c4c]">{evaluatingSession.title}</h4>
-                <div className="flex flex-wrap gap-2 text-[11px] text-slate-500 font-medium pt-1">
-                  <span>📅 {evaluatingSession.date}</span>
-                  <span>•</span>
-                  <span>⏰ {evaluatingSession.timeSlot}</span>
-                  <span>•</span>
-                  <span>📍 {evaluatingSession.location}</span>
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/70 shrink-0">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Sesión a Evaluar:</span>
+                    <h4 className="text-sm font-bold text-[#092c4c]">{evaluatingSession.title}</h4>
+                    <div className="flex flex-wrap gap-2 text-[11px] text-slate-500 font-medium pt-0.5">
+                      <span>📅 {evaluatingSession.date}</span>
+                      <span>•</span>
+                      <span>⏰ {evaluatingSession.timeSlot}</span>
+                    </div>
+                  </div>
+
+                  {/* Promedio Calculado */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5 text-center sm:text-right shrink-0">
+                    <span className="text-[10px] font-bold text-amber-800 uppercase block">Promedio General</span>
+                    <div className="flex items-center justify-center sm:justify-end gap-1">
+                      <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                      <span className="text-sm font-black text-amber-900">
+                        {(
+                          SATISFACTION_SURVEY_QUESTIONS.reduce((acc, q) => acc + (surveyAnswers[q.id] || 5), 0) /
+                          SATISFACTION_SURVEY_QUESTIONS.length
+                        ).toFixed(1)} / 5.0
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {ratingSuccessMsg ? (
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-2 animate-fade-in">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                  <p className="text-xs font-bold text-emerald-900">{ratingSuccessMsg}</p>
+                <div className="p-8 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-3 animate-fade-in my-auto">
+                  <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
+                  <h4 className="text-base font-bold text-emerald-900">¡Evaluación Registrada!</h4>
+                  <p className="text-xs font-medium text-emerald-700">{ratingSuccessMsg}</p>
                 </div>
               ) : (
                 <>
-                  {/* Selector de Estrellas (1 al 5) */}
-                  <div className="text-center space-y-2 py-2">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      ¿Qué te pareció esta sesión? (1 a 5 estrellas)
-                    </label>
-                    
-                    <div className="flex items-center justify-center gap-2 py-1">
-                      {[1, 2, 3, 4, 5].map((starValue) => {
-                        const isFilled = (ratingHover || ratingStars) >= starValue;
-                        return (
-                          <button
-                            key={starValue}
-                            type="button"
-                            onMouseEnter={() => setRatingHover(starValue)}
-                            onMouseLeave={() => setRatingHover(0)}
-                            onClick={() => setRatingStars(starValue)}
-                            className="p-1.5 transition-transform hover:scale-125 focus:outline-none cursor-pointer"
-                          >
-                            <Star
-                              className={`w-8 h-8 transition-colors ${
-                                isFilled
-                                  ? 'text-amber-400 fill-amber-400 filter drop-shadow-xs'
-                                  : 'text-slate-300 hover:text-amber-300'
-                              }`}
-                            />
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="text-xs font-extrabold text-amber-900">
-                      {ratingStars === 1 && '⭐ 1/5 - Requiere Mejorar'}
-                      {ratingStars === 2 && '⭐⭐ 2/5 - Regular'}
-                      {ratingStars === 3 && '⭐⭐⭐ 3/5 - Buena'}
-                      {ratingStars === 4 && '⭐⭐⭐⭐ 4/5 - Muy Buena'}
-                      {ratingStars === 5 && '⭐⭐⭐⭐⭐ 5/5 - Excelente Experiencia'}
-                    </div>
+                  {/* Barra de atajo / Quick action */}
+                  <div className="flex items-center justify-between bg-blue-50/70 border border-blue-100 rounded-xl px-3 py-2 text-xs">
+                    <span className="text-blue-900 font-semibold text-[11px]">
+                      Escala Likert: 1 (Deficiente) al 5 (Excelente)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleSetAllAnswers(5)}
+                      className="text-[11px] font-bold text-blue-700 hover:text-blue-900 bg-white hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition cursor-pointer shadow-2xs"
+                    >
+                      ⭐ Marcar todo 5 (Excelente)
+                    </button>
                   </div>
 
-                  {/* Cuadro de Comentarios y Sugerencias */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-700">
-                      Comentarios, Aprendizajes o Sugerencias (Opcional):
-                    </label>
-                    <textarea
-                      rows={4}
-                      value={ratingComment}
-                      onChange={(e) => setRatingComment(e.target.value)}
-                      placeholder="Cuéntanos qué fue lo que más te sirvió, cómo estuvo la explicación del tutor o docente, o si hay temas que te gustaría reforzar..."
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-xs text-slate-700 focus:bg-white focus:border-brand-celeste focus:ring-2 focus:ring-brand-celeste/20 outline-none transition-all placeholder:text-slate-400"
-                    />
+                  {/* Lista con Scroll de las 12 Preguntas */}
+                  <div className="flex-1 overflow-y-auto max-h-[42vh] space-y-3 pr-1">
+                    {SATISFACTION_SURVEY_QUESTIONS.map((q) => {
+                      const currentVal = surveyAnswers[q.id] || 5;
+                      return (
+                        <div
+                          key={q.id}
+                          className="bg-slate-50/80 hover:bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-2.5 transition-all"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-slate-200/80 text-slate-700 rounded-md">
+                                Pregunta {q.id} • {q.title}
+                              </span>
+                              <p className="text-xs font-semibold text-slate-800 pt-1 leading-snug">
+                                {q.question}
+                              </p>
+                            </div>
+                            <span className="text-xs font-black text-[#092c4c] shrink-0 bg-white px-2 py-1 rounded-lg border border-slate-200">
+                              ⭐ {currentVal}/5
+                            </span>
+                          </div>
+
+                          {/* 5 Botones de calificación Likert */}
+                          <div className="grid grid-cols-5 gap-1.5 pt-1">
+                            {[
+                              { score: 1, label: '1 - Muy Mal' },
+                              { score: 2, label: '2 - Regular' },
+                              { score: 3, label: '3 - Aceptable' },
+                              { score: 4, label: '4 - Bueno' },
+                              { score: 5, label: '5 - Excelente' }
+                            ].map((opt) => {
+                              const isSelected = currentVal === opt.score;
+                              return (
+                                <button
+                                  key={opt.score}
+                                  type="button"
+                                  onClick={() => handleSetAnswer(q.id, opt.score)}
+                                  className={`py-1.5 px-1 rounded-xl text-[10px] font-bold transition-all text-center cursor-pointer border ${
+                                    isSelected
+                                      ? 'bg-[#092c4c] text-white border-[#092c4c] shadow-xs'
+                                      : 'bg-white text-slate-600 border-slate-200 hover:border-brand-celeste hover:text-[#092c4c]'
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Cuadro de Comentarios y Sugerencias */}
+                    <div className="space-y-1.5 pt-2">
+                      <label className="block text-xs font-bold text-slate-700">
+                        Comentarios adicionales, aprendizajes o sugerencias (Opcional):
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={ratingComment}
+                        onChange={(e) => setRatingComment(e.target.value)}
+                        placeholder="Escribe tus observaciones para continuar mejorando las tutorías académicas..."
+                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs text-slate-700 focus:bg-white focus:border-brand-celeste focus:ring-2 focus:ring-brand-celeste/20 outline-none transition-all placeholder:text-slate-400"
+                      />
+                    </div>
                   </div>
 
                   {/* Botones de acción */}
-                  <div className="flex items-center justify-end gap-2.5 pt-2">
+                  <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 shrink-0">
                     <button
                       type="button"
                       onClick={() => setEvaluatingSession(null)}
@@ -1959,7 +1777,7 @@ Equipo de Acompañamiento Académico UFT`;
                       className="px-5 py-2.5 rounded-xl bg-[#092c4c] hover:bg-[#153a5c] text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
                       <ThumbsUp className="w-3.5 h-3.5" />
-                      <span>{isSubmittingRating ? 'Guardando...' : 'Enviar Evaluación'}</span>
+                      <span>{isSubmittingRating ? 'Guardando...' : 'Enviar Encuesta (12 Preguntas)'}</span>
                     </button>
                   </div>
                 </>

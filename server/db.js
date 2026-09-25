@@ -17,16 +17,22 @@ const uri = process.env.MONGODB_URI || '';
 let cachedClient = null;
 let cachedDb = null;
 
-export const client = new MongoClient(uri);
+export const client = uri ? new MongoClient(uri) : null;
 
 export async function connectDB() {
   if (cachedDb) {
     return cachedDb;
   }
 
+  if (!uri) {
+    const errMsg = "MONGODB_URI no está configurada en las variables de entorno (.env)";
+    console.warn(`⚠️ ${errMsg}`);
+    throw new Error(errMsg);
+  }
+
   try {
     if (!cachedClient) {
-      cachedClient = new MongoClient(uri);
+      cachedClient = client || new MongoClient(uri);
       await cachedClient.connect();
       console.log("¡Conectado exitosamente a MongoDB Atlas!");
     }

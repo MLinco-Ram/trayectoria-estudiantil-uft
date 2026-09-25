@@ -51,7 +51,6 @@ export const AdminAlumnosTab: React.FC<AdminAlumnosTabProps> = ({
             <tr>
               <th className="py-3.5 px-5">Nombre y Carrera</th>
               <th className="py-3.5 px-4">RUT</th>
-              <th className="py-3.5 px-4">Correo Institucional</th>
               <th className="py-3.5 px-4">Rol</th>
               <th className="py-3.5 px-5 text-right">Acciones</th>
             </tr>
@@ -59,7 +58,7 @@ export const AdminAlumnosTab: React.FC<AdminAlumnosTabProps> = ({
           <tbody className="divide-y divide-slate-100">
             {filteredAlumnos.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-slate-400 text-sm">
+                <td colSpan={4} className="py-8 text-center text-slate-400 text-sm">
                   No se encontraron estudiantes con el criterio de búsqueda.
                 </td>
               </tr>
@@ -75,9 +74,6 @@ export const AdminAlumnosTab: React.FC<AdminAlumnosTabProps> = ({
                   </td>
                   <td className="py-3.5 px-4 font-mono text-xs font-semibold text-slate-700">
                     {alum.rut}
-                  </td>
-                  <td className="py-3.5 px-4 font-mono text-xs text-slate-600">
-                    {alum.email}
                   </td>
                   <td className="py-3.5 px-4">
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200/60">

@@ -546,7 +546,6 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                 <th className="py-3 px-5">Tutor / Carrera</th>
                 <th className="py-3 px-4">Tipo de Tutor</th>
                 <th className="py-3 px-4">RUT</th>
-                <th className="py-3 px-4">Correo</th>
                 <th className="py-3 px-5 text-right">Acciones</th>
               </tr>
             </thead>
@@ -587,7 +586,6 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                       )}
                     </td>
                     <td className="py-3 px-4 font-mono font-semibold">{tut.rut}</td>
-                    <td className="py-3 px-4 font-mono">{tut.email}</td>
                     <td className="py-3 px-5 text-right">
                       <button
                         onClick={() => {
