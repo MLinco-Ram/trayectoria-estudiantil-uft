@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { User } from '../types';
 import { getSavedUsers, formatRut } from '../data';
-import { LogIn, UserPlus, CheckCircle2, Lock, User as UserIcon, Mail, Eye, EyeOff, ChevronDown } from 'lucide-react';
+import { LogIn, UserPlus, CheckCircle2, Lock, User as UserIcon, Mail, Eye, EyeOff, ChevronDown, Smartphone, Monitor } from 'lucide-react';
 import ForgotPasswordModal from './ForgotPasswordModal';
 import TermsAndConditionsModal from './TermsAndConditionsModal';
 import { useAuth, getRoleHomePath } from '../context/AuthContext';
@@ -15,11 +15,28 @@ interface LoginScreenProps {
 
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { login } = useAuth();
   const { isDark } = useTheme();
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+
+  // Modal de aviso de rol no permitido en móvil
+  const [showMobileWarningModal, setShowMobileWarningModal] = useState(false);
+  const [mobileRestrictedRole, setMobileRestrictedRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get('mobile_restricted') === 'true') {
+      const roleParam = searchParams.get('role') || 'docente';
+      setMobileRestrictedRole(roleParam);
+      setShowMobileWarningModal(true);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('mobile_restricted');
+      newParams.delete('role');
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Login Form States
   const [rutInput, setRutInput] = useState('');
@@ -40,6 +57,13 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [showRegConfirm, setShowRegConfirm] = useState(false);
 
   const handleSuccessfulAuth = (userObj: User) => {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    if (userObj.role !== 'alumno' && isMobile) {
+      setMobileRestrictedRole(userObj.role);
+      setShowMobileWarningModal(true);
+      return;
+    }
+
     login(userObj);
     if (onLoginSuccess) {
       onLoginSuccess(userObj);
@@ -522,6 +546,45 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         onClose={() => setShowTermsModal(false)}
         onAccept={() => setRegTermsAccepted(true)}
       />
+
+      {/* Modal de Restricción de Acceso Móvil para Roles no Estudiantiles */}
+      {showMobileWarningModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border-2 border-amber-400 dark:border-amber-600 max-w-sm w-full p-6 text-center space-y-4 animate-scale-up">
+            <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border-2 border-amber-300 dark:border-amber-700 shadow-inner">
+              <Smartphone className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-2">
+              <span className="inline-block px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-50 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                Acceso Móvil Exclusivo para Estudiantes
+              </span>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                Plataforma no disponible en celular para {mobileRestrictedRole === 'docente' ? 'Docentes y Coordinadores' : mobileRestrictedRole === 'tutor' ? 'Tutores Pares' : 'Administradores'}
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                Las herramientas de gestión, asignación de horarios, asistencia y reportes institucionales requieren una pantalla de <strong>computador de escritorio o laptop</strong>.
+              </p>
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-800/80 rounded-2xl p-3 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-2 text-left">
+              <Monitor className="w-5 h-5 text-brand-celeste shrink-0" />
+              <span>Por favor inicia sesión desde un navegador de escritorio para ingresar a tu panel.</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowMobileWarningModal(false);
+                setMobileRestrictedRole(null);
+              }}
+              className="w-full bg-[#092c4c] hover:bg-[#153a5c] text-white py-3 rounded-full text-xs font-bold transition-all shadow-md cursor-pointer border border-slate-900 dark:border-slate-700"
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
