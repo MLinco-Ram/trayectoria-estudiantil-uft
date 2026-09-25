@@ -684,77 +684,53 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       <main className="flex-1 flex flex-col md:h-screen md:overflow-y-auto min-w-0 relative z-10 bg-white dark:bg-slate-950 transition-colors duration-200" id="student-main-panel-workspace">
 
         {/* Mobile Header Bar */}
-        <header className="md:hidden bg-[#092c4c] text-white px-4 py-3 flex flex-col space-y-2 shrink-0">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <div className="bg-white p-1 rounded-lg flex items-center justify-center">
-                <img src="/logo-uft.png" alt="UFT" className="h-6 w-auto object-contain" />
-              </div>
-              <h1 className="text-sm font-bold tracking-tight">
-                Trayectoria <span className="text-[#3a9ad9]">UFT</span>
-              </h1>
+        <header className="md:hidden bg-[#092c4c] dark:bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between shrink-0 shadow-md border-b border-[#153a5c] dark:border-slate-800 sticky top-0 z-30">
+          <div className="flex items-center gap-2">
+            <div className="bg-white dark:bg-slate-800 p-1 rounded-lg flex items-center justify-center shadow-xs">
+              <img src="/logo-uft.png" alt="UFT" className="h-5 w-auto object-contain" />
             </div>
-            <div className="flex items-center space-x-2">
-              <button 
-                onClick={() => setShowNotifInbox(!showNotifInbox)}
-                className="relative p-1.5 rounded-full hover:bg-white/10 text-[#3a9ad9]"
-              >
-                <Bell className="h-4 w-4" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 bg-amber-500 text-white rounded-full w-3.5 h-3.5 text-[8px] font-bold flex items-center justify-center">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-              <button 
-                onClick={onLogout}
-                className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded"
-              >
-                Salir
-              </button>
+            <div className="flex flex-col">
+              <span className="text-xs font-black tracking-tight leading-none text-white">
+                Trayectoria <span className="text-[#3a9ad9]">UFT</span>
+              </span>
+              <span className="text-[9px] text-slate-300 dark:text-slate-400 font-mono leading-tight">
+                {user.rut}
+              </span>
             </div>
           </div>
-          {/* Mobile horizontal tabs bar */}
-          <div className="flex overflow-x-auto py-1 gap-1.5 scrollbar-none">
-            <button
-              onClick={() => { setActiveSegment('tutorias'); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 ${activeSegment === 'tutorias' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-white/10 text-white'}`}
+
+          <div className="flex items-center space-x-2">
+            <ThemeToggle />
+
+            <button 
+              onClick={() => setShowNotifInbox(!showNotifInbox)}
+              className="relative p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-[#3a9ad9] transition-colors"
+              title="Notificaciones"
             >
-              Tutorías
+              <Bell className="h-4 w-4" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-amber-500 text-white rounded-full w-4 h-4 text-[9px] font-extrabold flex items-center justify-center border-2 border-[#092c4c]">
+                  {unreadCount}
+                </span>
+              )}
             </button>
-            <button
-              onClick={() => { setActiveSegment('psicoeducativo'); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 ${activeSegment === 'psicoeducativo' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-white/10 text-white'}`}
+
+            <button 
+              onClick={onLogout}
+              className="p-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-lg transition-colors"
+              title="Cerrar Sesión"
             >
-              Talleres
-            </button>
-            <button
-              onClick={() => { setActiveSegment('my_bookings'); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 ${activeSegment === 'my_bookings' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-white/10 text-white'}`}
-            >
-              Mis Reservas
-            </button>
-            <button
-              onClick={() => { setActiveSegment('history'); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 ${activeSegment === 'history' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-[#153a5c] text-white'}`}
-            >
-              Historial
-            </button>
-            <button
-              onClick={() => { setActiveSegment('inconvenientes'); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 ${activeSegment === 'inconvenientes' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-[#153a5c] text-white'}`}
-            >
-              Avisos
+              <LogOut className="h-4 w-4" />
             </button>
           </div>
         </header>
 
         {/* Desktop Top Header Bar with navigation trial breadcrumb & action triggers */}
-        <header className="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shrink-0 shadow-sm sticky top-0 z-20">
+        <header className="hidden md:flex h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 items-center justify-between px-8 shrink-0 shadow-sm sticky top-0 z-20 transition-colors">
           <div className="flex items-center gap-3 text-slate-400">
-            <span className="text-sm font-semibold text-slate-600">Portal Estudiantil</span>
-            <span className="text-slate-300">/</span>
-            <span className="text-sm text-slate-500 font-medium font-sans">
+            <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">Portal Estudiantil</span>
+            <span className="text-slate-300 dark:text-slate-600">/</span>
+            <span className="text-sm text-slate-500 dark:text-slate-400 font-medium font-sans">
               {activeSegment === 'tutorias' && 'Tutoría General de Apoyo Colectivo'}
               {activeSegment === 'psicoeducativo' && 'Talleres Psicoeducativos de Autogestión'}
               {activeSegment === 'my_bookings' && 'Tus Bloques de Talleres Inscritos'}
@@ -770,40 +746,60 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         </header>
 
         {/* Content Section Wrapper */}
-        <div className="flex-1 p-4 sm:p-6 md:p-8 pb-28 md:pb-8 max-w-4xl w-full mx-auto" id="alumno-main-dynamic-card-viewport">
+        <div className="flex-1 p-3 sm:p-6 md:p-8 pb-28 md:pb-8 max-w-4xl w-full mx-auto" id="alumno-main-dynamic-card-viewport">
         
-        {/* Profile Info matching "MAYRA CAROLINA LINCO LEIVA" card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 space-y-4 relative overflow-hidden" id="student-main-profile-card">
-          <div className="absolute top-0 right-0 bg-brand-celeste/20 text-brand-navy rounded-bl-xl px-3 py-1 text-[9px] font-bold uppercase tracking-wider">
+        {/* Profile Info matching student card - Compact & responsive */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 p-4 sm:p-5 space-y-3.5 relative overflow-hidden transition-colors" id="student-main-profile-card">
+          <div className="absolute top-0 right-0 bg-brand-celeste/20 text-brand-navy dark:text-sky-300 rounded-bl-xl px-2.5 py-0.5 sm:px-3 sm:py-1 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider">
             PREGRADO UFT
           </div>
 
-          <div className="space-y-1 relative">
-            <h2 className="text-base font-extrabold uppercase text-slate-800 tracking-tight leading-tight">
-              {user.name}
-            </h2>
-            <p className="text-xs text-brand-celeste font-bold">{user.career}</p>
-            <p className="text-[10px] text-slate-400 font-mono">RUT: {user.rut}</p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
+            <div className="space-y-0.5 min-w-0 flex-1">
+              <h2 className="text-sm sm:text-base font-extrabold uppercase text-slate-800 dark:text-white tracking-tight leading-tight truncate">
+                {user.name}
+              </h2>
+              <p className="text-xs text-brand-celeste font-bold truncate">{user.career}</p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">RUT: {user.rut}</p>
+            </div>
+
+            {/* Quick Action: Escanear QR button right at top of student profile */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsQRScannerOpen(true)}
+                className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-[#3a9ad9] to-[#0ea5e9] hover:from-[#2980b9] hover:to-[#0284c7] text-white font-extrabold text-xs rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <QrCode className="h-4 w-4 shrink-0" />
+                <span>Escanear Asistencia QR</span>
+              </button>
+            </div>
           </div>
 
           {/* Booking Metrics */}
-          <div className="grid grid-cols-2 gap-4 pt-3.5 border-t border-slate-100">
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-              <span className="text-[10px] text-slate-400 font-semibold uppercase block">Reservas Activas</span>
-              <span className="text-lg font-bold text-brand-navy block mt-0.5">{myActiveBookings.length} / 3</span>
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <div 
+              onClick={() => setActiveSegment('my_bookings')}
+              className="bg-slate-50 dark:bg-slate-800/60 p-2.5 sm:p-3 rounded-xl border border-slate-100 dark:border-slate-800 text-center cursor-pointer hover:border-brand-celeste transition-colors"
+            >
+              <span className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-400 font-semibold uppercase block">Reservas Activas</span>
+              <span className="text-base sm:text-lg font-bold text-brand-navy dark:text-sky-300 block mt-0.5">{myActiveBookings.length} / 3</span>
             </div>
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-              <span className="text-[10px] text-slate-400 font-semibold uppercase block">Asistencias</span>
-              <span className="text-lg font-bold text-brand-navy block mt-0.5">{myHistory.length}</span>
+            <div 
+              onClick={() => setActiveSegment('history')}
+              className="bg-slate-50 dark:bg-slate-800/60 p-2.5 sm:p-3 rounded-xl border border-slate-100 dark:border-slate-800 text-center cursor-pointer hover:border-brand-celeste transition-colors"
+            >
+              <span className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-400 font-semibold uppercase block">Asistencias</span>
+              <span className="text-base sm:text-lg font-bold text-brand-navy dark:text-sky-300 block mt-0.5">{myHistory.length}</span>
             </div>
           </div>
         </div>
 
         {/* Dynamic Booking Screen Section */}
-        <div className="mt-5 space-y-4" id="alumno-segment-body">
+        <div className="mt-4 sm:mt-5 space-y-4" id="alumno-segment-body">
           
           {bookingFeedback && (
-            <div className="p-3.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold animate-fade-in flex items-center space-x-1.5">
+            <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-semibold animate-fade-in flex items-center space-x-1.5">
               <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
               <span>{bookingFeedback}</span>
             </div>
@@ -811,12 +807,12 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
           {/* Date Picker (Calendar selector widget shown above slot cards in reference gym mockup) */}
           {(activeSegment === 'tutorias' || activeSegment === 'psicoeducativo') && (
-            <div className="bg-white rounded-xl shadow-xs border border-slate-100 p-4 space-y-3">
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 p-3.5 sm:p-4 space-y-2.5 sm:space-y-3 transition-colors">
+              <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Selecciona una Fecha
               </label>
               
-              <div className="flex gap-2">
+              <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-none">
                 {presetDates.map(d => {
                   const dateObj = new Date(d + "T00:00:00");
                   const weekday = dateObj.toLocaleDateString('es-ES', { weekday: 'short' });
@@ -827,10 +823,10 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                     <button
                       key={d}
                       onClick={() => setTargetDate(d)}
-                      className={`flex-1 py-1.5 rounded-lg border text-center transition-all cursor-pointer ${isCur ? 'bg-brand-celeste border-brand-celeste text-white font-bold' : 'bg-slate-50 border-slate-100 text-slate-700 font-semibold'}`}
+                      className={`flex-1 min-w-[50px] py-1.5 rounded-lg border text-center transition-all cursor-pointer ${isCur ? 'bg-brand-celeste border-brand-celeste text-white font-bold shadow-xs' : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold hover:border-brand-celeste'}`}
                     >
                       <span className="block text-[8px] uppercase">{weekday}</span>
-                      <span className="block text-sm">{day}</span>
+                      <span className="block text-xs sm:text-sm">{day}</span>
                     </button>
                   );
                 })}
@@ -841,20 +837,20 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
           {/* A. BOOK SCHEDULER VIEW (Tutorias General and Psycoeducational sessions) */}
           {(activeSegment === 'tutorias' || activeSegment === 'psicoeducativo') && (
             <div className="space-y-3">
-              <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider pl-1.5 mt-2">
+              <h3 className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider pl-1.5 mt-2">
                 Módulos de Horario Disponibles
               </h3>
 
               {availableSchedules.length === 0 ? (
-                <div className="bg-white p-10 rounded-2xl border border-slate-100 text-center space-y-2">
-                  <Calendar className="mx-auto h-8 w-8 text-slate-300" />
-                  <p className="text-xs text-slate-500 font-bold">No hay cupos disponibles el {targetDate}</p>
-                  <p className="text-[11px] text-slate-400">
+                <div className="bg-white dark:bg-slate-900 p-8 sm:p-10 rounded-2xl border border-slate-100 dark:border-slate-800 text-center space-y-2 transition-colors">
+                  <Calendar className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">No hay cupos disponibles el {targetDate}</p>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500">
                     Pregunta a tu coordinador si hay tutorías personalizadas o de apoyo extraordinario para habilitar.
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3" id="academic-visual-slots-grid">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" id="academic-visual-slots-grid">
                   {availableSchedules.map(session => {
                     const enrolledCount = session.studentIds.length;
                     const isRegistered = session.studentIds.includes(user.id);
@@ -865,44 +861,44 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                     return (
                       <div 
                         key={session.id} 
-                        className={`bg-white rounded-xl border p-4 text-center transition-all flex flex-col justify-between space-y-2.5 ${isRegistered ? 'border-brand-celeste ring-1 ring-brand-celeste/40 bg-blue-50/10' : 'border-slate-100 hover:border-brand-celeste'}`}
+                        className={`bg-white dark:bg-slate-900 rounded-xl border p-4 text-center transition-all flex flex-col justify-between space-y-2.5 ${isRegistered ? 'border-brand-celeste ring-1 ring-brand-celeste/40 bg-blue-50/10 dark:bg-sky-950/20' : 'border-slate-100 dark:border-slate-800 hover:border-brand-celeste dark:hover:border-brand-celeste'}`}
                       >
                         <div>
-                          <span className="text-xs font-extrabold text-slate-800 block">
+                          <span className="text-xs font-extrabold text-slate-800 dark:text-white block">
                             {session.timeSlot}
                           </span>
-                          <span className="text-[9px] text-slate-400 block truncate font-medium mt-0.5">
+                          <span className="text-[9px] text-slate-400 dark:text-slate-400 block truncate font-medium mt-0.5">
                             {session.title}
                           </span>
                           <div className="flex items-center justify-center gap-1.5 mt-2 flex-wrap">
-                            <span className="inline-block text-[9px] text-indigo-800 bg-indigo-50 font-semibold rounded px-2">
+                            <span className="inline-block text-[9px] text-indigo-800 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 font-semibold rounded px-2">
                               {enrolledCount}/{session.maxSpots} cupos
                             </span>
                             {isClosedDeadline && !isRegistered && (
-                              <span className="inline-block text-[8px] text-amber-700 bg-amber-50 font-bold rounded px-1.5 border border-amber-200">
+                              <span className="inline-block text-[8px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 font-bold rounded px-1.5 border border-amber-200 dark:border-amber-800">
                                 ⏱️ Cierre &lt;2h
                               </span>
                             )}
                           </div>
                           {session.syllabus && (
-                            <div className="mt-2 bg-indigo-50/70 p-1.5 rounded text-[9.5px] text-indigo-900 border border-indigo-100 text-left line-clamp-2" title={session.syllabus}>
+                            <div className="mt-2 bg-indigo-50/70 dark:bg-indigo-950/40 p-1.5 rounded text-[9.5px] text-indigo-900 dark:text-indigo-200 border border-indigo-100 dark:border-indigo-900 text-left line-clamp-2" title={session.syllabus}>
                               <span className="font-bold">📋 Temario:</span> {session.syllabus}
                             </div>
                           )}
                         </div>
 
                         {isRegistered ? (
-                          <div className="bg-emerald-50 text-emerald-800 rounded-lg text-[9px] font-bold py-1.5 flex items-center justify-center space-x-1 border border-emerald-100">
+                          <div className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 rounded-lg text-[9px] font-bold py-1.5 flex items-center justify-center space-x-1 border border-emerald-100 dark:border-emerald-800">
                             <CheckCircle2 className="h-3 w-3" />
                             <span>Reservado</span>
                           </div>
                         ) : isFull ? (
-                          <div className="bg-red-50 text-red-600 rounded-lg text-[9px] font-bold py-1.5 border border-red-100 select-none">
+                          <div className="bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-300 rounded-lg text-[9px] font-bold py-1.5 border border-red-100 dark:border-red-900 select-none">
                             Lleno
                           </div>
                         ) : isClosedDeadline ? (
                           <div 
-                            className="bg-slate-100 text-slate-400 rounded-lg text-[9px] font-bold py-1.5 border border-slate-200 select-none cursor-not-allowed"
+                            className="bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-lg text-[9px] font-bold py-1.5 border border-slate-200 dark:border-slate-700 select-none cursor-not-allowed"
                             title="El plazo de inscripción cerró porque faltan menos de 2 horas para el inicio de la sesión."
                           >
                             Plazo Cerrado (&lt;2h)
@@ -910,7 +906,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                         ) : (
                           <button
                             onClick={() => handleRegisterSlot(session)}
-                            className="w-full bg-brand-navy hover:bg-slate-900 text-white font-bold text-[10px] py-2 rounded-lg cursor-pointer transition-colors uppercase tracking-wide"
+                            className="w-full bg-[#092c4c] dark:bg-brand-celeste hover:bg-slate-900 dark:hover:bg-sky-400 text-white dark:text-[#092c4c] font-bold text-[10px] py-2 rounded-lg cursor-pointer transition-colors uppercase tracking-wide shadow-xs"
                           >
                             Inscribirse
                           </button>
@@ -926,36 +922,36 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
           {/* B. MY RESERVED ACTIVE SESSIONS VIEW */}
           {activeSegment === 'my_bookings' && (
             <div className="space-y-3">
-              <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider pl-1.5">
+              <h3 className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider pl-1.5">
                 Mis Tutorías y Talleres Reservados
               </h3>
 
               {myActiveBookings.length === 0 ? (
-                <div className="bg-white p-10 rounded-2xl border border-slate-100 text-center space-y-2">
-                  <Clock className="mx-auto h-8 w-8 text-slate-300" />
-                  <h4 className="text-xs font-bold text-slate-600">No tienes reservas activas</h4>
-                  <p className="text-[11px] text-slate-400">Usa el menú arriba para elegir el programa de interés e inscribirte.</p>
+                <div className="bg-white dark:bg-slate-900 p-8 sm:p-10 rounded-2xl border border-slate-100 dark:border-slate-800 text-center space-y-2 transition-colors">
+                  <Clock className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" />
+                  <h4 className="text-xs font-bold text-slate-600 dark:text-slate-300">No tienes reservas activas</h4>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500">Usa el menú arriba para elegir el programa de interés e inscribirte.</p>
                 </div>
               ) : (
                 <div className="space-y-2.5">
                   {myActiveBookings.map(s => {
                     const tutorObj = s.tutorId ? allUsers.find(t => t.id === s.tutorId) : null;
                     return (
-                      <div key={s.id} className="bg-white border border-slate-100 rounded-xl p-4 shadow-xs space-y-3">
+                      <div key={s.id} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl p-4 shadow-xs space-y-3 transition-colors">
                         <div className="flex justify-between items-start">
                           <div>
-                            <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                            <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
                               {s.program === 'tutorias' ? 'Programa Tutorías' : 'Módulo Psicoeducativo'}
                             </span>
-                            <h4 className="text-xs font-bold text-slate-800 leading-snug mt-0.5">{s.title}</h4>
+                            <h4 className="text-xs font-bold text-slate-800 dark:text-white leading-snug mt-0.5">{s.title}</h4>
                           </div>
 
-                          <span className="bg-blue-50 text-brand-navy rounded font-mono font-bold text-[10px] px-2 py-0.5 whitespace-nowrap">
+                          <span className="bg-blue-50 dark:bg-sky-950/60 text-brand-navy dark:text-sky-300 rounded font-mono font-bold text-[10px] px-2 py-0.5 whitespace-nowrap">
                             {s.date}
                           </span>
                         </div>
 
-                        <div className="text-[10px] text-slate-500 space-y-0.5 pt-1 border-t border-slate-50">
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 space-y-0.5 pt-1 border-t border-slate-50 dark:border-slate-800">
                           <p className="flex items-center space-x-1.5">
                             <Clock className="h-3 w-3 text-slate-400 inline mr-1" />
                             <span>Horario: {s.timeSlot}</span>
@@ -965,22 +961,22 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                             <span>Ubicación: {s.location}</span>
                           </p>
                           {tutorObj && (
-                            <div className="bg-indigo-50/70 p-2 rounded-lg border border-indigo-100/80 space-y-0.5">
-                              <p className="flex items-center space-x-1.5 text-indigo-900 font-bold">
+                            <div className="bg-indigo-50/70 dark:bg-indigo-950/40 p-2 rounded-lg border border-indigo-100/80 dark:border-indigo-900 space-y-0.5">
+                              <p className="flex items-center space-x-1.5 text-indigo-900 dark:text-indigo-200 font-bold">
                                 <UserCheck className="h-3 w-3 text-indigo-600 inline mr-1 shrink-0" />
                                 <span>Tutor(a) asignado(a): {tutorObj.name}</span>
                               </p>
-                              <p className="text-[9.5px] text-indigo-700 font-medium pl-4">
+                              <p className="text-[9.5px] text-indigo-700 dark:text-indigo-400 font-medium pl-4">
                                 🎓 {tutorObj.career || 'Tutor Par UFT'}
                               </p>
                             </div>
                           )}
                           {s.syllabus && (
-                            <div className="bg-emerald-50/80 p-2.5 rounded-lg border border-emerald-200/80 mt-1.5 space-y-1">
-                              <span className="text-[10px] font-bold text-emerald-900 flex items-center gap-1 uppercase tracking-wider">
+                            <div className="bg-emerald-50/80 dark:bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-200/80 dark:border-emerald-800 mt-1.5 space-y-1">
+                              <span className="text-[10px] font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1 uppercase tracking-wider">
                                 📋 Cronograma y Temas a Trabajar:
                               </span>
-                              <p className="text-[11px] text-emerald-850 font-normal whitespace-pre-line leading-relaxed pl-1">
+                              <p className="text-[11px] text-emerald-850 dark:text-emerald-200 font-normal whitespace-pre-line leading-relaxed pl-1">
                                 {s.syllabus}
                               </p>
                             </div>
@@ -990,7 +986,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                         <div className="pt-2 flex justify-end">
                           <button
                             onClick={() => handleCancelBooking(s.id)}
-                            className="bg-red-50 hover:bg-red-600 hover:text-white text-red-600 text-[10px] px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer"
+                            className="bg-red-50 dark:bg-red-950/40 hover:bg-red-600 hover:text-white text-red-600 dark:text-red-400 text-[10px] px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer"
                           >
                             Cancelar Inscripción
                           </button>
@@ -1006,25 +1002,25 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
           {/* C. STUDENT HISTORY / RECORD AND HOURS REGISTERED + SATISFACTION EVALUATION */}
           {activeSegment === 'history' && (
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-slate-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-slate-200 dark:border-slate-800">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-white">
                     Historial de Asistencia y Encuesta de Satisfacción
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Revisa tus asistencias y califica la calidad de las tutorías y talleres a los que asististe.
                   </p>
                 </div>
-                <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full self-start sm:self-auto">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full self-start sm:self-auto">
                   {myHistory.length} {myHistory.length === 1 ? 'registro' : 'registros'}
                 </span>
               </div>
 
               {myHistory.length === 0 ? (
-                <div className="bg-white p-10 rounded-2xl border border-slate-100 text-center space-y-2">
-                  <History className="mx-auto h-8 w-8 text-slate-300" />
-                  <h4 className="text-xs font-bold text-slate-600">No hay inasistencias ni registros marcados</h4>
-                  <p className="text-[11px] text-slate-400">
+                <div className="bg-white dark:bg-slate-900 p-8 sm:p-10 rounded-2xl border border-slate-100 dark:border-slate-800 text-center space-y-2 transition-colors">
+                  <History className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" />
+                  <h4 className="text-xs font-bold text-slate-600 dark:text-slate-300">No hay inasistencias ni registros marcados</h4>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500">
                     Una vez que asistas a tus reservas, el tutor o docente marcará tu presente en el sistema y podrás evaluarlo.
                   </p>
                 </div>
@@ -1037,28 +1033,28 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                     const tutorObj = s.tutorId ? allUsers.find(u => u.id === s.tutorId) : null;
 
                     return (
-                      <div key={s.id} className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-sm transition-all space-y-3">
+                      <div key={s.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-xs hover:shadow-sm transition-all space-y-3">
                         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                           <div>
                             <div className="flex items-center gap-2 flex-wrap mb-1">
                               <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase ${
                                 isPresent 
-                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' 
-                                  : 'bg-amber-50 text-amber-800 border border-amber-100'
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-800' 
+                                  : 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-100 dark:border-amber-800'
                               }`}>
                                 {isPresent ? '✓ Asistencia Confirmada' : 'Ausente / No Registrado'}
                               </span>
-                              <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                              <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
                                 {s.program === 'tutorias' ? 'Programa Tutorías' : 'Programa Psicoeducativo'}
                               </span>
                             </div>
 
-                            <h4 className="text-sm font-bold text-[#092c4c] leading-snug">{s.title}</h4>
-                            <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                            <h4 className="text-sm font-bold text-[#092c4c] dark:text-white leading-snug">{s.title}</h4>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
                               📅 {s.date} • ⏰ {s.timeSlot} • 📍 {s.location}
                             </p>
                             {tutorObj && (
-                              <p className="text-[11px] text-[#1e40af] font-semibold mt-0.5 flex items-center gap-1">
+                              <p className="text-[11px] text-[#1e40af] dark:text-sky-400 font-semibold mt-0.5 flex items-center gap-1">
                                 <UserCheck className="w-3.5 h-3.5" />
                                 <span>Tutor(a): {tutorObj.name}</span>
                               </p>
@@ -1068,7 +1064,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                           {/* Satisfaction Badge / Rating Button */}
                           <div className="self-start sm:self-auto shrink-0">
                             {feedback ? (
-                              <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-2.5 text-right space-y-1">
+                              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 rounded-xl p-2.5 text-right space-y-1">
                                 <div className="flex items-center justify-end gap-1">
                                   {[1, 2, 3, 4, 5].map(starNum => (
                                     <Star
@@ -1076,18 +1072,18 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                                       className={`w-3.5 h-3.5 ${
                                         starNum <= feedback.rating
                                           ? 'text-amber-400 fill-amber-400'
-                                          : 'text-slate-300'
+                                          : 'text-slate-300 dark:text-slate-600'
                                       }`}
                                     />
                                   ))}
-                                  <span className="text-xs font-bold text-amber-900 ml-1">
+                                  <span className="text-xs font-bold text-amber-900 dark:text-amber-300 ml-1">
                                     {feedback.rating}.0
                                   </span>
                                 </div>
                                 <button
                                   type="button"
                                   onClick={() => handleOpenEvaluationModal(s)}
-                                  className="text-[10px] text-amber-700 hover:text-amber-900 underline font-bold cursor-pointer block"
+                                  className="text-[10px] text-amber-700 dark:text-amber-400 hover:text-amber-900 underline font-bold cursor-pointer block"
                                 >
                                   Modificar mi evaluación (12 preguntas)
                                 </button>
@@ -1106,29 +1102,29 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                         </div>
 
                         {/* Cronograma / Temario Desplegable */}
-                        <div className="pt-2 border-t border-slate-100">
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
                           <button
                             type="button"
                             onClick={() => toggleHistorySyllabus(s.id)}
-                            className="w-full flex items-center justify-between px-3.5 py-2 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200/70 transition text-xs font-semibold text-slate-700 cursor-pointer select-none"
+                            className="w-full flex items-center justify-between px-3.5 py-2 bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100/80 dark:hover:bg-slate-800 rounded-xl border border-slate-200/70 dark:border-slate-700 transition text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none"
                           >
                             <div className="flex items-center gap-2">
-                              <BookOpen className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                              <span className="font-bold text-[#092c4c]">Cronograma y Temario</span>
+                              <BookOpen className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                              <span className="font-bold text-[#092c4c] dark:text-slate-200">Cronograma y Temario</span>
                               {s.syllabus && s.syllabus.trim().length > 0 ? (
-                                <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                                   Disponible
                                 </span>
                               ) : (
-                                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-200 text-slate-600">
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400">
                                   Sin temario cargado
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-1 text-[11px] text-slate-500 font-medium">
+                            <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                               <span>{expandedHistorySyllabusIds[s.id] ? 'Ocultar' : 'Ver temario'}</span>
                               {expandedHistorySyllabusIds[s.id] ? (
-                                <ChevronUp className="w-3.5 h-3.5 text-indigo-600" />
+                                <ChevronUp className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                               ) : (
                                 <ChevronDown className="w-3.5 h-3.5" />
                               )}
@@ -1136,17 +1132,17 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                           </button>
 
                           {expandedHistorySyllabusIds[s.id] && (
-                            <div className="mt-2 p-3.5 bg-indigo-50/60 border border-indigo-150 rounded-xl space-y-1.5 animate-fade-in text-xs">
-                              <div className="flex items-center gap-1.5 text-indigo-950 font-bold text-[11px]">
-                                <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                            <div className="mt-2 p-3.5 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-150 dark:border-indigo-900 rounded-xl space-y-1.5 animate-fade-in text-xs">
+                              <div className="flex items-center gap-1.5 text-indigo-950 dark:text-indigo-200 font-bold text-[11px]">
+                                <BookOpen className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                                 <span>Plan de Trabajo y Contenidos de la Clase:</span>
                               </div>
                               {s.syllabus && s.syllabus.trim().length > 0 ? (
-                                <p className="text-slate-700 whitespace-pre-line leading-relaxed italic bg-white p-3 rounded-lg border border-indigo-100 text-[11px]">
+                                <p className="text-slate-700 dark:text-slate-200 whitespace-pre-line leading-relaxed italic bg-white dark:bg-slate-900 p-3 rounded-lg border border-indigo-100 dark:border-indigo-950 text-[11px]">
                                   "{s.syllabus}"
                                 </p>
                               ) : (
-                                <p className="text-slate-500 italic bg-white/60 p-2.5 rounded-lg border border-slate-200 text-[11px]">
+                                <p className="text-slate-500 dark:text-slate-400 italic bg-white/60 dark:bg-slate-900/60 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-[11px]">
                                   El tutor no ingresó un temario o cronograma específico para esta sesión.
                                 </p>
                               )}
@@ -1156,12 +1152,12 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
                         {/* If feedback was provided, display student comment */}
                         {feedback && feedback.comment && (
-                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-700 space-y-1">
-                            <div className="flex items-center gap-1.5 text-slate-400 text-[10px] font-bold uppercase">
+                          <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 space-y-1">
+                            <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase">
                               <MessageSquare className="w-3 h-3" />
                               <span>Tu comentario:</span>
                             </div>
-                            <p className="italic text-slate-600 break-words whitespace-pre-wrap">
+                            <p className="italic text-slate-600 dark:text-slate-300 break-words whitespace-pre-wrap">
                               "{feedback.comment}"
                             </p>
                           </div>
@@ -1177,17 +1173,17 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
           {/* D. STUDENT INCONVENIENTES & MESSAGES SECTOR */}
           {activeSegment === 'inconvenientes' && (
             <div className="space-y-4">
-              <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-xs space-y-4">
-                <div className="flex items-center space-x-2 pb-2 border-b border-slate-100">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-6 border border-slate-100 dark:border-slate-800 shadow-xs space-y-4 transition-colors">
+                <div className="flex items-center space-x-2 pb-2 border-b border-slate-100 dark:border-slate-800">
                   <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
                   <div>
-                    <h3 className="text-sm font-bold text-slate-800">Avisar Inconveniente Horario o Clase Especial</h3>
-                    <p className="text-[10px] text-slate-400">Si un bloque predeterminado de tutoría/taller presenta tope académico con tus ramos de pregrado, envía un aviso formal para planificar una sesión de apoyo flexible individual.</p>
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-white">Avisar Inconveniente Horario o Clase Especial</h3>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-400">Si un bloque predeterminado de tutoría/taller presenta tope académico con tus ramos de pregrado, envía un aviso formal para planificar una sesión de apoyo flexible individual.</p>
                   </div>
                 </div>
 
                 {formFeedback && (
-                  <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-150 rounded-xl text-xs font-semibold animate-fade-in flex items-center space-x-1.5">
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border border-emerald-150 dark:border-emerald-800 rounded-xl text-xs font-semibold animate-fade-in flex items-center space-x-1.5">
                     <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                     <span>{formFeedback}</span>
                   </div>
@@ -1316,14 +1312,14 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                       <button
                         type="button"
                         onClick={() => setReqProgram('tutorias')}
-                        className={`py-2 px-3 rounded-xl border text-xs font-bold text-center transition-colors ${reqProgram === 'tutorias' ? 'bg-[#092c4c] text-white border-[#092c4c]' : 'bg-white text-slate-650 border-slate-205 hover:bg-slate-50'}`}
+                        className={`py-2 px-3 rounded-xl border text-xs font-bold text-center transition-colors ${reqProgram === 'tutorias' ? 'bg-[#092c4c] dark:bg-brand-celeste text-white dark:text-[#092c4c] border-[#092c4c] dark:border-brand-celeste' : 'bg-white dark:bg-slate-800 text-slate-650 dark:text-slate-300 border-slate-205 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                       >
                         Programa de Tutorías UFT
                       </button>
                       <button
                         type="button"
                         onClick={() => setReqProgram('psicoeducativo')}
-                        className={`py-2 px-3 rounded-xl border text-xs font-bold text-center transition-colors ${reqProgram === 'psicoeducativo' ? 'bg-[#3a9ad9] text-[#092c4c] border-[#3a9ad9]' : 'bg-white text-slate-650 border-slate-205 hover:bg-slate-50'}`}
+                        className={`py-2 px-3 rounded-xl border text-xs font-bold text-center transition-colors ${reqProgram === 'psicoeducativo' ? 'bg-[#3a9ad9] text-[#092c4c] border-[#3a9ad9]' : 'bg-white dark:bg-slate-800 text-slate-650 dark:text-slate-300 border-slate-205 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                       >
                         Apoyo / Taller Psicoeducativo
                       </button>
@@ -1331,44 +1327,44 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                   </div>
 
                   <div>
-                    <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Escribe tu Mensaje de Inconveniente</label>
+                    <label className="block text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 mb-1">Escribe tu Mensaje de Inconveniente</label>
                     <textarea
                       required
                       placeholder="Ej: Tengo tope con el horario de matemática los martes. Solicito realizar la tutoría en un horario alternativo individual debido a que asisto a laboratorio obligatorio."
                       value={reqMessage}
                       onChange={(e) => setReqMessage(e.target.value)}
-                      className="w-full text-xs p-3 border border-slate-200 rounded-xl focus:border-[#3a9ad9] focus:outline-none h-20 resize-none font-medium bg-slate-50/50"
+                      className="w-full text-xs p-3 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[#3a9ad9] focus:outline-none h-20 resize-none font-medium bg-slate-50/50 dark:bg-slate-800 dark:text-white"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Tus Horarios Propuestos (Flexibilidad)</label>
+                    <label className="block text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 mb-1">Tus Horarios Propuestos (Flexibilidad)</label>
                     <input
                       type="text"
                       required
                       placeholder="Ej: Miércoles módulo 15:00 - 16:30 o Viernes 09:00 - 10:30"
                       value={reqPreferredTime}
                       onChange={(e) => setReqPreferredTime(e.target.value)}
-                      className="w-full text-xs p-3 border border-slate-200 rounded-xl focus:focus:border-[#3a9ad9] focus:outline-none font-medium bg-slate-50/50"
+                      className="w-full text-xs p-3 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[#3a9ad9] focus:outline-none font-medium bg-slate-50/50 dark:bg-slate-800 dark:text-white"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full bg-[#092c4c] hover:bg-slate-900 text-white font-bold text-xs py-2.5 rounded-xl cursor-pointer transition-colors flex items-center justify-center space-x-2"
+                    className="w-full bg-[#092c4c] dark:bg-brand-celeste hover:bg-slate-900 dark:hover:bg-sky-400 text-white dark:text-[#092c4c] font-bold text-xs py-2.5 rounded-xl cursor-pointer transition-colors flex items-center justify-center space-x-2 shadow-xs"
                   >
-                    <Send className="h-4 w-4 text-[#3a9ad9]" />
+                    <Send className="h-4 w-4 text-[#3a9ad9] dark:text-[#092c4c]" />
                     <span>Enviar Notificación al Docente</span>
                   </button>
                 </form>
               </div>
 
               {/* Request log / Registro de clases individualizadas */}
-              <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-xs space-y-4">
-                <h4 className="text-xs font-bold text-[#092c4c] uppercase tracking-wider">Tus Reportes de Coincidencias y Clases Programadas</h4>
+              <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-6 border border-slate-100 dark:border-slate-800 shadow-xs space-y-4 transition-colors">
+                <h4 className="text-xs font-bold text-[#092c4c] dark:text-white uppercase tracking-wider">Tus Reportes de Coincidencias y Clases Programadas</h4>
                 
                 {myRequests.length === 0 ? (
-                  <p className="text-center text-xs text-slate-400 py-6">No has enviado avisos sobre inconvenientes.</p>
+                  <p className="text-center text-xs text-slate-400 dark:text-slate-500 py-6">No has enviado avisos sobre inconvenientes.</p>
                 ) : (
                   <div className="space-y-3">
                     {myRequests.map(r => {
@@ -1377,27 +1373,27 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                         : null;
 
                       return (
-                        <div key={r.id} className="border border-slate-100 rounded-xl p-4 bg-slate-50/20 space-y-2">
+                        <div key={r.id} className="border border-slate-100 dark:border-slate-800 rounded-xl p-4 bg-slate-50/20 dark:bg-slate-800/40 space-y-2">
                           <div className="flex justify-between items-start">
-                            <span className={`px-2 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-widest ${r.program === 'tutorias' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-widest ${r.program === 'tutorias' ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900' : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-100 dark:border-amber-900'}`}>
                               {r.program === 'tutorias' ? 'Programa Tutorías' : 'Psicoeducativo'}
                             </span>
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${r.status === 'resuelto' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${r.status === 'resuelto' ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300' : 'bg-yellow-100 dark:bg-yellow-950/70 text-yellow-800 dark:text-yellow-300'}`}>
                               {r.status === 'resuelto' ? 'Clase Efectuada / Asignada' : 'Aviso Pendiente de Revisión'}
                             </span>
                           </div>
 
-                          <p className="text-xs text-slate-700 italic font-medium">"{r.message}"</p>
-                          <p className="text-[10px] text-slate-400 font-bold">Horario propuesto: <strong className="text-slate-600">{r.preferredTime}</strong></p>
+                          <p className="text-xs text-slate-700 dark:text-slate-200 italic font-medium">"{r.message}"</p>
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold">Horario propuesto: <strong className="text-slate-600 dark:text-slate-300">{r.preferredTime}</strong></p>
 
                           {r.status === 'resuelto' && linkedSession && (
-                            <div className="mt-2.5 pt-2.5 border-t border-dashed border-emerald-200 bg-emerald-50/25 p-3 rounded-lg border border-emerald-100 space-y-1">
-                              <span className="text-[9px] uppercase font-extrabold text-[#059669] block">Registro Oficial Clase Efectuada / Coordinada:</span>
-                              <h5 className="text-xs font-bold text-slate-800">{linkedSession.title}</h5>
-                              <div className="text-[10px] text-slate-500 flex flex-wrap gap-x-4">
-                                <span>Fecha: <strong>{linkedSession.date}</strong></span>
-                                <span>Módulo: <strong>{linkedSession.timeSlot}</strong></span>
-                                <span>Espacio: <strong>{linkedSession.location}</strong></span>
+                            <div className="mt-2.5 pt-2.5 border-t border-dashed border-emerald-200 dark:border-emerald-800 bg-emerald-50/25 dark:bg-emerald-950/30 p-3 rounded-lg border border-emerald-100 dark:border-emerald-800 space-y-1">
+                              <span className="text-[9px] uppercase font-extrabold text-[#059669] dark:text-emerald-400 block">Registro Oficial Clase Efectuada / Coordinada:</span>
+                              <h5 className="text-xs font-bold text-slate-800 dark:text-white">{linkedSession.title}</h5>
+                              <div className="text-[10px] text-slate-500 dark:text-slate-400 flex flex-wrap gap-x-4">
+                                <span>Fecha: <strong className="text-slate-700 dark:text-slate-200">{linkedSession.date}</strong></span>
+                                <span>Módulo: <strong className="text-slate-700 dark:text-slate-200">{linkedSession.timeSlot}</strong></span>
+                                <span>Espacio: <strong className="text-slate-700 dark:text-slate-200">{linkedSession.location}</strong></span>
                               </div>
                               <span className="inline-block mt-1.5 text-[9px] bg-emerald-600 text-white font-bold px-2 py-0.5 rounded uppercase">
                                 Registro de Clase Completo
@@ -1418,7 +1414,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       </div>
 
         {/* Status Bar / Footer matching mockup */}
-        <footer className="h-10 bg-[#f1f5f9] border-t border-slate-100 flex items-center justify-between px-6 md:px-8 text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-auto shrink-0 select-none">
+        <footer className="h-10 bg-[#f1f5f9] dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between px-6 md:px-8 text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mt-auto shrink-0 select-none transition-colors">
           <div>Portal del Estudiante | Trayectoria Estudiantil UFT</div>
           <div className="flex gap-4">
             <span className="flex items-center gap-1">
@@ -1437,11 +1433,11 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
           onClick={() => setShowNotifInbox(false)}
         >
           <div 
-            className="bg-white rounded-2xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[85vh] animate-scale-up"
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-xl w-full border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[85vh] animate-scale-up"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="bg-[#092c4c] text-white px-6 py-4 flex items-center justify-between shrink-0">
+            <div className="bg-[#092c4c] dark:bg-slate-950 text-white px-6 py-4 flex items-center justify-between shrink-0 border-b border-white/10">
               <div className="flex items-center space-x-3">
                 <div className="w-9 h-9 rounded-xl bg-[#3a9ad9] flex items-center justify-center text-[#092c4c] font-bold shadow-sm">
                   <Bell className="w-5 h-5" />
@@ -1460,7 +1456,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
             </div>
 
             {/* Actions Bar & Timeframe Filter */}
-            <div className="bg-slate-50 px-6 py-3 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs shrink-0">
+            <div className="bg-slate-50 dark:bg-slate-800/80 px-6 py-3 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs shrink-0">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-slate-700">Mostrar:</span>
                 <div className="inline-flex rounded-lg p-0.5 bg-slate-200/80 border border-slate-300">
@@ -1790,9 +1786,10 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       {/* Barra de Navegación Inferior para Celulares / Mobile Responsive */}
       <nav 
         aria-label="Navegación móvil"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#092c4c] border-t border-[#153a5c] px-6 py-2.5 shadow-2xl flex items-center justify-around backdrop-blur-md bg-opacity-95"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#092c4c] dark:bg-slate-900/98 border-t border-[#153a5c] dark:border-slate-800 px-2 py-1.5 shadow-2xl flex items-center justify-around backdrop-blur-md transition-colors"
         style={{ paddingBottom: 'max(0.6rem, env(safe-area-inset-bottom))' }}
       >
+        {/* 1. Tutorías */}
         <button
           type="button"
           onClick={() => {
@@ -1801,23 +1798,91 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
             const mainElem = document.getElementById('student-main-panel-workspace');
             if (mainElem) mainElem.scrollTo({ top: 0, behavior: 'smooth' });
           }}
-          className={`flex flex-col items-center justify-center py-1 px-5 rounded-2xl transition-all cursor-pointer ${
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer flex-1 ${
             activeSegment === 'tutorias'
-              ? 'text-white bg-[#153a5c] font-bold shadow-inner'
-              : 'text-slate-300 hover:text-white font-medium'
+              ? 'text-brand-celeste font-bold'
+              : 'text-slate-400 hover:text-white font-medium'
           }`}
         >
-          <Home className="w-5 h-5 mb-1 text-[#3a9ad9]" />
-          <span className="text-[11px]">Inicio</span>
+          <Award className={`w-4 h-4 mb-0.5 ${activeSegment === 'tutorias' ? 'text-brand-celeste' : 'text-slate-400'}`} />
+          <span className="text-[10px] leading-tight">Tutorías</span>
         </button>
 
+        {/* 2. Talleres */}
         <button
           type="button"
-          onClick={() => setIsQRScannerOpen(true)}
-          className="flex flex-col items-center justify-center py-1.5 px-6 rounded-2xl text-[#092c4c] font-extrabold transition-all cursor-pointer bg-gradient-to-r from-[#3a9ad9] to-[#38bdf8] hover:brightness-110 shadow-lg active:scale-95"
+          onClick={() => {
+            setActiveSegment('psicoeducativo');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            const mainElem = document.getElementById('student-main-panel-workspace');
+            if (mainElem) mainElem.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer flex-1 ${
+            activeSegment === 'psicoeducativo'
+              ? 'text-brand-celeste font-bold'
+              : 'text-slate-400 hover:text-white font-medium'
+          }`}
         >
-          <QrCode className="w-5 h-5 mb-0.5 text-[#092c4c]" />
-          <span className="text-[11px]">Escanear QR</span>
+          <BookOpen className={`w-4 h-4 mb-0.5 ${activeSegment === 'psicoeducativo' ? 'text-brand-celeste' : 'text-slate-400'}`} />
+          <span className="text-[10px] leading-tight">Talleres</span>
+        </button>
+
+        {/* 3. Escanear QR (Botón Central Destacado) */}
+        <div className="flex flex-col items-center justify-center -mt-5 px-1.5 z-50">
+          <button
+            type="button"
+            onClick={() => setIsQRScannerOpen(true)}
+            className="flex items-center justify-center w-12 h-12 rounded-full text-white bg-gradient-to-tr from-[#3a9ad9] via-[#0284c7] to-[#38bdf8] shadow-lg shadow-sky-500/30 border-[3px] border-[#092c4c] dark:border-slate-900 active:scale-90 transition-all cursor-pointer hover:brightness-110"
+            title="Escanear Código QR de Asistencia"
+          >
+            <QrCode className="w-6 h-6 text-white" />
+          </button>
+          <span className="text-[9px] font-extrabold text-brand-celeste mt-0.5">QR</span>
+        </div>
+
+        {/* 4. Mis Reservas */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveSegment('my_bookings');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            const mainElem = document.getElementById('student-main-panel-workspace');
+            if (mainElem) mainElem.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer flex-1 relative ${
+            activeSegment === 'my_bookings'
+              ? 'text-brand-celeste font-bold'
+              : 'text-slate-400 hover:text-white font-medium'
+          }`}
+        >
+          <div className="relative">
+            <Grid className={`w-4 h-4 mb-0.5 ${activeSegment === 'my_bookings' ? 'text-brand-celeste' : 'text-slate-400'}`} />
+            {myActiveBookings.length > 0 && (
+              <span className="absolute -top-1 -right-2 bg-amber-500 text-white rounded-full w-3.5 h-3.5 text-[8px] font-bold flex items-center justify-center">
+                {myActiveBookings.length}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] leading-tight">Reservas</span>
+        </button>
+
+        {/* 5. Historial */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveSegment('history');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            const mainElem = document.getElementById('student-main-panel-workspace');
+            if (mainElem) mainElem.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer flex-1 ${
+            activeSegment === 'history'
+              ? 'text-brand-celeste font-bold'
+              : 'text-slate-400 hover:text-white font-medium'
+          }`}
+        >
+          <History className={`w-4 h-4 mb-0.5 ${activeSegment === 'history' ? 'text-brand-celeste' : 'text-slate-400'}`} />
+          <span className="text-[10px] leading-tight">Historial</span>
         </button>
       </nav>
 
