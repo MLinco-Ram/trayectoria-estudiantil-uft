@@ -156,7 +156,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       const sRes = await fetch('/api/sessions');
       if (sRes.ok) {
         const sessionsFromApi = await sRes.json();
-        if (Array.isArray(sessionsFromApi) && sessionsFromApi.length > 0) {
+        if (Array.isArray(sessionsFromApi)) {
           setSessions(sessionsFromApi);
           saveSessions(sessionsFromApi);
         }
@@ -170,7 +170,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       const repRes = await fetch('/api/reports');
       if (repRes.ok) {
         const reportsFromApi = await repRes.json();
-        if (Array.isArray(reportsFromApi) && reportsFromApi.length > 0) {
+        if (Array.isArray(reportsFromApi)) {
           setReports(reportsFromApi);
           saveReports(reportsFromApi);
         }
@@ -185,7 +185,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       const uRes = await fetch('/api/users');
       if (uRes.ok) {
         const usersFromApi = await uRes.json();
-        if (Array.isArray(usersFromApi) && usersFromApi.length > 0) {
+        if (Array.isArray(usersFromApi)) {
           currentUsers = usersFromApi;
           saveUsers(usersFromApi);
         }

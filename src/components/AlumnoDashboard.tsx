@@ -320,13 +320,9 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         if (notifRes.ok) {
           const notifsFromApi = await notifRes.json();
           if (Array.isArray(notifsFromApi)) {
-            // Unir y ordenar por fecha descendente
-            const map = new Map();
-            localNotifs.forEach(n => map.set(n.id, n));
-            notifsFromApi.forEach((n: WebNotification) => map.set(n.id, n));
-            const merged = Array.from(map.values()).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-            setNotifications(merged);
-            saveNotifications(merged);
+            const sorted = notifsFromApi.sort((a: WebNotification, b: WebNotification) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            setNotifications(sorted);
+            saveNotifications(sorted);
           }
         }
       }
@@ -340,7 +336,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       const uRes = await fetch('/api/users');
       if (uRes.ok) {
         const usersFromApi = await uRes.json();
-        if (Array.isArray(usersFromApi) && usersFromApi.length > 0) {
+        if (Array.isArray(usersFromApi)) {
           currentUsers = usersFromApi;
           saveUsers(usersFromApi);
         }
@@ -362,7 +358,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       const rRes = await fetch('/api/student-requests');
       if (rRes.ok) {
         const reqsFromApi = await rRes.json();
-        if (Array.isArray(reqsFromApi) && reqsFromApi.length > 0) {
+        if (Array.isArray(reqsFromApi)) {
           saveStudentRequests(reqsFromApi);
           setMyRequests(reqsFromApi.filter((r: StudentRequest) => r.studentId === user.id));
         }
@@ -375,7 +371,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       const res = await fetch('/api/sessions');
       if (res.ok) {
         const sessionsFromApi = await res.json();
-        if (Array.isArray(sessionsFromApi) && sessionsFromApi.length > 0) {
+        if (Array.isArray(sessionsFromApi)) {
           setSessions(sessionsFromApi);
           saveSessions(sessionsFromApi);
         }
