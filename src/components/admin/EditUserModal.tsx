@@ -1,6 +1,6 @@
 import React from 'react';
-import { User } from '../../types';
-import { Edit3, X, Save, Lock, Briefcase, Mail, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { User, Role } from '../../types';
+import { Edit3, X, Save, Lock, Briefcase, Mail, CheckCircle2, AlertTriangle, Shield } from 'lucide-react';
 import { formatRut } from '../../data';
 
 interface EditUserModalProps {
@@ -15,6 +15,10 @@ interface EditUserModalProps {
   setEditCareer: (v: string) => void;
   editPassword: string;
   setEditPassword: (v: string) => void;
+  editRoles: Role[];
+  setEditRoles: React.Dispatch<React.SetStateAction<Role[]>>;
+  editTutorType: 'tutor_par' | 'tutor_de_tutores';
+  setEditTutorType: (v: 'tutor_par' | 'tutor_de_tutores') => void;
   isUpdatingUser: boolean;
   editFeedback: { status: 'success' | 'error'; message: string } | null;
   onClose: () => void;
@@ -33,35 +37,50 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
   setEditCareer,
   editPassword,
   setEditPassword,
+  editRoles,
+  setEditRoles,
+  editTutorType,
+  setEditTutorType,
   isUpdatingUser,
   editFeedback,
   onClose,
   onSave,
 }) => {
+  const toggleRole = (roleToToggle: Role) => {
+    setEditRoles(prev => {
+      if (prev.includes(roleToToggle)) {
+        if (prev.length === 1) return prev; // Mantener al menos 1 rol
+        return prev.filter(r => r !== roleToToggle);
+      } else {
+        return [...prev, roleToToggle];
+      }
+    });
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
-        <div className="bg-[#092c4c] px-6 py-5 flex items-center justify-between text-white">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+        <div className="bg-[#092c4c] px-6 py-4 flex items-center justify-between text-white shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-[#3a9ad9]/20 rounded-lg text-[#3a9ad9]">
               <Edit3 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-lg leading-tight">
-                Editar {editingUser.role === 'docente' ? 'Docente / Cargo' : editingUser.role === 'tutor' ? 'Tutor Par' : 'Estudiante'}
+              <h3 className="font-bold text-base leading-tight">
+                Editar Usuario {editRoles.length > 1 && <span className="text-xs bg-[#3a9ad9] text-[#092c4c] px-2 py-0.5 rounded-full font-black ml-1">Multi-rol</span>}
               </h3>
               <p className="text-xs text-slate-300">ID: {editingUser.id}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-300 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
+            className="text-slate-300 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={onSave} className="p-6 space-y-4">
+        <form onSubmit={onSave} className="p-6 space-y-4 overflow-y-auto flex-1">
           {editFeedback && (
             <div className={`p-3.5 rounded-xl text-sm flex items-center gap-2.5 ${
               editFeedback.status === 'success' 
@@ -72,6 +91,88 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
               <span>{editFeedback.message}</span>
             </div>
           )}
+
+          {/* Configuración Multi-rol */}
+          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+              Roles Asignados (Configuración Multi-rol)
+            </label>
+            <p className="text-[11px] text-slate-500">
+              Puedes marcar múltiples roles para que el usuario elija su panel de acceso al iniciar sesión.
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <label className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition text-xs font-semibold ${
+                editRoles.includes('alumno') 
+                  ? 'bg-sky-50 border-[#3a9ad9] text-[#092c4c]' 
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={editRoles.includes('alumno')}
+                  onChange={() => toggleRole('alumno')}
+                  className="rounded text-[#3a9ad9] focus:ring-[#3a9ad9]"
+                />
+                <span>🎓 Alumno</span>
+              </label>
+
+              <label className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition text-xs font-semibold ${
+                editRoles.includes('tutor') 
+                  ? 'bg-emerald-50 border-emerald-500 text-emerald-900' 
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={editRoles.includes('tutor')}
+                  onChange={() => toggleRole('tutor')}
+                  className="rounded text-emerald-600 focus:ring-emerald-500"
+                />
+                <span>🧑‍🏫 Tutor Par</span>
+              </label>
+
+              <label className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition text-xs font-semibold ${
+                editRoles.includes('docente') 
+                  ? 'bg-indigo-50 border-indigo-500 text-indigo-900' 
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={editRoles.includes('docente')}
+                  onChange={() => toggleRole('docente')}
+                  className="rounded text-indigo-600 focus:ring-indigo-500"
+                />
+                <span>👨‍🏫 Docente Coord.</span>
+              </label>
+
+              <label className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition text-xs font-semibold ${
+                editRoles.includes('admin') 
+                  ? 'bg-amber-50 border-amber-500 text-amber-900' 
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={editRoles.includes('admin')}
+                  onChange={() => toggleRole('admin')}
+                  className="rounded text-amber-600 focus:ring-amber-500"
+                />
+                <span>🛡️ Admin TI</span>
+              </label>
+            </div>
+
+            {editRoles.includes('tutor') && (
+              <div className="mt-2 pt-2 border-t border-slate-200 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700">Subtipo de Tutor:</span>
+                <select
+                  value={editTutorType}
+                  onChange={(e) => setEditTutorType(e.target.value as any)}
+                  className="text-xs font-semibold rounded-lg border border-slate-300 p-1.5 bg-white text-slate-800"
+                >
+                  <option value="tutor_par">Tutor Par Estándar</option>
+                  <option value="tutor_de_tutores">Tutor de Tutores (Coordinador)</option>
+                </select>
+              </div>
+            )}
+          </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
@@ -101,7 +202,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                {editingUser.role === 'docente' ? 'Cargo / Rol' : 'Carrera'}
+                {editRoles.includes('docente') ? 'Cargo / Rol' : 'Carrera'}
               </label>
               <div className="relative">
                 <Briefcase className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
@@ -152,14 +253,14 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 px-4 rounded-xl border border-slate-300 text-slate-700 font-semibold text-sm hover:bg-slate-50 transition"
+              className="flex-1 py-2.5 px-4 rounded-xl border border-slate-300 text-slate-700 font-semibold text-sm hover:bg-slate-50 transition cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isUpdatingUser}
-              className="flex-1 py-2.5 px-4 rounded-xl bg-[#092c4c] text-white font-semibold text-sm hover:bg-[#0c3c66] transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+              className="flex-1 py-2.5 px-4 rounded-xl bg-[#092c4c] text-white font-semibold text-sm hover:bg-[#0c3c66] transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer"
             >
               <Save className="w-4 h-4" />
               {isUpdatingUser ? 'Guardando...' : 'Guardar Cambios'}

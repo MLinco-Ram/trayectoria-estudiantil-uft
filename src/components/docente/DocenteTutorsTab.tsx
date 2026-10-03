@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { User, TutorType } from '../../types';
-import { BookOpen, UserPlus, Search, Edit3, Trash2, GraduationCap, CheckCircle2, AlertTriangle, Lock, Mail, ShieldCheck, Users, UserCheck, ArrowRight, Sparkles } from 'lucide-react';
+import { User, TutorType, Role } from '../../types';
+import { BookOpen, UserPlus, Search, Edit3, Trash2, GraduationCap, CheckCircle2, AlertTriangle, Lock, Mail, ShieldCheck, Users, UserCheck, ArrowRight, Sparkles, Layers, X, UserCheck2 } from 'lucide-react';
 import { formatRut, getSavedUsers, saveUsers } from '../../data';
 import { usersApi } from '../../services/api';
 
@@ -24,6 +24,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
   const [newTutorType, setNewTutorType] = useState<TutorType>('tutor_par');
   const [tutorFeedback, setTutorFeedback] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
   const [isSubmittingTutor, setIsSubmittingTutor] = useState(false);
+  const [dismissedRut, setDismissedRut] = useState<string>('');
 
   // Edit Modal State
   const [editingTutor, setEditingTutor] = useState<User | null>(null);
@@ -33,6 +34,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
   const [editCareer, setEditCareer] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [editTutorType, setEditTutorType] = useState<TutorType>('tutor_par');
+  const [editRoles, setEditRoles] = useState<Role[]>(['tutor']);
 
   // Assignment Management State (Docente asignando tutores pares a un Tutor de Tutores)
   const [selectedLeadTutorId, setSelectedLeadTutorId] = useState<string>('');
@@ -40,7 +42,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
   const [isSavingAssignments, setIsSavingAssignments] = useState(false);
   const [assignmentFeedback, setAssignmentFeedback] = useState<string | null>(null);
 
-  const tutores = allUsers.filter(u => u.role === 'tutor');
+  const tutores = allUsers.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor'))));
   const leadTutores = tutores.filter(u => u.tutorType === 'tutor_de_tutores');
   const peerTutores = tutores.filter(u => u.tutorType !== 'tutor_de_tutores');
 
@@ -58,6 +60,54 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
     }
   }, [leadTutores.length, currentLeadTutor?.id]);
 
+  const cleanEnteredRut = newTutorRut.replace(/[\.\-]/g, '').trim().toLowerCase();
+  const detectedExistingUser = (cleanEnteredRut.length === 9 && cleanEnteredRut !== dismissedRut)
+    ? allUsers.find(u => (u.rut || '').replace(/[\.\-]/g, '').trim().toLowerCase() === cleanEnteredRut) 
+    : null;
+
+  const handlePromoteExistingUser = async (userToPromote: User) => {
+    setIsSubmittingTutor(true);
+    setTutorFeedback(null);
+    const currentRoles: Role[] = Array.isArray(userToPromote.roles) && userToPromote.roles.length > 0 
+      ? userToPromote.roles 
+      : [userToPromote.role || 'alumno'];
+    const updatedRoles: Role[] = currentRoles.includes('tutor') ? currentRoles : [...currentRoles, 'tutor'];
+    
+    const updatePayload: any = {
+      role: 'tutor',
+      roles: updatedRoles,
+      tutorType: newTutorType,
+      career: newTutorCareer.trim() || userToPromote.career,
+    };
+
+    try {
+      await usersApi.updateUser(userToPromote.id, updatePayload);
+      const updated = allUsers.map(u => u.id === userToPromote.id ? { ...u, ...updatePayload } : u);
+      setAllUsers(updated);
+      saveUsers(updated);
+
+      setTutorFeedback({
+        status: 'success',
+        message: `¡Se asignó el rol de Tutor a "${userToPromote.name}" manteniendo su perfil multi-rol!`
+      });
+
+      setNewTutorName('');
+      setNewTutorRut('');
+      setNewTutorEmail('');
+      setNewTutorPassword('123');
+      setNewTutorType('tutor_par');
+      setDismissedRut('');
+    } catch (err: any) {
+      setTutorFeedback({
+        status: 'error',
+        message: `Error al actualizar roles: ${err.message}`
+      });
+    } finally {
+      setIsSubmittingTutor(false);
+      setTimeout(() => onReload(), 600);
+    }
+  };
+
   const handleCreateTutor = async (e: React.FormEvent) => {
     e.preventDefault();
     setTutorFeedback(null);
@@ -73,6 +123,11 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       return;
     }
 
+    if (detectedExistingUser) {
+      await handlePromoteExistingUser(detectedExistingUser);
+      return;
+    }
+
     setIsSubmittingTutor(true);
 
     const newTutorUser: User = {
@@ -80,6 +135,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       name: newTutorName.trim(),
       rut: newTutorRut.trim(),
       role: 'tutor',
+      roles: ['tutor'],
       tutorType: newTutorType,
       assignedTutorIds: newTutorType === 'tutor_de_tutores' ? [] : undefined,
       email: newTutorEmail.trim().toLowerCase(),
@@ -122,12 +178,20 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
     e.preventDefault();
     if (!editingTutor) return;
 
-    const payload: Partial<User> = {
+    if (!editRoles || editRoles.length === 0) {
+      alert('Debe asignar al menos un rol al tutor.');
+      return;
+    }
+
+    const primaryRole = editRoles[0] || 'tutor';
+    const payload: any = {
       name: editName.trim(),
       rut: editRut.trim(),
       email: editEmail.trim().toLowerCase(),
       career: editCareer.trim(),
-      tutorType: editTutorType,
+      role: primaryRole,
+      roles: editRoles,
+      tutorType: editRoles.includes('tutor') ? editTutorType : undefined,
     };
     if (editPassword.trim()) {
       payload.password = editPassword.trim();
@@ -362,7 +426,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                 className="w-full py-2 px-4 bg-[#3a9ad9] text-white rounded-xl text-xs font-bold hover:bg-[#2b83bd] transition disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
                 <UserPlus className="w-4 h-4" />
-                <span>{isSubmittingTutor ? 'Registrando...' : 'Guardar Tutor'}</span>
+                <span>{isSubmittingTutor ? 'Registrando...' : (detectedExistingUser ? 'Promover a Tutor' : 'Guardar Tutor')}</span>
               </button>
             </div>
           </div>
@@ -545,6 +609,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
               <tr>
                 <th className="py-3 px-5">Tutor / Carrera</th>
                 <th className="py-3 px-4">Tipo de Tutor</th>
+                <th className="py-3 px-4">Roles Habilitados</th>
                 <th className="py-3 px-4">RUT</th>
                 <th className="py-3 px-5 text-right">Acciones</th>
               </tr>
@@ -553,6 +618,8 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
               {filteredTutores.map(tut => {
                 const isLead = tut.tutorType === 'tutor_de_tutores';
                 const assignedCount = (tut.assignedTutorIds || []).length;
+                const userRoles = (tut.roles && tut.roles.length > 0) ? tut.roles : [tut.role || 'tutor'];
+                const isMultiRole = userRoles.length > 1;
 
                 return (
                   <tr key={tut.id} className="hover:bg-slate-50">
@@ -585,6 +652,29 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                         </span>
                       )}
                     </td>
+                    <td className="py-3 px-4">
+                      <div className="flex flex-wrap gap-1">
+                        {userRoles.map(r => (
+                          <span
+                            key={r}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold capitalize ${
+                              r === 'tutor'
+                                ? 'bg-sky-50 text-sky-800 border border-sky-200'
+                                : r === 'alumno'
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                : 'bg-purple-50 text-purple-800 border border-purple-200'
+                            }`}
+                          >
+                            {r}
+                          </span>
+                        ))}
+                        {isMultiRole && (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300">
+                            Multi-rol
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-3 px-4 font-mono font-semibold">{tut.rut}</td>
                     <td className="py-3 px-5 text-right">
                       <button
@@ -595,16 +685,17 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                           setEditEmail(tut.email);
                           setEditCareer(tut.career || '');
                           setEditTutorType(tut.tutorType || 'tutor_par');
+                          setEditRoles(tut.roles && tut.roles.length > 0 ? [...tut.roles] : [tut.role || 'tutor']);
                           setEditPassword('');
                         }}
-                        className="p-1 rounded text-slate-400 hover:text-slate-700 mr-1"
-                        title="Editar Tutor"
+                        className="p-1 rounded text-slate-400 hover:text-slate-700 mr-1 cursor-pointer"
+                        title="Editar Tutor y Roles"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDeleteTutor(tut)}
-                        className="p-1 rounded text-slate-400 hover:text-rose-600"
+                        className="p-1 rounded text-slate-400 hover:text-rose-600 cursor-pointer"
                         title="Eliminar Tutor"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -618,24 +709,157 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
         </div>
       </div>
 
+      {/* Modal Sobrepuesto: Usuario Detectado Automáticamente */}
+      {detectedExistingUser && (
+        <div className="fixed inset-0 z-50 bg-slate-900/75 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            {/* Cabecera Institucional Azul Marino */}
+            <div className="bg-[#092c4c] px-6 py-4 flex items-center justify-between text-white border-b border-[#0f3d66]">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-[#3a9ad9]/20 rounded-xl text-[#3a9ad9] border border-[#3a9ad9]/30">
+                  <UserCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base leading-tight flex items-center gap-2">
+                    <span>Usuario Detectado</span>
+                    <span className="text-[10px] uppercase tracking-wider bg-[#3a9ad9] text-[#092c4c] px-2 py-0.5 rounded-full font-black">
+                      Existente
+                    </span>
+                  </h3>
+                  <p className="text-xs text-sky-200">El RUT ingresado coincide con un usuario registrado</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDismissedRut(cleanEnteredRut)}
+                className="text-slate-300 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer"
+                title="Cerrar ventana"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Contenido del Modal */}
+            <div className="p-6 space-y-4">
+              {/* Tarjeta de Información del Usuario */}
+              <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Nombre</span>
+                  <span className="text-sm font-bold text-slate-900">{detectedExistingUser.name}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">RUT</span>
+                  <span className="text-xs font-mono font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">
+                    {detectedExistingUser.rut}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Correo</span>
+                  <span className="text-xs font-mono text-slate-700">{detectedExistingUser.email}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Roles Actuales</span>
+                  <div className="flex flex-wrap gap-1">
+                    {((detectedExistingUser.roles && detectedExistingUser.roles.length > 0) ? detectedExistingUser.roles : [detectedExistingUser.role]).map(r => (
+                      <span key={r} className="px-2 py-0.5 rounded text-[10px] font-extrabold capitalize bg-emerald-100 text-emerald-900 border border-emerald-300">
+                        {r}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Mensaje de Explicación Multi-rol */}
+              <div className="p-3.5 bg-sky-50/80 border border-sky-200 rounded-xl text-xs space-y-1">
+                <p className="font-bold text-[#092c4c] flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-[#3a9ad9]" />
+                  <span>¿Deseas habilitar a este estudiante como Tutor Multi-rol?</span>
+                </p>
+                <p className="text-slate-600 leading-relaxed text-[11px]">
+                  Se le agregará el rol de <strong>{newTutorType === 'tutor_de_tutores' ? 'Tutor de Tutores' : 'Tutor Par'}</strong> manteniendo su perfil e historial de alumno intacto. Al ingresar al sistema, podrá elegir libremente a qué portal acceder.
+                </p>
+              </div>
+
+              {/* Botones de Acción */}
+              <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDismissedRut(cleanEnteredRut)}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold transition cursor-pointer"
+                >
+                  Registrar otro
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmittingTutor}
+                  onClick={() => handlePromoteExistingUser(detectedExistingUser)}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-[#092c4c] hover:bg-[#1a4b75] text-white rounded-xl text-xs font-bold shadow-md transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <UserCheck className="w-4 h-4 text-[#3a9ad9]" />
+                  <span>{isSubmittingTutor ? 'Asignando...' : 'Asignar Rol Tutor (Multi-rol)'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de edición */}
       {editingTutor && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4">
-            <h3 className="font-bold text-slate-900 text-sm">Editar Información del Tutor</h3>
+            <h3 className="font-bold text-slate-900 text-sm">Editar Información y Roles del Tutor</h3>
             <form onSubmit={handleSaveEditTutor} className="space-y-3">
-              {/* Selector de Subtipo en Edición */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Tipo de Tutor</label>
-                <select
-                  value={editTutorType}
-                  onChange={(e) => setEditTutorType(e.target.value as TutorType)}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-semibold"
-                >
-                  <option value="tutor_par">Tutor Par (Estándar)</option>
-                  <option value="tutor_de_tutores">Tutor de Tutores (Coordinador de Pares)</option>
-                </select>
+              {/* Roles del Usuario (Multi-rol) */}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1.5">
+                  Roles Asignados (Multi-rol)
+                </label>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {(['tutor', 'alumno', 'docente', 'admin'] as Role[]).map(roleOption => {
+                    const isChecked = editRoles.includes(roleOption);
+                    return (
+                      <label key={roleOption} className="flex items-center gap-2 cursor-pointer bg-white p-2 rounded-lg border border-slate-200 hover:border-[#3a9ad9]">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEditRoles([...editRoles, roleOption]);
+                            } else {
+                              if (editRoles.length === 1) {
+                                alert('El usuario debe tener al menos un rol asignado.');
+                                return;
+                              }
+                              setEditRoles(editRoles.filter(r => r !== roleOption));
+                            }
+                          }}
+                          className="rounded text-[#3a9ad9] focus:ring-[#3a9ad9]"
+                        />
+                        <span className="capitalize font-semibold text-slate-700">{roleOption}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1.5">
+                  Al tener 2 o más roles marcados, el usuario podrá elegir el panel de destino al iniciar sesión.
+                </p>
               </div>
+
+              {/* Selector de Subtipo en Edición */}
+              {editRoles.includes('tutor') && (
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Tipo de Tutor</label>
+                  <select
+                    value={editTutorType}
+                    onChange={(e) => setEditTutorType(e.target.value as TutorType)}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-semibold"
+                  >
+                    <option value="tutor_par">Tutor Par (Estándar)</option>
+                    <option value="tutor_de_tutores">Tutor de Tutores (Coordinador de Pares)</option>
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Nombre</label>

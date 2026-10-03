@@ -31,6 +31,7 @@ export const AdminMaintenanceTab: React.FC<AdminMaintenanceTabProps> = ({ onSucc
   } | null>(null);
 
   const [selectedItems, setSelectedItems] = useState({
+    users: true,
     sessions: true,
     student_requests: true,
     reports: true,
@@ -68,7 +69,9 @@ export const AdminMaintenanceTab: React.FC<AdminMaintenanceTabProps> = ({ onSucc
     }
 
     const isConfirmed = window.confirm(
-      '⚠️ ADVERTENCIA CRÍTICA:\n\n¿Estás completamente seguro de vaciar las tutorías y actividades seleccionadas en MongoDB Atlas?\n\n* Las cuentas de usuarios (Docentes, Tutores, Alumnos y Admin) NO serán eliminadas.\n* Toda la sincronización se actualizará en tiempo real vía WebSockets.'
+      selectedItems.users
+        ? '⚠️ ADVERTENCIA CRÍTICA:\n\nHas marcado la eliminación de usuarios (Docentes, Tutores y Alumnos). Solo las cuentas de Administrador serán preservadas.\n\n¿Estás completamente seguro de proceder con este vaciado en MongoDB Atlas?'
+        : '⚠️ ADVERTENCIA:\n\n¿Estás seguro de vaciar las tutorías y actividades seleccionadas en MongoDB Atlas?\n\n* Toda la sincronización se actualizará en tiempo real vía WebSockets.'
     );
 
     if (!isConfirmed) return;
@@ -79,6 +82,7 @@ export const AdminMaintenanceTab: React.FC<AdminMaintenanceTabProps> = ({ onSucc
       const res = await systemApi.resetAcademicData(selectedCollections);
       
       // Limpiar también caches locales del navegador
+      if (selectedItems.users) localStorage.removeItem('uft_te_users');
       if (selectedItems.sessions) localStorage.removeItem('uft_te_sessions');
       if (selectedItems.student_requests) localStorage.removeItem('uft_te_student_requests');
       if (selectedItems.reports) localStorage.removeItem('uft_te_reports');
@@ -123,7 +127,7 @@ export const AdminMaintenanceTab: React.FC<AdminMaintenanceTabProps> = ({ onSucc
                 </span>
               </h2>
               <p className="text-xs text-slate-300 mt-1">
-                Permite dejar el sistema en blanco para un nuevo semestre o periodo lectivo, limpiando tutorías y solicitudes pero **preservando todas las cuentas de usuarios**.
+                Permite dejar el sistema en blanco para un nuevo semestre o periodo lectivo, vaciando tutorías, solicitudes o cuentas de usuarios, <strong>preservando siempre las cuentas de Administrador</strong>.
               </p>
             </div>
           </div>
@@ -148,7 +152,7 @@ export const AdminMaintenanceTab: React.FC<AdminMaintenanceTabProps> = ({ onSucc
                   <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
                     {Object.entries(result.deletedCounts).map(([col, count]) => (
                       <div key={col} className="bg-white/80 px-2.5 py-1.5 rounded-lg border border-emerald-200 font-mono">
-                        <span className="text-slate-500">{col}:</span> <strong>{count} eliminados</strong>
+                        <span className="text-slate-500">{col}:</span> <strong>{count}</strong>
                       </div>
                     ))}
                   </div>
@@ -157,13 +161,13 @@ export const AdminMaintenanceTab: React.FC<AdminMaintenanceTabProps> = ({ onSucc
             </div>
           )}
 
-          {/* Garantía de Seguridad de Usuarios */}
+          {/* Garantía de Seguridad de Administradores */}
           <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start gap-3">
             <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
             <div className="text-xs text-emerald-900 space-y-1">
-              <strong className="block font-bold">Protección Absoluta de Cuentas de Usuarios:</strong>
+              <strong className="block font-bold">Protección Estricta del Rol Administrador:</strong>
               <p className="text-emerald-800">
-                Esta acción <strong>NO eliminará</strong> a los Docentes, Tutores Pares, Alumnos ni credenciales de Administrador. Todos los usuarios mantendrán su acceso, contraseñas y roles intactos en MongoDB Atlas.
+                Incluso si seleccionas vaciar usuarios, las cuentas con rol de <strong>Administrador (Admin)</strong> están blindadas por seguridad y <strong>nunca serán eliminadas</strong>, garantizando el acceso ininterrumpido a la gestión del sistema.
               </p>
             </div>
           </div>
@@ -176,6 +180,30 @@ export const AdminMaintenanceTab: React.FC<AdminMaintenanceTabProps> = ({ onSucc
               </label>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {/* 0. Usuarios (Docentes, Tutores, Alumnos) */}
+                <label className={`p-4 rounded-xl border flex items-start gap-3 cursor-pointer transition ${
+                  selectedItems.users ? 'bg-rose-100/90 border-rose-400 ring-2 ring-rose-500/30' : 'bg-slate-50 border-slate-200 opacity-60'
+                }`}>
+                  <input
+                    type="checkbox"
+                    checked={selectedItems.users}
+                    onChange={() => toggleItem('users')}
+                    className="mt-1 h-4 w-4 rounded text-rose-600 accent-rose-600 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-xs text-slate-900 block flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-rose-700" />
+                      Cuentas de Usuarios (Users)
+                      <span className="bg-rose-200 text-rose-900 text-[9px] font-black px-1.5 py-0.2 rounded">
+                        Admin protegido
+                      </span>
+                    </span>
+                    <p className="text-[10px] text-slate-600 mt-0.5">
+                      Elimina cuentas de Docentes, Tutores y Alumnos. <strong>El Administrador NUNCA se elimina.</strong>
+                    </p>
+                  </div>
+                </label>
+
                 {/* 1. Sesiones */}
                 <label className={`p-4 rounded-xl border flex items-start gap-3 cursor-pointer transition ${
                   selectedItems.sessions ? 'bg-rose-50/70 border-rose-300' : 'bg-slate-50 border-slate-200 opacity-60'

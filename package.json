@@ -7,7 +7,7 @@
     "check-db": "tsx server/check-db.js",
     "server": "tsx watch server/server.js",
     "client": "vite --port=3000 --host=0.0.0.0",
-    "dev": "tsx server/server.js & vite --port=3000 --host=0.0.0.0",
+    "dev": "tsx watch server/server.js & vite --port=3000 --host=0.0.0.0",
     "seed": "tsx server/seed.js",
     "build": "vite build",
     "preview": "vite preview",

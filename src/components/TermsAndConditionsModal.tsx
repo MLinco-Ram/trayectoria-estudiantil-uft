@@ -48,9 +48,9 @@ export default function TermsAndConditionsModal({
               <Lock className="w-4 h-4 text-sky-700" />
             </div>
             <div className="space-y-1">
-              <h3 className="font-bold text-sky-950 text-xs">1. Protección y Seguridad de Datos Personales</h3>
+              <h3 className="font-bold text-sky-950 text-xs">1. Protección y Seguridad de Datos Personales (Ley N° 19.628 y Ley N° 21.719)</h3>
               <p className="text-[11px] text-sky-900 leading-normal">
-                Tus datos identificatorios (Nombre completo, RUT chileno, correo institucional @uft.cl / @mail.uft.cl / @uft.edu y carrera) están estrictamente resguardados mediante mecanismos de seguridad y cifrado, garantizando que tu información personal no sea compartida ni transferida a terceros ajenos a la universidad.
+                Tus datos identificatorios (Nombre completo, RUT chileno, correo institucional @uft.cl / @mail.uft.cl / @uft.edu y carrera) están estrictamente resguardados bajo la legislación chilena sobre protección de la vida privada (Ley N° 19.628 y su modernización Ley N° 21.719), con fines de investigación académica y desarrollo de Tesis de Grado UFT.
               </p>
             </div>
           </div>

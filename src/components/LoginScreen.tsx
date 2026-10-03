@@ -1,8 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { User } from '../types';
+import { User, Role } from '../types';
 import { getSavedUsers, formatRut } from '../data';
-import { LogIn, UserPlus, CheckCircle2, Lock, User as UserIcon, Mail, Eye, EyeOff, ChevronDown, Smartphone, Monitor } from 'lucide-react';
+import { 
+  LogIn, 
+  UserPlus, 
+  CheckCircle2, 
+  Lock, 
+  User as UserIcon, 
+  Mail, 
+  Eye, 
+  EyeOff, 
+  ChevronDown, 
+  Smartphone, 
+  Monitor, 
+  GraduationCap, 
+  BookOpen, 
+  ShieldCheck, 
+  Briefcase, 
+  ArrowRight, 
+  Sparkles,
+  Layers
+} from 'lucide-react';
 import ForgotPasswordModal from './ForgotPasswordModal';
 import TermsAndConditionsModal from './TermsAndConditionsModal';
 import { useAuth, getRoleHomePath } from '../context/AuthContext';
@@ -25,6 +44,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   // Modal de aviso de rol no permitido en móvil
   const [showMobileWarningModal, setShowMobileWarningModal] = useState(false);
   const [mobileRestrictedRole, setMobileRestrictedRole] = useState<string | null>(null);
+
+  // Multi-rol selection state
+  const [pendingMultiRoleUser, setPendingMultiRoleUser] = useState<User | null>(null);
 
   useEffect(() => {
     if (searchParams.get('mobile_restricted') === 'true') {
@@ -71,6 +93,19 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     navigate(getRoleHomePath(userObj.role));
   };
 
+  const checkMultiRoleOrAuth = (userObj: User) => {
+    const assignedRoles: Role[] = (Array.isArray(userObj.roles) && userObj.roles.length > 0)
+      ? userObj.roles
+      : [userObj.role || 'alumno'];
+
+    if (assignedRoles.length > 1) {
+      setPendingMultiRoleUser({ ...userObj, roles: assignedRoles });
+      return;
+    }
+
+    handleSuccessfulAuth(userObj);
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -94,6 +129,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           name: 'Administrador del Sistema',
           rut: 'admin',
           role: 'admin',
+          roles: ['admin'],
           email: 'admin@uft.cl',
           career: 'Administración y Soporte TI'
         };
@@ -124,7 +160,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         return;
       }
 
-      handleSuccessfulAuth(data);
+      checkMultiRoleOrAuth(data);
     } catch (err) {
       if (cleanEntered === 'admin' && passwordInput === '1234') {
         const adminUser: User = {
@@ -132,6 +168,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           name: 'Administrador del Sistema',
           rut: 'admin',
           role: 'admin',
+          roles: ['admin'],
           email: 'admin@uft.cl',
           career: 'Administración y Soporte TI'
         };
@@ -144,7 +181,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         setError('RUT no encontrado.');
         return;
       }
-      handleSuccessfulAuth(matchedUser);
+      checkMultiRoleOrAuth(matchedUser);
     }
   };
 
@@ -178,14 +215,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
     if (regPassword !== regConfirmPassword) {
       setRegFeedback({ status: 'error', message: 'Las contraseñas no coinciden.' });
-      return;
-    }
-
-    if (!regTermsAccepted) {
-      setRegFeedback({ 
-        status: 'error', 
-        message: 'Debes aceptar los Términos y Condiciones y la Política de Protección de Datos para continuar.' 
-      });
       return;
     }
 
@@ -370,6 +399,26 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             ) : (
               /* REGISTER ALUMNO FORM */
               <form onSubmit={handleRegister} className="space-y-3">
+                {/* AVISO LEGAL Y ÉTICO DE USO DE DATOS PARA TESIS */}
+                <div className="p-4 bg-red-600 dark:bg-red-700 text-white rounded-2xl shadow-lg border-2 border-red-800 dark:border-red-900 space-y-2 animate-fade-in">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 bg-white/20 rounded-xl text-white shrink-0">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-black text-xs uppercase tracking-wider leading-tight">
+                        AVISO IMPORTANTE • USO DE DATOS PARA TESIS
+                      </h4>
+                      <p className="text-[10px] text-red-100 font-semibold">
+                        Ley N° 19.628 y Ley N° 21.719 sobre Protección de la Vida Privada (Chile)
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-[11px] leading-snug text-red-50 bg-red-800/50 p-2.5 rounded-xl border border-red-400/40">
+                    Se informa expresamente a los usuarios que la información y los datos ingresados en esta plataforma serán utilizados con fines exclusivamente académicos, estadísticos y de investigación para el desarrollo de una <strong>Tesis de Grado</strong> de la Universidad Finis Terrae. El tratamiento de la información se rige en estricto cumplimiento con la legislación chilena vigente sobre protección y resguardo de datos personales, garantizando su anonimización y confidencialidad.
+                  </p>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">Nombre completo</label>
                   <div className="flex items-center bg-[#007ba7] dark:bg-[#083556] rounded-full p-1.5 border-2 border-slate-900 dark:border-slate-700 shadow-md overflow-hidden">
@@ -480,31 +529,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   </div>
                 </div>
 
-                {/* Checkbox de Términos y Condiciones */}
-                <div className="pt-1">
-                  <label className="flex items-start space-x-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={regTermsAccepted}
-                      onChange={(e) => setRegTermsAccepted(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#007ba7] focus:ring-[#007ba7] cursor-pointer"
-                    />
-                    <span className="text-[11px] text-slate-700 leading-snug">
-                      Acepto los{' '}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setShowTermsModal(true);
-                        }}
-                        className="font-bold text-[#007ba7] underline cursor-pointer"
-                      >
-                        Términos y Condiciones
-                      </button>
-                    </span>
-                  </label>
-                </div>
-
                 {regFeedback && (
                   <div className={`p-2.5 text-xs rounded-2xl border font-bold flex items-center space-x-1.5 ${regFeedback.status === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
                     {regFeedback.status === 'success' && <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />}
@@ -546,6 +570,158 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         onClose={() => setShowTermsModal(false)}
         onAccept={() => setRegTermsAccepted(true)}
       />
+
+      {/* Modal de Selección de Portal para Usuarios Multi-rol */}
+      {pendingMultiRoleUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-6 sm:p-7 space-y-5 animate-scale-up">
+            <div className="text-center space-y-2">
+              <div className="w-14 h-14 rounded-2xl bg-[#007ba7]/10 text-[#007ba7] flex items-center justify-center mx-auto border border-[#007ba7]/20 shadow-inner">
+                <Sparkles className="w-7 h-7" />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                Selecciona tu Portal de Ingreso
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                Hola <strong className="text-slate-900 dark:text-white font-bold">{pendingMultiRoleUser.name}</strong>, tu cuenta tiene múltiples roles asignados en el sistema. Elige con qué perfil deseas ingresar en esta sesión:
+              </p>
+            </div>
+
+            <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
+              {(pendingMultiRoleUser.roles || [pendingMultiRoleUser.role]).map((r) => {
+                if (r === 'alumno') {
+                  return (
+                    <button
+                      key="alumno"
+                      type="button"
+                      onClick={() => handleSuccessfulAuth({ ...pendingMultiRoleUser, role: 'alumno' })}
+                      className="w-full text-left p-4 rounded-2xl border-2 border-sky-200 dark:border-sky-900/60 bg-sky-50/50 dark:bg-sky-950/30 hover:bg-sky-100/60 dark:hover:bg-sky-900/50 hover:border-sky-400 transition group cursor-pointer flex items-center justify-between gap-3 shadow-xs"
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-11 h-11 rounded-xl bg-sky-500 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                          <GraduationCap className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-sm text-slate-900 dark:text-white">Portal de Estudiante</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-200/80 dark:bg-sky-900 text-sky-800 dark:text-sky-200">
+                              Alumno
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            Inscripción a tutorías colectivas, talleres e historial académico.
+                          </p>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-5 h-5 text-sky-600 dark:text-sky-400 shrink-0 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  );
+                }
+
+                if (r === 'tutor') {
+                  const isTutorDeTutores = pendingMultiRoleUser.tutorType === 'tutor_de_tutores';
+                  return (
+                    <button
+                      key="tutor"
+                      type="button"
+                      onClick={() => handleSuccessfulAuth({ ...pendingMultiRoleUser, role: 'tutor' })}
+                      className="w-full text-left p-4 rounded-2xl border-2 border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/30 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/50 hover:border-emerald-400 transition group cursor-pointer flex items-center justify-between gap-3 shadow-xs"
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                          <BookOpen className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-sm text-slate-900 dark:text-white">Portal de Tutor</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200/80 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200">
+                              {isTutorDeTutores ? 'Tutor de Tutores' : 'Tutor Par'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            Gestión de sesiones, registro de asistencias y consultas de estudiantes.
+                          </p>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  );
+                }
+
+                if (r === 'docente') {
+                  return (
+                    <button
+                      key="docente"
+                      type="button"
+                      onClick={() => handleSuccessfulAuth({ ...pendingMultiRoleUser, role: 'docente' })}
+                      className="w-full text-left p-4 rounded-2xl border-2 border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/50 dark:bg-indigo-950/30 hover:bg-indigo-100/60 dark:hover:bg-indigo-900/50 hover:border-indigo-400 transition group cursor-pointer flex items-center justify-between gap-3 shadow-xs"
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                          <Briefcase className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-sm text-slate-900 dark:text-white">Portal Docente / Coordinación</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-200/80 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200">
+                              Docente
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            Seguimiento académico, tutorías personalizadas y alertas tempranas.
+                          </p>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  );
+                }
+
+                if (r === 'admin') {
+                  return (
+                    <button
+                      key="admin"
+                      type="button"
+                      onClick={() => handleSuccessfulAuth({ ...pendingMultiRoleUser, role: 'admin' })}
+                      className="w-full text-left p-4 rounded-2xl border-2 border-slate-300 dark:border-slate-700 bg-slate-100/60 dark:bg-slate-800/40 hover:bg-slate-200/60 dark:hover:bg-slate-800 hover:border-slate-400 transition group cursor-pointer flex items-center justify-between gap-3 shadow-xs"
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-11 h-11 rounded-xl bg-[#092c4c] text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                          <ShieldCheck className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-sm text-slate-900 dark:text-white">Panel de Administración</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                              Administrador
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            Configuración institucional, SMTP y mantenimiento de base de datos.
+                          </p>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-5 h-5 text-slate-700 dark:text-slate-300 shrink-0 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  );
+                }
+
+                return null;
+              })}
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setPendingMultiRoleUser(null)}
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                Cancelar y volver
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Restricción de Acceso Móvil para Roles no Estudiantiles */}
       {showMobileWarningModal && (

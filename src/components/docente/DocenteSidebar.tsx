@@ -18,6 +18,9 @@ import {
   GraduationCap
 } from 'lucide-react';
 
+import { useNavigate } from 'react-router-dom';
+import { useAuth, getRoleHomePath } from '../../context/AuthContext';
+
 export type DocenteTabType = 
   | 'calendar' 
   | 'create' 
@@ -47,6 +50,8 @@ export const DocenteSidebar: React.FC<DocenteSidebarProps> = ({
   pendingReportsCount,
   onLogout,
 }) => {
+  const navigate = useNavigate();
+  const auth = useAuth();
   const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
 
   const menuItems = [
@@ -100,6 +105,30 @@ export const DocenteSidebar: React.FC<DocenteSidebarProps> = ({
                 <p className="text-[10px] text-brand-celeste truncate">{user.career || 'Docente Coordinador'}</p>
                 <p className="text-[9px] text-slate-400 font-mono mt-0.5">RUT: {user.rut}</p>
               </div>
+
+              {Array.isArray(user.roles) && user.roles.length > 1 && (
+                <div className="pb-1.5 border-b border-white/10 space-y-1">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Cambiar de Portal</p>
+                  <div className="space-y-1">
+                    {user.roles.filter(r => r !== 'docente').map(r => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => {
+                          setShowLogoutDropdown(false);
+                          auth.login({ ...user, role: r });
+                          navigate(getRoleHomePath(r));
+                        }}
+                        className="w-full text-left px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white transition flex items-center justify-between text-[10px] font-semibold cursor-pointer"
+                      >
+                        <span>{r === 'alumno' ? 'Portal Estudiante' : r === 'tutor' ? 'Portal Tutor' : 'Panel Administrador'}</span>
+                        <span className="text-[9px] text-brand-celeste font-bold">&rarr;</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={() => {

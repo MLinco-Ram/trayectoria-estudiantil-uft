@@ -20,15 +20,25 @@ systemRoutes.post('/reset-academic-data', async (req, res) => {
     ];
 
     const collectionsToClear = Array.isArray(targetCollections) && targetCollections.length > 0
-      ? targetCollections.filter(c => c !== 'users' && c !== 'settings') // Proteger absolutamente usuarios y credenciales
+      ? targetCollections.filter(c => c !== 'settings') // Proteger ajustes del sistema
       : defaultTargets;
 
     const results = {};
 
     for (const collName of collectionsToClear) {
       try {
-        const delRes = await db.collection(collName).deleteMany({});
-        results[collName] = delRes.deletedCount;
+        if (collName === 'users') {
+          // Eliminar usuarios preservando estrictamente a los Administradores
+          const delRes = await db.collection('users').deleteMany({
+            role: { $ne: 'admin' },
+            roles: { $ne: 'admin' }
+          });
+          results['users'] = `${delRes.deletedCount} (Admin preservados)`;
+          emitEvent('users:changed', { action: 'clear_non_admin' });
+        } else {
+          const delRes = await db.collection(collName).deleteMany({});
+          results[collName] = delRes.deletedCount;
+        }
       } catch (err) {
         results[collName] = `Error: ${err.message}`;
       }
@@ -43,9 +53,9 @@ systemRoutes.post('/reset-academic-data', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Datos de tutorías y actividades académicas vaciados exitosamente de MongoDB Atlas. Las cuentas de usuarios se mantuvieron intactas.',
+      message: 'Limpieza y vaciado ejecutado exitosamente en MongoDB Atlas. Los Administradores del sistema fueron preservados.',
       deletedCounts: results,
-      preservedCollections: ['users', 'settings'],
+      preservedCollections: ['admin_users', 'settings'],
       timestamp: new Date().toISOString()
     });
   } catch (err) {

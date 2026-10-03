@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Session, User, SessionFeedback } from '../../types';
-import { SATISFACTION_SURVEY_QUESTIONS } from '../../data';
-import { Star, MessageSquare, Search, Filter, BookOpen, ClipboardList, X } from 'lucide-react';
+import { SATISFACTION_SURVEY_QUESTIONS, SURVEY_SCALE_OPTIONS } from '../../data';
+import { Star, MessageSquare, Search, Filter, BookOpen, ClipboardList, X, CheckCircle2 } from 'lucide-react';
 
 interface FeedbackEntry {
   sessionTitle: string;
@@ -212,19 +212,20 @@ export const DocenteCommentsTab: React.FC<DocenteCommentsTabProps> = ({
               {SATISFACTION_SURVEY_QUESTIONS.map(q => {
                 const score = selectedSurvey.answers?.[q.id];
                 if (score === undefined) return null;
+                const opt = SURVEY_SCALE_OPTIONS.find(o => o.score === score);
                 return (
-                  <div key={q.id} className="flex items-start justify-between gap-3 text-xs pb-3 border-b border-slate-100 last:border-b-0 last:pb-0">
+                  <div key={q.id} className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 text-xs pb-3 border-b border-slate-100 last:border-b-0 last:pb-0">
                     <div className="flex-1">
-                      <p className="font-bold text-slate-700">{q.title}</p>
-                      <p className="text-slate-400 mt-0.5">{q.question}</p>
+                      <p className="font-bold text-slate-800">Ítem {q.id}: {q.title}</p>
+                      <p className="text-slate-600 mt-0.5">{q.question}</p>
                     </div>
-                    <div className="flex items-center gap-0.5 shrink-0 text-amber-500">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`w-3.5 h-3.5 ${i < score ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`}
-                        />
-                      ))}
+                    <div className="shrink-0 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 text-right">
+                      <span className="font-bold text-[#092c4c] dark:text-sky-300 block text-[11px]">
+                        {opt?.label || `Opción ${score}`}
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        {opt?.description}
+                      </span>
                     </div>
                   </div>
                 );

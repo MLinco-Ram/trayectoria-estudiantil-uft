@@ -15,7 +15,8 @@ export interface User {
   id: string;
   name: string;
   rut: string;
-  role: Role;
+  role: Role; // Rol activo en la sesión actual
+  roles?: Role[]; // Lista completa de roles asignados al usuario (multi-rol, ej: ['alumno', 'tutor'])
   tutorType?: TutorType;
   assignedTutorIds?: string[]; // IDs de tutores pares supervisados por este Tutor de Tutores
   email: string;

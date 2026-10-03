@@ -76,10 +76,17 @@ export const AdminAlumnosTab: React.FC<AdminAlumnosTabProps> = ({
                     {alum.rut}
                   </td>
                   <td className="py-3.5 px-4">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200/60">
-                      <Users className="w-3 h-3" />
-                      Alumno
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200/60">
+                        <Users className="w-3 h-3" />
+                        Alumno
+                      </span>
+                      {Array.isArray(alum.roles) && alum.roles.length > 1 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                          Multi-rol ({alum.roles.join(', ')})
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3.5 px-5 text-right">
                     <div className="flex items-center justify-end gap-1.5">
