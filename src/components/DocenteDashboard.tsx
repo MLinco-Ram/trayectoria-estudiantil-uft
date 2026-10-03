@@ -88,11 +88,11 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
         availabilitiesApi.getAvailabilities().catch(() => getSavedAvailabilities()),
       ]);
 
-      if (Array.isArray(uList) && uList.length > 0) {
+      if (Array.isArray(uList)) {
         setAllUsers(uList);
         saveUsers(uList);
       }
-      if (Array.isArray(sList) && sList.length > 0) {
+      if (Array.isArray(sList)) {
         setSessions(sList);
         saveSessions(sList);
       }
