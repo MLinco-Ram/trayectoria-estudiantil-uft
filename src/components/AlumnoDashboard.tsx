@@ -15,7 +15,15 @@ import {
   saveStudentRequests,
   getTodayDateStr,
   getDynamicPresetDates,
-  SATISFACTION_SURVEY_QUESTIONS
+  SATISFACTION_SURVEY_QUESTIONS,
+  SURVEY_SCALE_OPTIONS,
+  SATISFACTION_SURVEY_INSTRUCTIONS,
+  isSessionPast,
+  isSessionActive,
+  isRegistrationWindowClosed,
+  MAX_WEEKLY_ACTIVE_BOOKINGS,
+  getStudentActiveBookingsInWeek,
+  getWeekKey
 } from '../data';
 import { getSocket } from '../services/socket';
 import { 
@@ -50,7 +58,8 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { useAuth, getRoleHomePath } from '../context/AuthContext';
 import { MobileQRScannerModal } from './common/MobileQRScannerModal';
 import { ThemeToggle } from './common/ThemeToggle';
 
@@ -61,6 +70,7 @@ interface AlumnoDashboardProps {
 }
 
 export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, onUpdateUser: propUpdateUser }: AlumnoDashboardProps = {}) {
+  const navigate = useNavigate();
   const auth = useAuth();
   const user = propUser || auth.currentUser;
   const onLogout = propLogout || auth.logout;
@@ -389,35 +399,48 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
     return isProgramMatch && isDateMatch && isPublicOrMine;
   });
 
-  // Active bookings where student is registered and session is not completed/closed
-  const myActiveBookings = sessions.filter(s => s.studentIds.includes(user.id) && !s.isCompleted && s.attendance?.[user.id] !== 'presente' && s.attendance?.[user.id] !== 'ausente');
+  // Active bookings where student is registered and session is active (not past and not completed)
+  const myActiveBookings = sessions.filter(s => 
+    s.studentIds.includes(user.id) && 
+    !s.isCompleted && 
+    !isSessionPast(s) && 
+    s.attendance?.[user.id] !== 'presente' && 
+    s.attendance?.[user.id] !== 'ausente'
+  );
   
-  // History of completed classes or marked attendance (presente or ausente)
-  const myHistory = sessions.filter(s => s.studentIds.includes(user.id) && (s.isCompleted || s.attendance?.[user.id] === 'presente' || s.attendance?.[user.id] === 'ausente'));
+  // Weekly active bookings for the current week (from Monday to Sunday)
+  const currentWeekActiveBookings = sessions.filter(s => {
+    if (!s.studentIds.includes(user.id)) return false;
+    if (s.isCompleted || isSessionPast(s)) return false;
+    if (s.attendance?.[user.id] === 'presente' || s.attendance?.[user.id] === 'ausente') return false;
+    return getWeekKey(s.date) === getWeekKey(getTodayDateStr());
+  });
 
-  // Helper to check if session is at least 2 hours in the future
-  const isRegistrationWindowClosed = (sessionDate: string, timeSlot: string): boolean => {
-    try {
-      const startTimeStr = timeSlot.split('-')[0].trim(); // e.g. "10:30"
-      const [hours, minutes] = startTimeStr.split(':').map(Number);
-      const sessionDateTime = new Date(`${sessionDate}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`);
-      
-      const now = new Date();
-      const diffMs = sessionDateTime.getTime() - now.getTime();
-      const diffHours = diffMs / (1000 * 60 * 60);
+  // Weekly active bookings for the selected target date's week
+  const targetWeekActiveBookings = sessions.filter(s => {
+    if (!s.studentIds.includes(user.id)) return false;
+    if (s.isCompleted || isSessionPast(s)) return false;
+    if (s.attendance?.[user.id] === 'presente' || s.attendance?.[user.id] === 'ausente') return false;
+    return getWeekKey(s.date) === getWeekKey(targetDate);
+  });
 
-      // Si falta menos de 2 horas (o ya pasó), el plazo de inscripción está cerrado
-      return diffHours < 2;
-    } catch (e) {
-      return false;
-    }
-  };
+  // History of completed or past/archived classes
+  const myHistory = sessions.filter(s => 
+    s.studentIds.includes(user.id) && 
+    (s.isCompleted || isSessionPast(s) || s.attendance?.[user.id] === 'presente' || s.attendance?.[user.id] === 'ausente')
+  );
 
   // Enroll student in an group session / workshop
   const handleRegisterSlot = (session: Session) => {
     // Check if already registered
     if (session.studentIds.includes(user.id)) {
       setBookingFeedback('Ya te encuentras registrado en este bloque horario.');
+      return;
+    }
+
+    // Check if session has ended or is archived/completed
+    if (isSessionPast(session) || session.isCompleted) {
+      setBookingFeedback('⚠️ Esta tutoría ya ha finalizado y se encuentra archivada, por lo que no es posible inscribirse.');
       return;
     }
 
@@ -430,6 +453,14 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
     // Check if full
     if (session.studentIds.length >= session.maxSpots) {
       setBookingFeedback('Este bloque de horario ya se encuentra lleno. Solicita una tutoría personalizada con el docente.');
+      return;
+    }
+
+    // Regla Institucional Estricta: Un estudiante nunca puede superar 5 reservas activas en la misma semana
+    // (Esta regla solo puede ser omitida cuando un docente/coordinador asigna una tutoría personalizada)
+    const activeInWeek = getStudentActiveBookingsInWeek(sessions, user.id, session.date);
+    if (activeInWeek.length >= MAX_WEEKLY_ACTIVE_BOOKINGS) {
+      setBookingFeedback(`⚠️ Límite semanal alcanzado: No es posible tener más de ${MAX_WEEKLY_ACTIVE_BOOKINGS} reservas activas en una misma semana (tienes ${activeInWeek.length}/${MAX_WEEKLY_ACTIVE_BOOKINGS}). Si requieres apoyo adicional extraordinario, solicita una tutoría personalizada.`);
       return;
     }
 
@@ -548,202 +579,187 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <div className="h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-white dark:bg-slate-950 flex flex-col md:flex-row font-sans transition-colors duration-200" id="alumno-dashboard-wrapper">
-      {/* Sidebar for Desktop */}
-      <aside className="hidden md:flex w-72 bg-black text-white flex-col shrink-0 justify-between relative overflow-hidden rounded-r-[2.5rem] sticky top-0 h-screen z-10 select-none">
-        <div className="flex flex-col flex-1 overflow-y-auto relative z-10">
-          {/* Tarjeta de Perfil del Alumno */}
-          <div className="p-5 mx-4 mt-5 mb-4 bg-white rounded-2xl shadow-md space-y-2.5 relative shrink-0">
-            <div
-              className="flex items-center gap-1.5 text-brand-celeste font-bold text-sm cursor-pointer w-fit"
-              onClick={() => setShowLogoutDropdown(!showLogoutDropdown)}
-              title="Click para ver opciones de sesión"
-            >
-              <UserIcon className="h-4 w-4" />
-              <span>Perfil alumno</span>
-            </div>
-            <div className="font-extrabold text-brand-navy text-sm leading-snug">{user.name}</div>
-            <div className="flex items-center gap-1.5 text-slate-500 text-xs">
-              <GraduationCap className="h-3.5 w-3.5 text-brand-celeste shrink-0" />
-              <span className="truncate">{user.career || 'Estudiante UFT'}</span>
-            </div>
-
-            {showLogoutDropdown && (
-              <div className="bg-[#0a0a0a] border border-white/10 rounded-lg p-2.5 space-y-2 animate-fade-in text-xs absolute left-0 right-0 z-50 shadow-lg top-[100%] mt-1">
-                <div className="pb-1.5 border-b border-white/10 text-[11px] text-slate-300">
-                  <p className="font-bold text-white truncate">{user.name}</p>
-                  <p className="text-[10px] text-brand-celeste truncate">{user.career || 'Estudiante UFT'}</p>
-                  <p className="text-[9px] text-slate-400 font-mono mt-0.5">RUT: {user.rut}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowLogoutDropdown(false);
-                    onLogout();
-                  }}
-                  className="w-full bg-red-650 hover:bg-red-700 text-white font-bold py-1.5 px-3 rounded text-[11px] transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <LogOut className="h-3 w-3" />
-                  <span>Cerrar Sesión</span>
-                </button>
+    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 flex flex-col font-sans transition-colors duration-200" id="alumno-dashboard-wrapper">
+      {/* Top Header Navigation Bar */}
+      <header className="bg-[#092c4c] dark:bg-slate-900 text-white shadow-md sticky top-0 z-40 border-b border-[#153a5c] dark:border-slate-800 select-none">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 gap-3">
+            {/* Logo e Identidad Institucional */}
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="bg-white p-1 rounded-lg flex items-center justify-center shadow-xs">
+                <img src="/logo-uft.png" alt="UFT" className="h-6 w-auto object-contain" />
               </div>
-            )}
-          </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-black tracking-tight leading-none text-white">
+                  Trayectoria <span className="text-[#3a9ad9]">UFT</span>
+                </span>
+                <span className="text-[10px] text-slate-300 dark:text-slate-400 font-medium">
+                  Portal Alumno
+                </span>
+              </div>
+            </div>
 
-          <nav className="flex-1 px-4 space-y-2 pb-4">
-            <button
-              onClick={() => { setActiveSegment('tutorias'); }}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${activeSegment === 'tutorias' ? 'bg-brand-celeste text-white shadow-md' : 'bg-white text-brand-navy hover:bg-slate-100'}`}
-            >
-              <Award className="h-4 w-4 shrink-0" />
-              <span>Tutorías Colectivas</span>
-            </button>
-
-            <button
-              onClick={() => { setActiveSegment('psicoeducativo'); }}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${activeSegment === 'psicoeducativo' ? 'bg-brand-celeste text-white shadow-md' : 'bg-white text-brand-navy hover:bg-slate-100'}`}
-            >
-              <BookOpen className="h-4 w-4 shrink-0" />
-              <span>Talleres Psicoeducativos</span>
-            </button>
-
-            <button
-              onClick={() => { setActiveSegment('my_bookings'); }}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${activeSegment === 'my_bookings' ? 'bg-brand-celeste text-white shadow-md' : 'bg-white text-brand-navy hover:bg-slate-100'}`}
-            >
-              <Grid className="h-4 w-4 shrink-0" />
-              <span>Mis Reservas Activas</span>
-            </button>
-
-            <button
-              onClick={() => { setActiveSegment('history'); }}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${activeSegment === 'history' ? 'bg-brand-celeste text-white shadow-md' : 'bg-white text-brand-navy hover:bg-slate-100'}`}
-            >
-              <History className="h-4 w-4 shrink-0" />
-              <span>Historial de Clases</span>
-            </button>
-
-            <div className="pt-2">
-              <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider px-2.5 mb-1.5 block">
-                Herramientas Flexibles
-              </p>
+            {/* Navegación Superior Horizontal Principal */}
+            <nav className="hidden md:flex items-center gap-1.5 lg:gap-2 overflow-x-auto py-1 scrollbar-none">
+              <button
+                type="button"
+                onClick={() => setActiveSegment('tutorias')}
+                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeSegment === 'tutorias'
+                    ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
+                    : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <Award className="h-4 w-4 lg:h-4.5 lg:w-4.5 shrink-0" />
+                <span>Tutorías Colectivas</span>
+              </button>
 
               <button
-                onClick={() => { setActiveSegment('inconvenientes'); }}
-                className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${activeSegment === 'inconvenientes' ? 'bg-brand-celeste text-white shadow-md' : 'bg-white text-brand-navy hover:bg-slate-100'}`}
+                type="button"
+                onClick={() => setActiveSegment('psicoeducativo')}
+                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeSegment === 'psicoeducativo'
+                    ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
+                    : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                }`}
               >
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>Informar Inconveniente</span>
+                <BookOpen className="h-4 w-4 lg:h-4.5 lg:w-4.5 shrink-0" />
+                <span>Talleres Psicoeducativos</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSegment('my_bookings')}
+                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap relative ${
+                  activeSegment === 'my_bookings'
+                    ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
+                    : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <Grid className="h-4 w-4 lg:h-4.5 lg:w-4.5 shrink-0" />
+                <span>Mis Reservas</span>
+                {myActiveBookings.length > 0 && (
+                  <span className={`px-1.5 lg:px-2 py-0.2 rounded-full text-[10px] font-black ${
+                    activeSegment === 'my_bookings' ? 'bg-[#092c4c] text-white' : 'bg-amber-500 text-white'
+                  }`}>
+                    {myActiveBookings.length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSegment('history')}
+                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeSegment === 'history'
+                    ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
+                    : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <History className="h-4 w-4 lg:h-4.5 lg:w-4.5 shrink-0" />
+                <span>Historial</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSegment('inconvenientes')}
+                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeSegment === 'inconvenientes'
+                    ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
+                    : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <AlertCircle className="h-4 w-4 lg:h-4.5 lg:w-4.5 text-amber-300 shrink-0" />
+                <span>Inconvenientes</span>
+              </button>
+            </nav>
+
+            {/* Acciones Derecha (Bandeja, ThemeToggle, Perfil y Logout) */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowNotifInbox(prev => !prev)}
+                className={`relative p-2 rounded-xl transition-all cursor-pointer ${
+                  showNotifInbox
+                    ? 'bg-[#3a9ad9] text-[#092c4c]'
+                    : 'bg-white/10 hover:bg-white/20 text-slate-200'
+                }`}
+                title="Bandeja de Correo y Comunicados"
+              >
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[#e28743] text-white px-1.5 py-0.2 rounded-full text-[9px] font-extrabold border-2 border-[#092c4c]">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              <ThemeToggle />
+
+              {/* Perfil del Alumno con Dropdown */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutDropdown(!showLogoutDropdown)}
+                  className="flex items-center gap-2 bg-white/10 hover:bg-white/15 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition cursor-pointer border border-white/10"
+                >
+                  <UserIcon className="h-3.5 w-3.5 text-[#3a9ad9]" />
+                  <span className="max-w-[120px] truncate hidden sm:inline">{user.name}</span>
+                  <ChevronDown className="h-3 w-3 text-slate-300" />
+                </button>
+
+                {showLogoutDropdown && (
+                  <div className="bg-[#0a0a0a] border border-white/15 rounded-xl p-3 space-y-2.5 animate-fade-in text-xs absolute right-0 z-50 shadow-2xl top-[110%] w-60">
+                    <div className="pb-2 border-b border-white/10 text-[11px] text-slate-300 space-y-0.5">
+                      <p className="font-extrabold text-white truncate">{user.name}</p>
+                      <p className="text-[10px] text-[#3a9ad9] truncate">{user.career || 'Estudiante UFT'}</p>
+                      <p className="text-[9px] text-slate-400 font-mono mt-0.5">RUT: {user.rut}</p>
+                    </div>
+
+                    {Array.isArray(user.roles) && user.roles.length > 1 && (
+                      <div className="pb-2 border-b border-white/10 space-y-1.5">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cambiar de Portal</p>
+                        <div className="space-y-1">
+                          {user.roles.filter(r => r !== 'alumno').map(r => (
+                            <button
+                              key={r}
+                              type="button"
+                              onClick={() => {
+                                setShowLogoutDropdown(false);
+                                auth.login({ ...user, role: r });
+                                navigate(getRoleHomePath(r));
+                              }}
+                              className="w-full text-left px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white transition flex items-center justify-between text-[11px] font-semibold cursor-pointer"
+                            >
+                              <span>{r === 'tutor' ? 'Portal Tutor' : r === 'docente' ? 'Portal Docente' : 'Panel Administrador'}</span>
+                              <span className="text-[10px] text-[#3a9ad9] font-bold">Ir &rarr;</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowLogoutDropdown(false);
+                        onLogout();
+                      }}
+                      className="w-full bg-red-650 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <LogOut className="h-3.5 w-3.5" />
+                      <span>Cerrar Sesión</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-          </nav>
+          </div>
         </div>
+      </header>
 
-        {/* Sidebar Footer */}
-        <div className="p-4 border-t border-white/10 relative z-10 space-y-2">
-          <button
-            type="button"
-            onClick={() => setShowNotifInbox(prev => !prev)}
-            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-              showNotifInbox 
-                ? 'bg-brand-celeste text-white shadow-md' 
-                : 'bg-white/10 hover:bg-white/20 text-white'
-            }`}
-          >
-            <span className="flex items-center space-x-2">
-              <Bell className="h-4 w-4 text-[#3a9ad9]" />
-              <span>Bandeja de Correo</span>
-            </span>
-            {unreadCount > 0 && (
-              <span className="bg-[#e28743] text-white px-2 py-0.5 rounded-full text-[10px] font-bold">
-                {unreadCount}
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-xs font-bold text-rose-300 hover:text-white bg-rose-500/20 hover:bg-rose-600 transition-all cursor-pointer border border-rose-500/30 shadow-sm"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Cerrar Sesión</span>
-          </button>
-
-          <div className="flex justify-center items-center pt-2">
-            <img
-              src="/UFT_LogoHorizontal_Blanco.png"
-              alt="Universidad Finis Terrae"
-              className="h-8 w-auto object-contain select-none pointer-events-none"
-            />
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Workspace Column with contained smooth scrolling */}
-      <main className="flex-1 flex flex-col h-full overflow-y-auto overscroll-y-contain min-w-0 relative z-10 bg-white dark:bg-slate-950 transition-colors duration-200" id="student-main-panel-workspace">
-
-        {/* Mobile Header Bar */}
-        <header className="md:hidden bg-[#092c4c] dark:bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between shrink-0 shadow-md border-b border-[#153a5c] dark:border-slate-800 sticky top-0 z-30">
-          <div className="flex items-center gap-2">
-            <div className="bg-white dark:bg-slate-800 p-1 rounded-lg flex items-center justify-center shadow-xs">
-              <img src="/logo-uft.png" alt="UFT" className="h-5 w-auto object-contain" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-black tracking-tight leading-none text-white">
-                Trayectoria <span className="text-[#3a9ad9]">UFT</span>
-              </span>
-              <span className="text-[9px] text-slate-300 dark:text-slate-400 font-mono leading-tight">
-                {user.rut}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <ThemeToggle />
-
-            <button 
-              onClick={() => setShowNotifInbox(!showNotifInbox)}
-              className="relative p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-[#3a9ad9] transition-colors"
-              title="Notificaciones"
-            >
-              <Bell className="h-4 w-4" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-amber-500 text-white rounded-full w-4 h-4 text-[9px] font-extrabold flex items-center justify-center border-2 border-[#092c4c]">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-
-            <button 
-              onClick={onLogout}
-              className="p-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-lg transition-colors"
-              title="Cerrar Sesión"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
-        </header>
-
-        {/* Desktop Top Header Bar with navigation trial breadcrumb & action triggers */}
-        <header className="hidden md:flex h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 items-center justify-between px-8 shrink-0 shadow-sm sticky top-0 z-20 transition-colors">
-          <div className="flex items-center gap-3 text-slate-400">
-            <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">Portal Estudiantil</span>
-            <span className="text-slate-300 dark:text-slate-600">/</span>
-            <span className="text-sm text-slate-500 dark:text-slate-400 font-medium font-sans">
-              {activeSegment === 'tutorias' && 'Tutoría General de Apoyo Colectivo'}
-              {activeSegment === 'psicoeducativo' && 'Talleres Psicoeducativos de Autogestión'}
-              {activeSegment === 'my_bookings' && 'Tus Bloques de Talleres Inscritos'}
-              {activeSegment === 'history' && 'Certificaciones e Historial Académico'}
-              {activeSegment === 'inconvenientes' && 'Bandeja de Inconvenientes de Clase y Horario Flexible'}
-            </span>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            <span className="text-xs text-slate-400 font-semibold uppercase font-mono">RUT: {user.rut}</span>
-            <ThemeToggle />
-          </div>
-        </header>
+      {/* Main Content Viewport */}
+      <main className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-950 transition-colors duration-200" id="student-main-panel-workspace">
 
         {/* Content Section Wrapper */}
         <div className="flex-1 p-3 sm:p-6 md:p-8 pb-28 md:pb-8 max-w-4xl w-full mx-auto" id="alumno-main-dynamic-card-viewport">
@@ -769,9 +785,10 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
             <div 
               onClick={() => setActiveSegment('my_bookings')}
               className="bg-slate-50 dark:bg-slate-800/60 p-2.5 sm:p-3 rounded-xl border border-slate-100 dark:border-slate-800 text-center cursor-pointer hover:border-brand-celeste transition-colors"
+              title={`Tienes ${currentWeekActiveBookings.length} reservas activas esta semana (máximo ${MAX_WEEKLY_ACTIVE_BOOKINGS}).`}
             >
-              <span className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-400 font-semibold uppercase block">Reservas Activas</span>
-              <span className="text-base sm:text-lg font-bold text-brand-navy dark:text-sky-300 block mt-0.5">{myActiveBookings.length} / 3</span>
+              <span className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-400 font-semibold uppercase block">Reservas Semanales</span>
+              <span className="text-base sm:text-lg font-bold text-brand-navy dark:text-sky-300 block mt-0.5">{currentWeekActiveBookings.length} / {MAX_WEEKLY_ACTIVE_BOOKINGS}</span>
             </div>
             <div 
               onClick={() => setActiveSegment('history')}
@@ -823,11 +840,18 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
           )}
 
           {/* A. BOOK SCHEDULER VIEW (Tutorias General and Psycoeducational sessions) */}
-          {(activeSegment === 'tutorias' || activeSegment === 'psicoeducativo') && (
+            {(activeSegment === 'tutorias' || activeSegment === 'psicoeducativo') && (
             <div className="space-y-3">
               <h3 className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider pl-1.5 mt-2">
                 Módulos de Horario Disponibles
               </h3>
+
+              {targetDate < getTodayDateStr() && (
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span>La fecha seleccionada ({targetDate}) ya pasó. Las tutorías anteriores se encuentran archivadas y no admiten nuevas inscripciones.</span>
+                </div>
+              )}
 
               {availableSchedules.length === 0 ? (
                 <div className="bg-white dark:bg-slate-900 p-8 sm:p-10 rounded-2xl border border-slate-100 dark:border-slate-800 text-center space-y-2 transition-colors">
@@ -843,13 +867,14 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                     const enrolledCount = session.studentIds.length;
                     const isRegistered = session.studentIds.includes(user.id);
                     const isFull = enrolledCount >= session.maxSpots;
-
+                    const isPast = isSessionPast(session);
+                    const isCompleted = !!session.isCompleted;
                     const isClosedDeadline = isRegistrationWindowClosed(session.date, session.timeSlot);
 
                     return (
                       <div 
                         key={session.id} 
-                        className={`bg-white dark:bg-slate-900 rounded-xl border p-4 text-center transition-all flex flex-col justify-between space-y-2.5 ${isRegistered ? 'border-brand-celeste ring-1 ring-brand-celeste/40 bg-blue-50/10 dark:bg-sky-950/20' : 'border-slate-100 dark:border-slate-800 hover:border-brand-celeste dark:hover:border-brand-celeste'}`}
+                        className={`bg-white dark:bg-slate-900 rounded-xl border p-4 text-center transition-all flex flex-col justify-between space-y-2.5 ${isRegistered ? 'border-brand-celeste ring-1 ring-brand-celeste/40 bg-blue-50/10 dark:bg-sky-950/20' : isPast || isCompleted ? 'border-slate-200 dark:border-slate-800 opacity-85' : 'border-slate-100 dark:border-slate-800 hover:border-brand-celeste dark:hover:border-brand-celeste'}`}
                       >
                         <div>
                           <span className="text-xs font-extrabold text-slate-800 dark:text-white block">
@@ -862,7 +887,12 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                             <span className="inline-block text-[9px] text-indigo-800 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 font-semibold rounded px-2">
                               {enrolledCount}/{session.maxSpots} cupos
                             </span>
-                            {isClosedDeadline && !isRegistered && (
+                            {(isPast || isCompleted) && (
+                              <span className="inline-block text-[8px] text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 font-bold rounded px-1.5 border border-slate-200 dark:border-slate-700">
+                                🔒 Archivada
+                              </span>
+                            )}
+                            {!isPast && !isCompleted && isClosedDeadline && !isRegistered && (
                               <span className="inline-block text-[8px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 font-bold rounded px-1.5 border border-amber-200 dark:border-amber-800">
                                 ⏱️ Cierre &lt;2h
                               </span>
@@ -878,7 +908,14 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                         {isRegistered ? (
                           <div className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 rounded-lg text-[9px] font-bold py-1.5 flex items-center justify-center space-x-1 border border-emerald-100 dark:border-emerald-800">
                             <CheckCircle2 className="h-3 w-3" />
-                            <span>Reservado</span>
+                            <span>{isPast || isCompleted ? 'En Historial' : 'Reservado'}</span>
+                          </div>
+                        ) : (isPast || isCompleted) ? (
+                          <div 
+                            className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg text-[9px] font-bold py-1.5 border border-slate-200 dark:border-slate-700 select-none cursor-not-allowed flex items-center justify-center space-x-1"
+                            title="Esta tutoría ya finalizó y se encuentra archivada."
+                          >
+                            <span>Archivada / Finalizada</span>
                           </div>
                         ) : isFull ? (
                           <div className="bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-300 rounded-lg text-[9px] font-bold py-1.5 border border-red-100 dark:border-red-900 select-none">
@@ -890,6 +927,13 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                             title="El plazo de inscripción cerró porque faltan menos de 2 horas para el inicio de la sesión."
                           >
                             Plazo Cerrado (&lt;2h)
+                          </div>
+                        ) : targetWeekActiveBookings.length >= MAX_WEEKLY_ACTIVE_BOOKINGS ? (
+                          <div 
+                            className="bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 rounded-lg text-[9px] font-bold py-1.5 border border-amber-200 dark:border-amber-800 select-none cursor-not-allowed text-center"
+                            title={`Has alcanzado el límite institucional de ${MAX_WEEKLY_ACTIVE_BOOKINGS} reservas activas para esta semana. Si requieres apoyo adicional extraordinario, solicita una tutoría personalizada.`}
+                          >
+                            Límite Semanal (5/5)
                           </div>
                         ) : (
                           <button
@@ -1609,8 +1653,8 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold tracking-tight">Encuesta de Satisfacción (12 Preguntas)</h3>
-                  <p className="text-xs text-slate-300">Evalúa la calidad pedagógica, puntualidad y dinámica de tu tutoría</p>
+                  <h3 className="text-base font-bold tracking-tight">Encuesta de Satisfacción y Hábitos de Estudio</h3>
+                  <p className="text-xs text-slate-300">Instrumento de diagnóstico de hábitos y seguimiento académico (12 Ítems)</p>
                 </div>
               </div>
               <button
@@ -1647,7 +1691,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                       <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
                       <span className="text-sm font-black text-amber-900">
                         {(
-                          SATISFACTION_SURVEY_QUESTIONS.reduce((acc, q) => acc + (surveyAnswers[q.id] || 5), 0) /
+                          SATISFACTION_SURVEY_QUESTIONS.reduce((acc, q) => acc + (surveyAnswers[q.id] || 3), 0) /
                           SATISFACTION_SURVEY_QUESTIONS.length
                         ).toFixed(1)} / 5.0
                       </span>
@@ -1664,24 +1708,30 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                 </div>
               ) : (
                 <>
-                  {/* Barra de atajo / Quick action */}
-                  <div className="flex items-center justify-between bg-blue-50/70 border border-blue-100 rounded-xl px-3 py-2 text-xs">
-                    <span className="text-blue-900 font-semibold text-[11px]">
-                      Escala Likert: 1 (Deficiente) al 5 (Excelente)
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleSetAllAnswers(5)}
-                      className="text-[11px] font-bold text-blue-700 hover:text-blue-900 bg-white hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition cursor-pointer shadow-2xs"
-                    >
-                      ⭐ Marcar todo 5 (Excelente)
-                    </button>
+                  {/* Cuadro de Instrucciones Oficiales */}
+                  <div className="p-3.5 bg-sky-50/80 rounded-2xl border border-sky-200/80 space-y-2 shrink-0">
+                    <p className="text-xs font-bold text-sky-950 flex items-center gap-1.5">
+                      <BookOpen className="w-4 h-4 text-[#3a9ad9]" />
+                      <span>Instrucciones:</span>
+                    </p>
+                    <p className="text-xs text-slate-700 leading-relaxed">
+                      {SATISFACTION_SURVEY_INSTRUCTIONS}
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-1.5 pt-1">
+                      {SURVEY_SCALE_OPTIONS.map((opt) => (
+                        <div key={opt.score} className="bg-white px-2 py-1.5 rounded-lg border border-sky-100 text-[10px] shadow-2xs">
+                          <p className="font-extrabold text-[#092c4c]">{opt.label}</p>
+                          <p className="text-slate-500 text-[9px] leading-tight mt-0.5">{opt.description}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Lista con Scroll de las 12 Preguntas */}
+                  {/* Lista con Scroll de los 12 Enunciados */}
                   <div className="flex-1 overflow-y-auto max-h-[42vh] space-y-3 pr-1">
                     {SATISFACTION_SURVEY_QUESTIONS.map((q) => {
-                      const currentVal = surveyAnswers[q.id] || 5;
+                      const currentVal = surveyAnswers[q.id] || 3;
+                      const currentOption = SURVEY_SCALE_OPTIONS.find(o => o.score === currentVal);
                       return (
                         <div
                           key={q.id}
@@ -1690,39 +1740,36 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                           <div className="flex items-start justify-between gap-2">
                             <div className="space-y-0.5">
                               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-slate-200/80 text-slate-700 rounded-md">
-                                Pregunta {q.id} • {q.title}
+                                Ítem {q.id} • {q.title}
                               </span>
-                              <p className="text-xs font-semibold text-slate-800 pt-1 leading-snug">
+                              <p className="text-xs font-bold text-slate-800 pt-1 leading-snug">
                                 {q.question}
                               </p>
                             </div>
-                            <span className="text-xs font-black text-[#092c4c] shrink-0 bg-white px-2 py-1 rounded-lg border border-slate-200">
-                              ⭐ {currentVal}/5
+                            <span className="text-xs font-black text-[#092c4c] shrink-0 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+                              {currentOption?.label || `Opción ${currentVal}`}
                             </span>
                           </div>
 
-                          {/* 5 Botones de calificación Likert */}
+                          {/* 5 Botones de opciones según escala oficial */}
                           <div className="grid grid-cols-5 gap-1.5 pt-1">
-                            {[
-                              { score: 1, label: '1 - Muy Mal' },
-                              { score: 2, label: '2 - Regular' },
-                              { score: 3, label: '3 - Aceptable' },
-                              { score: 4, label: '4 - Bueno' },
-                              { score: 5, label: '5 - Excelente' }
-                            ].map((opt) => {
+                            {SURVEY_SCALE_OPTIONS.map((opt) => {
                               const isSelected = currentVal === opt.score;
                               return (
                                 <button
                                   key={opt.score}
                                   type="button"
                                   onClick={() => handleSetAnswer(q.id, opt.score)}
-                                  className={`py-1.5 px-1 rounded-xl text-[10px] font-bold transition-all text-center cursor-pointer border ${
+                                  className={`py-2 px-1 rounded-xl text-[10px] font-bold transition-all text-center cursor-pointer border flex flex-col items-center justify-center gap-0.5 ${
                                     isSelected
                                       ? 'bg-[#092c4c] text-white border-[#092c4c] shadow-xs'
                                       : 'bg-white text-slate-600 border-slate-200 hover:border-brand-celeste hover:text-[#092c4c]'
                                   }`}
                                 >
-                                  {opt.label}
+                                  <span className="font-extrabold">{opt.score}. {opt.shortLabel}</span>
+                                  <span className={`text-[8.5px] font-normal leading-tight line-clamp-1 ${isSelected ? 'text-slate-200' : 'text-slate-400'}`}>
+                                    {opt.description}
+                                  </span>
                                 </button>
                               );
                             })}
@@ -1734,13 +1781,13 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                     {/* Cuadro de Comentarios y Sugerencias */}
                     <div className="space-y-1.5 pt-2">
                       <label className="block text-xs font-bold text-slate-700">
-                        Comentarios adicionales, aprendizajes o sugerencias (Opcional):
+                        Comentarios adicionales sobre tus hábitos o la sesión (Opcional):
                       </label>
                       <textarea
                         rows={3}
                         value={ratingComment}
                         onChange={(e) => setRatingComment(e.target.value)}
-                        placeholder="Escribe tus observaciones para continuar mejorando las tutorías académicas..."
+                        placeholder="Escribe aquí observaciones, sugerencias o dudas sobre tu método de estudio..."
                         className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs text-slate-700 focus:bg-white focus:border-brand-celeste focus:ring-2 focus:ring-brand-celeste/20 outline-none transition-all placeholder:text-slate-400"
                       />
                     </div>
@@ -1761,7 +1808,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                       className="px-5 py-2.5 rounded-xl bg-[#092c4c] hover:bg-[#153a5c] text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
                       <ThumbsUp className="w-3.5 h-3.5" />
-                      <span>{isSubmittingRating ? 'Guardando...' : 'Enviar Encuesta (12 Preguntas)'}</span>
+                      <span>{isSubmittingRating ? 'Guardando...' : 'Enviar Encuesta (12 Ítems)'}</span>
                     </button>
                   </div>
                 </>

@@ -753,22 +753,36 @@ trayectoria-estudiantil-uft/
          - **Explicación del Cálculo**: Dictamen que detalla la fórmula institucional aplicada para obtener el estado de cumplimiento.
          - **Acción Rápida**: Botón para enviar recordatorios personalizados por correo electrónico al tutor par respecto a esa sesión específica.
 
-- **Apartado de Asignación en Panel Docente (`DocenteTutorsTab.tsx`)**:
+- **Apartado de Asignación y Gestión en Panel Docente (`DocenteTutorsTab.tsx`)**:
   - Opción de registrar y editar tutores clasificándolos como **Tutor Par** o **Tutor de Tutores**.
+  - **Detección Automática de Alumnos Existentes**: Al ingresar un RUT en el registro de tutores, el sistema detecta si el usuario ya existe como estudiante y despliega una alerta con opción de promoverlo a tutor con un solo clic, habilitando su perfil multi-rol (`roles: ['alumno', 'tutor']`).
+  - **Gestión Multi-rol de Tutores**: La nómina de tutores muestra las etiquetas de todos los roles habilitados e insignia `Multi-rol`, y la modal de edición permite marcar o desmarcar roles (`alumno`, `tutor`, `docente`, `admin`).
   - Sección interactiva **"Asignar Tutores a Cargo"** para que los docentes coordinadores elijan un Tutor de Tutores y le asignen tutores pares mediante selección múltiple.
 
 ### E. Módulo Alumno (`AlumnoDashboard.tsx`)
-- **Explorador y Reserva**: Inscripción inmediata en tutorías colectivas y talleres psicoeducativos con validación de anticipación (mínimo 2 horas antes).
-- **Mis Reservas Activas**: Listado de sesiones agendadas con datos del tutor y temario visible.
+- **Explorador y Reserva**: Inscripción inmediata en tutorías colectivas y talleres psicoeducativos con validación de anticipación (mínimo 2 horas antes) y **límite institucional estricto de máximo 5 reservas activas semanales** (regla que únicamente puede ser omitida cuando un docente/coordinador asigna al estudiante a una tutoría personalizada).
+- **Archivado Automático de Tutorías**: Las sesiones cuya fecha/horario ya concluyó se archivan automáticamente impidiendo nuevas inscripciones y pasando directamente al historial del estudiante.
+- **Mis Reservas Activas**: Listado de sesiones agendadas vigentes con datos del tutor y temario visible (máximo 5 por semana).
 - **Historial de Clases y Asistencias**:
-  - Registro histórico de tutorías completadas y control de asistencia individual.
-  - **Cronograma y Temario Desplegable**: Cada tarjeta de clase en el historial cuenta con un acordeón interactivo para ver los contenidos y temas trabajados ingresados por el tutor.
-  - **Encuesta de Satisfacción**: Calificación por estrellas (1 a 5) y envío de comentarios o retroalimentación.
+  - Registro histórico de tutorías completadas y archivadas con control de asistencia individual.
+  - **Encuesta de Satisfacción y Hábitos de Estudio**: Cuestionario oficial de 12 ítems sobre hábitos y método de estudio (Planificación, Exámenes, Búsqueda de ayuda, Asistencia, Postergación, Automotivación, etc.) con escala Likert de 5 opciones (1. Siempre, 2. Casi siempre, 3. A veces, 4. Pocas veces, 5. Nunca) y comentarios adicionales.
 - **Bandeja de Mensajes y Comunicados**: Modal flotante institucional con filtros de tiempo ("Última Semana" / "Histórico Completo") y marcado interactivo de leídos.
 - **Avisar Inconveniente**: Formulario para solicitar horario flexible con notificación automática a los docentes coordinadores.
 
 ### F. Módulo Administrador (`AdminDashboard.tsx`)
 - **Nómina y Gestión de Docentes, Tutores y Estudiantes**: Alta, edición modal y baja de usuarios en MongoDB Atlas con filtros seguros contra valores nulos.
+- **Asignación de Multi-rol a Usuarios**:
+  - Los administradores pueden asignar múltiples roles a un mismo usuario (ej: un estudiante que a su vez se desempeña como tutor par, o un docente que tiene rol administrativo).
+  - En la modal de edición (`EditUserModal.tsx`), se pueden marcar los roles pertinentes (`alumno`, `tutor`, `docente`, `admin`) y seleccionar el tipo de tutor (`Tutor Par` o `Tutor de Tutores`).
+  - Las tablas de gestión muestran la insignia `Multi-rol` y listan al usuario en todas las pestañas donde tenga roles asignados.
+- **Flujo de Ingreso y Selección de Portal (`LoginScreen.tsx`)**:
+  - **Aviso Legal y Ético de Tesis (Protección de Datos)**: En la pestaña de registro de estudiantes se presenta un recuadro destacado en color rojo con el aviso formal de que la información ingresada será utilizada exclusivamente para el desarrollo de una **Tesis de Grado UFT**, bajo estricto cumplimiento de la **Ley N° 19.628** y la **Ley N° 21.719** sobre Protección de la Vida Privada y Datos Personales en Chile.
+  - Cuando un usuario con múltiples roles inicia sesión con su RUT y contraseña, el sistema detecta sus permisos y despliega un **modal interactivo de selección de portal**, permitiéndole escoger con qué perfil desea operar en esa sesión (Estudiante, Tutor, Docente o Administrador).
+  - En los paneles de los usuarios (`AlumnoDashboard`, `TutorDashboard`, `DocenteSidebar`), el menú de perfil incluye una sección de **"Cambiar de Portal"** para alternar de perfil sin requerir cerrar sesión.
+- **Limpieza y Vaciado Académico (`AdminMaintenanceTab.tsx`)**:
+  - Permite realizar vaciados selectivos de colecciones de MongoDB Atlas para el inicio de nuevos semestres (Tutorías/Sesiones, Solicitudes, Reportes, Notificaciones, Disponibilidades, Comunicados).
+  - **Vaciado de Cuentas de Usuarios**: Opción de eliminar cuentas de Docentes, Tutores y Alumnos.
+  - **Protección Blindada del Administrador**: El backend (`/api/system/reset-academic-data`) y el frontend protegen estrictamente a los usuarios con rol o roles de `admin` mediante filtros `{ role: { $ne: 'admin' }, roles: { $ne: 'admin' } }`, imposibilitando su eliminación accidental o intencional.
 - **Configuración SMTP & Pruebas en Vivo**: Guardado de parámetros en la colección `settings` y simulaciones en vivo de recordatorios de tutoría y avisos de alumnos.
 
 ---

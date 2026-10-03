@@ -41,8 +41,8 @@ import {
 } from 'lucide-react';
 import { SessionQRModal } from './common/SessionQRModal';
 import { ThemeToggle } from './common/ThemeToggle';
-
-import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { useAuth, getRoleHomePath } from '../context/AuthContext';
 
 interface TutorDashboardProps {
   user?: User;
@@ -53,6 +53,7 @@ interface TutorDashboardProps {
 export type TutorTab = 'my_schedule' | 'report_issue' | 'my_availability' | 'assigned_tutors' | 'compliance_review';
 
 export default function TutorDashboard({ user: propUser, onLogout: propLogout, onUpdateUser: propUpdateUser }: TutorDashboardProps = {}) {
+  const navigate = useNavigate();
   const auth = useAuth();
   const user = propUser || auth.currentUser;
   const onLogout = propLogout || auth.logout;
@@ -585,255 +586,219 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
   };
 
   return (
-    <div className="min-h-screen md:h-screen md:overflow-hidden bg-white dark:bg-slate-950 flex flex-col md:flex-row font-sans transition-colors duration-200" id="tutor-dashboard-wrapper">
-      {/* Sidebar for Desktop */}
-      <aside className="hidden md:flex w-72 bg-black text-white flex-col shrink-0 justify-between relative overflow-hidden rounded-r-[2.5rem] sticky top-0 h-screen z-10 select-none">
-        <div className="flex flex-col flex-1 overflow-y-auto relative z-10">
-          {/* Tarjeta de Perfil del Tutor */}
-          <div className="p-5 mx-4 mt-5 mb-4 bg-white rounded-2xl shadow-md space-y-2.5 relative shrink-0">
-            <div className="flex items-center justify-between">
-              <div 
-                className="flex items-center gap-1.5 text-brand-celeste font-bold text-sm cursor-pointer w-fit"
-                onClick={() => setShowLogoutDropdown(!showLogoutDropdown)}
-                title="Click para ver opciones de sesión"
-              >
-                <UserIcon className="h-4 w-4" />
-                <span>Perfil tutor</span>
-              </div>
-              {isLeadTutor && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                  <ShieldCheck className="w-3 h-3 text-indigo-600" />
-                  Coord. Pares
-                </span>
-              )}
-            </div>
-            <div className="font-extrabold text-brand-navy text-sm leading-snug">{effectiveUser.name}</div>
-            <div className="flex items-center gap-1.5 text-slate-500 text-xs">
-              <Award className="h-3.5 w-3.5 text-brand-celeste shrink-0" />
-              <span className="truncate">{isLeadTutor ? 'Tutor de Tutores' : effectiveUser.career || 'Tutor Par'}</span>
-            </div>
-
-            {showLogoutDropdown && (
-              <div className="bg-[#0a0a0a] border border-white/10 rounded-lg p-2.5 space-y-2 animate-fade-in text-xs absolute left-0 right-0 z-50 shadow-lg top-[100%] mt-1">
-                <div className="pb-1.5 border-b border-white/10 text-[11px] text-slate-300">
-                  <p className="font-bold text-white truncate">{effectiveUser.name}</p>
-                  <p className="text-[10px] text-brand-celeste truncate">{isLeadTutor ? 'Tutor de Tutores' : effectiveUser.career || 'Tutor Par'}</p>
-                  <p className="text-[9px] text-slate-400 font-mono mt-0.5">RUT: {effectiveUser.rut}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowLogoutDropdown(false);
-                    onLogout();
-                  }}
-                  className="w-full bg-red-650 hover:bg-red-700 text-white font-bold py-1.5 px-3 rounded text-[11px] transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <LogOut className="h-3 w-3" />
-                  <span>Cerrar Sesión</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          <nav className="flex-1 px-4 space-y-2 pb-4">
-            <button
-              onClick={() => { setActiveTab('my_schedule'); reloadData(); }}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${activeTab === 'my_schedule' ? 'bg-brand-celeste text-white shadow-md' : 'bg-white text-brand-navy hover:bg-slate-100'}`}
-            >
-              <Calendar className="h-4 w-4 shrink-0" />
-              <span>Mis Tutorías</span>
-            </button>
-
-            <button
-              onClick={() => { setActiveTab('my_availability'); reloadData(); }}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${activeTab === 'my_availability' ? 'bg-brand-celeste text-white shadow-md' : 'bg-white text-brand-navy hover:bg-slate-100'}`}
-            >
-              <Clock className="h-4 w-4 shrink-0" />
-              <span>Cargar Horario</span>
-            </button>
-
-            <button
-              onClick={() => { setActiveTab('report_issue'); reloadData(); }}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${activeTab === 'report_issue' ? 'bg-brand-celeste text-white shadow-md' : 'bg-white text-brand-navy hover:bg-slate-100'}`}
-            >
-              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
-              <span>Avisar Inconveniente</span>
-            </button>
-
-            {/* PESTAÑA EXCLUSIVA 1: TUTORES A CARGO */}
-            {isLeadTutor && (
-              <button
-                onClick={() => { setActiveTab('assigned_tutors'); reloadData(); }}
-                className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 'assigned_tutors'
-                    ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md ring-2 ring-indigo-400/40'
-                    : 'bg-white text-indigo-950 hover:bg-indigo-50/90 border border-indigo-200/70'
-                }`}
-              >
-                <ShieldCheck className={`h-4 w-4 shrink-0 ${activeTab === 'assigned_tutors' ? 'text-indigo-200' : 'text-indigo-600'}`} />
-                <span className="flex-1 text-left">Tutores a Cargo</span>
-                {assignedTutors.length > 0 && (
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                    activeTab === 'assigned_tutors' ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-800'
-                  }`}>
-                    {assignedTutors.length}
-                  </span>
-                )}
-              </button>
-            )}
-
-            {/* PESTAÑA EXCLUSIVA 2: REVISIÓN CUMPLIMIENTO */}
-            {isLeadTutor && (
-              <button
-                onClick={() => { setActiveTab('compliance_review'); reloadData(); }}
-                className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 'compliance_review'
-                    ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md ring-2 ring-indigo-400/40'
-                    : 'bg-white text-indigo-950 hover:bg-indigo-50/90 border border-indigo-200/70'
-                }`}
-              >
-                <ClipboardCheck className={`h-4 w-4 shrink-0 ${activeTab === 'compliance_review' ? 'text-indigo-200' : 'text-indigo-600'}`} />
-                <span className="flex-1 text-left">Revisión Cumplimiento</span>
-              </button>
-            )}
-          </nav>
-
-          {/* Guidelines Box in sidebar footer */}
-          <div className="p-4 mx-4 mb-4 bg-white/5 rounded-2xl border border-white/10 text-[10px] text-slate-350 space-y-1.5 shrink-0">
-            <h4 className="font-bold text-brand-celeste flex items-center space-x-1">
-              <Megaphone className="h-3 w-3" />
-              <span className="uppercase tracking-wider">Tus Deberes</span>
-            </h4>
-            <p>1. Revisa tu cronograma recurrentemente.</p>
-            <p>2. Carga y actualiza tu disponibilidad horaria.</p>
-            {isLeadTutor ? (
-              <p className="text-indigo-300 font-semibold">3. Supervisa el cumplimiento de cronogramas y asistencias de los tutores a tu cargo.</p>
-            ) : (
-              <p>3. En caso de requerir reasignar o cambiar de tutor por tope, notifica de inmediato.</p>
-            )}
-          </div>
-        </div>
-
-        {/* Botón de Cerrar Sesión fijo al final del Sidebar con Logo */}
-        <div className="p-4 border-t border-white/10 shrink-0 relative z-10 space-y-3">
-          <button
-            type="button"
-            onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-xs font-bold text-rose-300 hover:text-white bg-rose-500/20 hover:bg-rose-600 transition-all cursor-pointer border border-rose-500/30 shadow-sm"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Cerrar Sesión</span>
-          </button>
-
-          <div className="flex justify-center items-center pt-2">
-            <img
-              src="/UFT_LogoHorizontal_Blanco.png"
-              alt="Universidad Finis Terrae"
-              className="h-8 w-auto object-contain select-none pointer-events-none"
-            />
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Workspace Column */}
-      <main className="flex-1 flex flex-col md:h-screen md:overflow-y-auto min-w-0 relative z-10 bg-white dark:bg-slate-950 transition-colors duration-200" id="tutor-main-panel-workspace">
-
-        {/* Mobile Header Bar */}
-        <header className="md:hidden bg-[#092c4c] text-white px-4 py-3 flex flex-col space-y-2 shrink-0">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <div className="bg-white p-1 rounded-lg flex items-center justify-center">
+    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 flex flex-col font-sans transition-colors duration-200" id="tutor-dashboard-wrapper">
+      {/* Top Header Navigation Bar */}
+      <header className="bg-[#092c4c] dark:bg-slate-900 text-white shadow-md sticky top-0 z-40 border-b border-[#153a5c] dark:border-slate-800 select-none">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 gap-3">
+            {/* Logo e Identidad Institucional */}
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="bg-white p-1 rounded-lg flex items-center justify-center shadow-xs">
                 <img src="/logo-uft.png" alt="UFT" className="h-6 w-auto object-contain" />
               </div>
-              <div>
-                <h1 className="text-sm font-bold tracking-tight">
+              <div className="flex flex-col">
+                <span className="text-sm font-black tracking-tight leading-none text-white flex items-center gap-1.5">
                   Trayectoria <span className="text-[#3a9ad9]">UFT</span>
-                </h1>
-                {isLeadTutor && (
-                  <span className="text-[10px] text-indigo-300 font-bold">Tutor de Tutores</span>
+                  {isLeadTutor && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-indigo-500/30 text-indigo-200 border border-indigo-400/40">
+                      <ShieldCheck className="w-3 h-3 text-indigo-300" />
+                      Coord. Pares
+                    </span>
+                  )}
+                </span>
+                <span className="text-[10px] text-slate-300 dark:text-slate-400 font-medium">
+                  {isLeadTutor ? 'Portal Tutor de Tutores' : 'Portal Tutor Par'}
+                </span>
+              </div>
+            </div>
+
+            {/* Navegación Superior Horizontal Principal */}
+            <nav className="hidden md:flex items-center gap-1.5 lg:gap-2 overflow-x-auto py-1 scrollbar-none">
+              <button
+                type="button"
+                onClick={() => { setActiveTab('my_schedule'); reloadData(); }}
+                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'my_schedule'
+                    ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
+                    : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <Calendar className="h-4 w-4 lg:h-4.5 lg:w-4.5 shrink-0" />
+                <span>Mis Tutorías</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setActiveTab('my_availability'); reloadData(); }}
+                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'my_availability'
+                    ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
+                    : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <Clock className="h-4 w-4 lg:h-4.5 lg:w-4.5 shrink-0" />
+                <span>Cargar Horario</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setActiveTab('report_issue'); reloadData(); }}
+                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'report_issue'
+                    ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
+                    : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <AlertTriangle className="h-4 w-4 lg:h-4.5 lg:w-4.5 text-amber-300 shrink-0" />
+                <span>Avisar Inconveniente</span>
+              </button>
+
+              {isLeadTutor && (
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('assigned_tutors'); reloadData(); }}
+                  className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    activeTab === 'assigned_tutors'
+                      ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-sm ring-1 ring-indigo-300 font-black'
+                      : 'text-indigo-200 hover:bg-indigo-500/20 hover:text-white'
+                  }`}
+                >
+                  <ShieldCheck className="h-4 w-4 lg:h-4.5 lg:w-4.5 text-indigo-300 shrink-0" />
+                  <span>Tutores a Cargo</span>
+                  {assignedTutors.length > 0 && (
+                    <span className={`px-1.5 lg:px-2 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                      activeTab === 'assigned_tutors' ? 'bg-white/20 text-white' : 'bg-indigo-400 text-white'
+                    }`}>
+                      {assignedTutors.length}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {isLeadTutor && (
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('compliance_review'); reloadData(); }}
+                  className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    activeTab === 'compliance_review'
+                      ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-sm ring-1 ring-indigo-300 font-black'
+                      : 'text-indigo-200 hover:bg-indigo-500/20 hover:text-white'
+                  }`}
+                >
+                  <ClipboardCheck className="h-4 w-4 lg:h-4.5 lg:w-4.5 text-indigo-300 shrink-0" />
+                  <span>Revisión Cumplimiento</span>
+                </button>
+              )}
+            </nav>
+
+            {/* Acciones Derecha (ThemeToggle, Perfil del Tutor & Logout) */}
+            <div className="flex items-center gap-2 shrink-0">
+              <ThemeToggle />
+
+              {/* Perfil del Tutor con Dropdown */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutDropdown(!showLogoutDropdown)}
+                  className="flex items-center gap-2 bg-white/10 hover:bg-white/15 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition cursor-pointer border border-white/10"
+                >
+                  <UserIcon className="h-3.5 w-3.5 text-[#3a9ad9]" />
+                  <span className="max-w-[120px] truncate hidden sm:inline">{effectiveUser.name}</span>
+                  <ChevronDown className="h-3 w-3 text-slate-300" />
+                </button>
+
+                {showLogoutDropdown && (
+                  <div className="bg-[#0a0a0a] border border-white/15 rounded-xl p-3 space-y-2.5 animate-fade-in text-xs absolute right-0 z-50 shadow-2xl top-[110%] w-60">
+                    <div className="pb-2 border-b border-white/10 text-[11px] text-slate-300 space-y-0.5">
+                      <p className="font-extrabold text-white truncate">{effectiveUser.name}</p>
+                      <p className="text-[10px] text-[#3a9ad9] truncate">{isLeadTutor ? 'Tutor de Tutores' : effectiveUser.career || 'Tutor Par'}</p>
+                      <p className="text-[9px] text-slate-400 font-mono mt-0.5">RUT: {effectiveUser.rut}</p>
+                    </div>
+
+                    {Array.isArray(effectiveUser.roles) && effectiveUser.roles.length > 1 && (
+                      <div className="pb-2 border-b border-white/10 space-y-1.5">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cambiar de Portal</p>
+                        <div className="space-y-1">
+                          {effectiveUser.roles.filter(r => r !== 'tutor').map(r => (
+                            <button
+                              key={r}
+                              type="button"
+                              onClick={() => {
+                                setShowLogoutDropdown(false);
+                                auth.login({ ...effectiveUser, role: r });
+                                navigate(getRoleHomePath(r));
+                              }}
+                              className="w-full text-left px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white transition flex items-center justify-between text-[11px] font-semibold cursor-pointer"
+                            >
+                              <span>{r === 'alumno' ? 'Portal Estudiante' : r === 'docente' ? 'Portal Docente' : 'Panel Administrador'}</span>
+                              <span className="text-[10px] text-[#3a9ad9] font-bold">Ir &rarr;</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowLogoutDropdown(false);
+                        onLogout();
+                      }}
+                      className="w-full bg-red-650 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <LogOut className="h-3.5 w-3.5" />
+                      <span>Cerrar Sesión</span>
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+          </div>
+        </div>
+
+        {/* Barra de Pestañas Móviles (Scroll horizontal para celulares) */}
+        <div className="md:hidden border-t border-[#153a5c] dark:border-slate-800 px-3 py-2 flex items-center gap-1.5 overflow-x-auto scrollbar-none bg-[#07223b] dark:bg-slate-900/90">
+          <button
+            onClick={() => { setActiveTab('my_schedule'); reloadData(); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap ${activeTab === 'my_schedule' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-white/10 text-white'}`}
+          >
+            Mis Tutorías
+          </button>
+          <button
+            onClick={() => { setActiveTab('my_availability'); reloadData(); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap ${activeTab === 'my_availability' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-white/10 text-white'}`}
+          >
+            Cargar Horario
+          </button>
+          <button
+            onClick={() => { setActiveTab('report_issue'); reloadData(); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap ${activeTab === 'report_issue' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-white/10 text-white'}`}
+          >
+            Inconvenientes
+          </button>
+          {isLeadTutor && (
+            <>
               <button
-                onClick={onLogout}
-                className="px-2.5 py-1 bg-red-650 hover:bg-red-700 text-white text-[10px] font-bold rounded flex items-center gap-1"
+                onClick={() => { setActiveTab('assigned_tutors'); reloadData(); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap flex items-center gap-1 ${activeTab === 'assigned_tutors' ? 'bg-indigo-600 text-white' : 'bg-indigo-950 text-indigo-200 border border-indigo-700/50'}`}
               >
-                <LogOut className="h-3 w-3" />
-                <span>Salir</span>
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Tutores ({assignedTutors.length})</span>
               </button>
-            </div>
-          </div>
-          {/* Horizontal scrollable nav for mobile view to keep perfect touch accessibility */}
-          <div className="flex overflow-x-auto py-1 gap-1.5">
-            <button
-              onClick={() => { setActiveTab('my_schedule'); reloadData(); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 ${activeTab === 'my_schedule' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-white/10 text-white'}`}
-            >
-              Mis Tutorías
-            </button>
-            <button
-              onClick={() => { setActiveTab('my_availability'); reloadData(); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 ${activeTab === 'my_availability' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-white/10 text-white'}`}
-            >
-              Cargar Horario
-            </button>
-            <button
-              onClick={() => { setActiveTab('report_issue'); reloadData(); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 ${activeTab === 'report_issue' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-white/10 text-white'}`}
-            >
-              Reportar Inconveniente
-            </button>
-            {isLeadTutor && (
-              <>
-                <button
-                  onClick={() => { setActiveTab('assigned_tutors'); reloadData(); }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 flex items-center gap-1 ${activeTab === 'assigned_tutors' ? 'bg-indigo-600 text-white' : 'bg-indigo-950 text-indigo-200 border border-indigo-700/50'}`}
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Tutores a Cargo ({assignedTutors.length})</span>
-                </button>
-                <button
-                  onClick={() => { setActiveTab('compliance_review'); reloadData(); }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 flex items-center gap-1 ${activeTab === 'compliance_review' ? 'bg-indigo-600 text-white' : 'bg-indigo-950 text-indigo-200 border border-indigo-700/50'}`}
-                >
-                  <ClipboardCheck className="w-3.5 h-3.5" />
-                  <span>Revisión Cumplimiento</span>
-                </button>
-              </>
-            )}
-          </div>
-        </header>
+              <button
+                onClick={() => { setActiveTab('compliance_review'); reloadData(); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap flex items-center gap-1 ${activeTab === 'compliance_review' ? 'bg-indigo-600 text-white' : 'bg-indigo-950 text-indigo-200 border border-indigo-700/50'}`}
+              >
+                <ClipboardCheck className="w-3.5 h-3.5" />
+                <span>Cumplimiento</span>
+              </button>
+            </>
+          )}
+        </div>
+      </header>
 
-        {/* Desktop Top Header Bar with navigation trial breadcrumb & action triggers */}
-        <header className="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shrink-0 shadow-sm sticky top-0 z-20">
-          <div className="flex items-center gap-3 text-slate-400">
-            <span className="text-sm font-semibold text-slate-600">
-              {isLeadTutor ? 'Portal del Tutor de Tutores' : 'Portal de Tutores'}
-            </span>
-            <span className="text-slate-300">/</span>
-            <span className="text-sm text-slate-500 font-medium">
-              {activeTab === 'my_schedule' && 'Mis Tutorías Asignadas'}
-              {activeTab === 'my_availability' && 'Mi Disponibilidad Semanal Cargada'}
-              {activeTab === 'report_issue' && 'Reportar Inconveniente de Reasignación'}
-              {activeTab === 'assigned_tutors' && 'Tutores a Cargo (Supervisión y Seguimiento)'}
-              {activeTab === 'compliance_review' && 'Revisión de Cumplimiento de Tutorías'}
-            </span>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            {isLeadTutor && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-900 border border-indigo-200">
-                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Tutor de Tutores</span>
-              </span>
-            )}
-            <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-bold bg-[#e0f2fe]/80 text-[#0369a1] uppercase">
-              Carrera: {effectiveUser.career}
-            </span>
-            <ThemeToggle />
-          </div>
-        </header>
+      {/* Main Workspace Column */}
+      <main className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-950 transition-colors duration-200" id="tutor-main-panel-workspace">
 
         {/* Content Section Wrapper */}
         <div className="flex-1 p-6 md:p-8" id="tutor-main-dynamic-card-viewport">

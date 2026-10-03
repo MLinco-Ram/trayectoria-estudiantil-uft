@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User } from '../types';
+import { User, Role } from '../types';
 import { getSavedSmtpSettings, saveSmtpSettings, getSavedUsers, saveUsers } from '../data';
 import { usersApi, settingsApi } from '../services/api';
 import { getSocket } from '../services/socket';
@@ -81,6 +81,8 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
   const [editEmail, setEditEmail] = useState('');
   const [editCareer, setEditCareer] = useState('');
   const [editPassword, setEditPassword] = useState('');
+  const [editRoles, setEditRoles] = useState<Role[]>(['alumno']);
+  const [editTutorType, setEditTutorType] = useState<'tutor_par' | 'tutor_de_tutores'>('tutor_par');
   const [isUpdatingUser, setIsUpdatingUser] = useState(false);
   const [editFeedback, setEditFeedback] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
 
@@ -116,21 +118,26 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
   // Cargar lista de Todos los Usuarios
   const loadUsers = async () => {
     setIsLoadingUsers(true);
-    let all = getSavedUsers() || [];
     try {
       const data = await usersApi.getUsers();
-      if (Array.isArray(data) && data.length > 0) {
-        all = data;
+      if (Array.isArray(data)) {
         saveUsers(data);
+        setAllUsers(data);
+        setDocentes(data.filter(u => u && (u.role === 'docente' || (Array.isArray(u.roles) && u.roles.includes('docente')))));
+        setTutores(data.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor')))));
+        setAlumnos(data.filter(u => u && (u.role === 'alumno' || (Array.isArray(u.roles) && u.roles.includes('alumno')))));
+        setIsLoadingUsers(false);
+        return;
       }
     } catch (e) {
       console.warn('Usando usuarios de respaldo local');
     }
+    const all = getSavedUsers() || [];
     const safeAll = Array.isArray(all) ? all : [];
     setAllUsers(safeAll);
-    setDocentes(safeAll.filter(u => u && u.role === 'docente'));
-    setTutores(safeAll.filter(u => u && u.role === 'tutor'));
-    setAlumnos(safeAll.filter(u => u && u.role === 'alumno'));
+    setDocentes(safeAll.filter(u => u && (u.role === 'docente' || (Array.isArray(u.roles) && u.roles.includes('docente')))));
+    setTutores(safeAll.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor')))));
+    setAlumnos(safeAll.filter(u => u && (u.role === 'alumno' || (Array.isArray(u.roles) && u.roles.includes('alumno')))));
     setIsLoadingUsers(false);
   };
 
@@ -267,6 +274,11 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
     setEditEmail(targetUser.email || '');
     setEditCareer(targetUser.career || '');
     setEditPassword('');
+    const userRoles: Role[] = (targetUser.roles && targetUser.roles.length > 0)
+      ? targetUser.roles
+      : [targetUser.role || 'alumno'];
+    setEditRoles(userRoles);
+    setEditTutorType(targetUser.tutorType || 'tutor_par');
     setEditFeedback(null);
   };
 
@@ -286,13 +298,22 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       return;
     }
 
+    if (!editRoles || editRoles.length === 0) {
+      setEditFeedback({ status: 'error', message: 'Debe asignar al menos un rol al usuario.' });
+      return;
+    }
+
     setIsUpdatingUser(true);
 
+    const primaryRole = editRoles[0] || editingUser.role || 'alumno';
     const updatePayload: any = {
       name: editName.trim(),
       rut: editRut.trim(),
       email: editEmail.trim().toLowerCase(),
-      career: editCareer.trim()
+      career: editCareer.trim(),
+      role: primaryRole,
+      roles: editRoles,
+      tutorType: editRoles.includes('tutor') ? editTutorType : undefined,
     };
 
     if (editPassword.trim()) {
@@ -306,9 +327,9 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       saveUsers(updatedAll);
 
       setAllUsers(updatedAll);
-      setDocentes(updatedAll.filter(u => u.role === 'docente'));
-      setTutores(updatedAll.filter(u => u.role === 'tutor'));
-      setAlumnos(updatedAll.filter(u => u.role === 'alumno'));
+      setDocentes(updatedAll.filter(u => u && (u.role === 'docente' || (Array.isArray(u.roles) && u.roles.includes('docente')))));
+      setTutores(updatedAll.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor')))));
+      setAlumnos(updatedAll.filter(u => u && (u.role === 'alumno' || (Array.isArray(u.roles) && u.roles.includes('alumno')))));
 
       setEditFeedback({
         status: 'success',
@@ -326,9 +347,9 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       const updatedAll = all.map(u => u.id === editingUser.id ? { ...u, ...updatePayload } : u);
       saveUsers(updatedAll);
       setAllUsers(updatedAll);
-      setDocentes(updatedAll.filter(u => u.role === 'docente'));
-      setTutores(updatedAll.filter(u => u.role === 'tutor'));
-      setAlumnos(updatedAll.filter(u => u.role === 'alumno'));
+      setDocentes(updatedAll.filter(u => u && (u.role === 'docente' || (Array.isArray(u.roles) && u.roles.includes('docente')))));
+      setTutores(updatedAll.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor')))));
+      setAlumnos(updatedAll.filter(u => u && (u.role === 'alumno' || (Array.isArray(u.roles) && u.roles.includes('alumno')))));
 
       setEditFeedback({
         status: 'success',
@@ -712,6 +733,10 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
             setEditCareer={setEditCareer}
             editPassword={editPassword}
             setEditPassword={setEditPassword}
+            editRoles={editRoles}
+            setEditRoles={setEditRoles}
+            editTutorType={editTutorType}
+            setEditTutorType={setEditTutorType}
             isUpdatingUser={isUpdatingUser}
             editFeedback={editFeedback}
             onClose={() => setEditingUser(null)}

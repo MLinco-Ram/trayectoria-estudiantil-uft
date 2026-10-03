@@ -76,17 +76,24 @@ export const AdminTutoresTab: React.FC<AdminTutoresTabProps> = ({
                     {tut.rut}
                   </td>
                   <td className="py-3.5 px-4">
-                    {tut.tutorType === 'tutor_de_tutores' ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
-                        <BookOpen className="w-3 h-3 text-indigo-600" />
-                        Tutor de Tutores
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                        <BookOpen className="w-3 h-3 text-emerald-600" />
-                        Tutor Par
-                      </span>
-                    )}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {tut.tutorType === 'tutor_de_tutores' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                          <BookOpen className="w-3 h-3 text-indigo-600" />
+                          Tutor de Tutores
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                          <BookOpen className="w-3 h-3 text-emerald-600" />
+                          Tutor Par
+                        </span>
+                      )}
+                      {Array.isArray(tut.roles) && tut.roles.length > 1 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                          Multi-rol ({tut.roles.join(', ')})
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3.5 px-5 text-right">
                     <div className="flex items-center justify-end gap-1.5">
