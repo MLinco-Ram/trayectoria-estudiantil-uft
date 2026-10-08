@@ -371,7 +371,8 @@ flowchart TD
         end
 
         subgraph TutorComponents["Módulos Tutor"]
-            TutSchedule["Mis Tutorías (Cronograma + QR)"]
+            TutSchedule["Mis Tutorías (Cronograma)"]
+            TutAtt["Pasar Lista (Asistencia + QR + Inscripción Manual)"]
             TutAvail["Cargar Horario Semanal"]
             TutIssue["Avisar Inconveniente"]
             TutAssigned["Tutores a Cargo (Métricas)"]
@@ -447,7 +448,7 @@ flowchart TD
 
     class App,AuthCtx,ProtRoute entry
     class DocenteDash,TutorDash,AlumnoDash,AdminDash dash
-    class DocCalendar,DocTutors,DocAtt,DocFlex,DocAlerts,DocAnnc,DocAnalytics,DocComments,TutSchedule,TutAvail,TutIssue,TutAssigned,TutCompliance,AluExplore,AluBookings,AluHistory,AluAvail,AluIssue feature
+    class DocCalendar,DocTutors,DocAtt,DocFlex,DocAlerts,DocAnnc,DocAnalytics,DocComments,TutSchedule,TutAtt,TutAvail,TutIssue,TutAssigned,TutCompliance,AluExplore,AluBookings,AluHistory,AluAvail,AluIssue feature
     class QRModal,ThemeTgl,ModalNotifs shared
     class ApiClients,SocketSvc clientsvc
     class MasterRouter,AuthC,UsersC,SessionsC,ReportsC,ReqsC,NotifsC,SettingsC,BroadcastC backend
@@ -731,14 +732,21 @@ trayectoria-estudiantil-uft/
 - **Coordinación Flexible**: Visualización y adjudicación directa de solicitudes de horario con despacho automático de correos institucionales al alumno y al tutor asignado.
 
 ### D. Módulo de Tutores y Subtipo Tutor de Tutores (`TutorDashboard.tsx`)
-- **Tutor Par (Estándar)**:
-  - **Mis Tutorías**: Visualización de sesiones asignadas, temarios/cronogramas y registro rápido de asistencia estudiantil con código QR interactivo.
-  - **Cargar Horario**: Carga de matriz de disponibilidad horaria semanal (Lunes a Domingo) sincronizada con MongoDB Atlas.
-  - **Avisar Inconveniente**: Envío de alertas de cambio de horario o sustitución de tutor con despacho automático a todos los docentes coordinadores.
+- **Funcionalidades Comunes para Ambos Subroles (Tutor Par y Tutor de Tutores)**:
+  - **Mis Tutorías (`my_schedule`)**: Visualización de sesiones asignadas, temarios/cronogramas y vista rápida.
+  - **Pasar Lista (`attendance` - `TutorAttendanceTab.tsx`)**:
+    - Pestaña dedicada y visible en la barra de navegación superior (escritorio y móvil) para **ambos subroles**.
+    - Filtro dinámico por fechas ("Todas las Fechas", "Hoy", "Mañana", etc.) y buscador por nombre de sesión, materia o alumno.
+    - Control nominal con botones de marcado rápido: **Presente** (verde) y **Ausente** (rojo) con despacho automático de notificaciones por correo (encuesta de satisfacción si asiste o alerta de inasistencia).
+    - **Inscripción Manual en Vivo (`+ Agregar Alumno`)**: Permite inscribir y tomar asistencia a estudiantes que asistan a la sesión de forma presencial o extemporánea.
+    - **Proyector / Código QR (`QR Asistencia`)**: Despliegue de modal con código QR dinámico de alta resolución para escaneo directo desde dispositivos móviles de los estudiantes.
+    - Para **Tutor de Tutores**, el módulo incluye un selector de perspectiva ("Mis Tutorías Asignadas", "Tutores a Cargo" o "Todas las Tutorías") para supervisar y registrar asistencias de todo su equipo asignado.
+  - **Cargar Horario (`my_availability`)**: Carga de matriz de disponibilidad horaria semanal (Lunes a Domingo) sincronizada con MongoDB Atlas.
+  - **Avisar Inconveniente (`report_issue`)**: Envío de alertas de cambio de horario o sustitución de tutor con despacho automático a todos los docentes coordinadores.
 - **Tutor de Tutores (Coordinador de Pares)**:
-  - Cuenta con todos los módulos del tutor par y agrega dos pestañas exclusivas:
-    1. **"Tutores a Cargo"**: Monitoreo de nómina supervisada, semáforo de estado, cantidad de tutorías, cronogramas y asistencia.
-    2. **"Revisión Cumplimiento"**: Vista detallada por tutor par con listado de sesiones en tarjetas y badges de estado:
+  - Cuenta con todos los módulos anteriores y agrega dos pestañas exclusivas:
+    1. **"Tutores a Cargo" (`assigned_tutors`)**: Monitoreo de nómina supervisada, semáforo de estado, cantidad de tutorías, cronogramas y asistencia.
+    2. **"Revisión Cumplimiento" (`compliance_review`)**: Vista detallada por tutor par con listado de sesiones en tarjetas y badges de estado:
        - `Cumplida` (Verde): Cronograma cargado y asistencia de alumnos tomada.
        - `Sin cronograma` (Ámbar): Sesión sin temario registrado por el tutor.
        - `Inconsistente` (Rojo): Reportes pendientes o inasistencias sin registrar en fechas pasadas.
@@ -814,10 +822,23 @@ trayectoria-estudiantil-uft/
 
 ---
 
-## 8. Comandos de Ejecución
+## 8. Novedades y Módulos Recientes
+
+- **Bandeja de Mensajes y Comunicados Unificada (`NotificationModal.tsx`)**:
+  - Implementada en **Portal Alumno**, **Portal Docente** y **Portal Tutor** con campana de notificación en la barra superior, badge de conteo en tiempo real, filtro por ventana de tiempo (últimos 7 días vs histórico completo), marcado individual y masivo de lectura, y sincronización WebSockets (`notifications:changed`).
+- **Docentes Practicantes / Practicantes de Acompañamiento**:
+  - Habilitada la opción de registrar docentes bajo el cargo de **"Docente Practicante"** o **"Practicante (Apoyo Psicoeducativo / Tutorías)"**, otorgando el mismo nivel de acceso y permisos operativos que cualquier docente/coordinador en la plataforma.
+- **Asignación Simultánea de Subroles de Tutor (`tutorTypes: ('tutor_par' | 'tutor_de_tutores')[]`)**:
+  - En [EditUserModal.tsx](file:///home/kevshupp/Escritorio/Proyectos/trayectoria-estudiantil-uft/src/components/admin/EditUserModal.tsx) y [DocenteTutorsTab.tsx](file:///home/kevshupp/Escritorio/Proyectos/trayectoria-estudiantil-uft/src/components/docente/DocenteTutorsTab.tsx) es posible marcar **Tutor Par** y **Tutor de Tutores** al mismo tiempo para un mismo usuario.
+  - Al iniciar sesión en [LoginScreen.tsx](file:///home/kevshupp/Escritorio/Proyectos/trayectoria-estudiantil-uft/src/components/LoginScreen.tsx) o al hacer clic en **"Cambiar de Portal"** desde la barra de usuario en [TutorDashboard.tsx](file:///home/kevshupp/Escritorio/Proyectos/trayectoria-estudiantil-uft/src/components/TutorDashboard.tsx), [AlumnoDashboard.tsx](file:///home/kevshupp/Escritorio/Proyectos/trayectoria-estudiantil-uft/src/components/AlumnoDashboard.tsx) y [DocenteSidebar.tsx](file:///home/kevshupp/Escritorio/Proyectos/trayectoria-estudiantil-uft/src/components/docente/DocenteSidebar.tsx), el usuario puede conmutar en un solo clic entre el **Portal de Tutor Par** (Mis Tutorías, Horario, Asistencia) y el **Portal de Tutor de Tutores** (Tutores a Cargo, Revisión de Cumplimiento).
+
+---
+
+## 9. Comandos de Ejecución
 
 - `npm run server`: Inicia el servidor backend Express modular (`localhost:3001`).
 - `npm run client`: Inicia el servidor de desarrollo Vite (`localhost:3000`).
 - `npm run dev`: Inicia concurrentemente backend (`3001`) y frontend (`3000`).
 - `npm run lint`: Ejecuta el chequeo de tipos TypeScript (`tsc --noEmit`).
 - `npm run build`: Genera el paquete optimizado de producción en `/dist`.
+

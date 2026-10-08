@@ -62,6 +62,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth, getRoleHomePath } from '../context/AuthContext';
 import { MobileQRScannerModal } from './common/MobileQRScannerModal';
 import { ThemeToggle } from './common/ThemeToggle';
+import { NotificationModal } from './common/NotificationModal';
 
 interface AlumnoDashboardProps {
   user?: User;
@@ -716,21 +717,78 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                       <div className="pb-2 border-b border-white/10 space-y-1.5">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cambiar de Portal</p>
                         <div className="space-y-1">
-                          {user.roles.filter(r => r !== 'alumno').map(r => (
-                            <button
-                              key={r}
-                              type="button"
-                              onClick={() => {
-                                setShowLogoutDropdown(false);
-                                auth.login({ ...user, role: r });
-                                navigate(getRoleHomePath(r));
-                              }}
-                              className="w-full text-left px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white transition flex items-center justify-between text-[11px] font-semibold cursor-pointer"
-                            >
-                              <span>{r === 'tutor' ? 'Portal Tutor' : r === 'docente' ? 'Portal Docente' : 'Panel Administrador'}</span>
-                              <span className="text-[10px] text-[#3a9ad9] font-bold">Ir &rarr;</span>
-                            </button>
-                          ))}
+                          {user.roles.filter(r => r !== 'alumno').map(r => {
+                            if (r === 'tutor') {
+                              const userTutorTypes = Array.isArray(user.tutorTypes) && user.tutorTypes.length > 0
+                                ? user.tutorTypes
+                                : [user.tutorType || 'tutor_par'];
+                              const hasBoth = userTutorTypes.includes('tutor_par') && userTutorTypes.includes('tutor_de_tutores');
+
+                              if (hasBoth) {
+                                return (
+                                  <React.Fragment key="tutor_options">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setShowLogoutDropdown(false);
+                                        auth.login({ ...user, role: 'tutor', tutorType: 'tutor_par' });
+                                        navigate('/tutor');
+                                      }}
+                                      className="w-full text-left px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-white transition flex items-center justify-between text-[11px] font-semibold cursor-pointer border border-emerald-500/20"
+                                    >
+                                      <span>🧑‍🏫 Portal Tutor Par</span>
+                                      <span className="text-[10px] text-emerald-400 font-bold">Ir &rarr;</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setShowLogoutDropdown(false);
+                                        auth.login({ ...user, role: 'tutor', tutorType: 'tutor_de_tutores' });
+                                        navigate('/tutor');
+                                      }}
+                                      className="w-full text-left px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white transition flex items-center justify-between text-[11px] font-semibold cursor-pointer border border-indigo-500/20"
+                                    >
+                                      <span>🛡️ Portal Tutor de Tutores</span>
+                                      <span className="text-[10px] text-indigo-400 font-bold">Ir &rarr;</span>
+                                    </button>
+                                  </React.Fragment>
+                                );
+                              }
+
+                              const isLead = userTutorTypes.includes('tutor_de_tutores') || user.tutorType === 'tutor_de_tutores';
+                              return (
+                                <button
+                                  key="tutor"
+                                  type="button"
+                                  onClick={() => {
+                                    setShowLogoutDropdown(false);
+                                    auth.login({ ...user, role: 'tutor', tutorType: isLead ? 'tutor_de_tutores' : 'tutor_par' });
+                                    navigate('/tutor');
+                                  }}
+                                  className="w-full text-left px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white transition flex items-center justify-between text-[11px] font-semibold cursor-pointer"
+                                >
+                                  <span>{isLead ? '🛡️ Portal Tutor de Tutores' : '🧑‍🏫 Portal Tutor Par'}</span>
+                                  <span className="text-[10px] text-[#3a9ad9] font-bold">Ir &rarr;</span>
+                                </button>
+                              );
+                            }
+
+                            return (
+                              <button
+                                key={r}
+                                type="button"
+                                onClick={() => {
+                                  setShowLogoutDropdown(false);
+                                  auth.login({ ...user, role: r });
+                                  navigate(getRoleHomePath(r));
+                                }}
+                                className="w-full text-left px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white transition flex items-center justify-between text-[11px] font-semibold cursor-pointer"
+                              >
+                                <span>{r === 'docente' ? '👨‍🏫 Portal Docente' : '🛡️ Panel Administrador'}</span>
+                                <span className="text-[10px] text-[#3a9ad9] font-bold">Ir &rarr;</span>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -1442,7 +1500,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       </div>
 
         {/* Status Bar / Footer matching mockup */}
-        <footer className="h-10 bg-[#f1f5f9] dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between px-6 md:px-8 text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mt-auto shrink-0 select-none transition-colors">
+        <footer className="h-10 bg-[#061e34] dark:bg-slate-950 border-t border-white/10 flex items-center justify-between px-6 md:px-8 text-[10px] text-slate-300 dark:text-slate-400 font-bold uppercase tracking-wider mt-auto shrink-0 select-none transition-colors">
           <div>Portal del Estudiante | Trayectoria Estudiantil UFT</div>
           <div className="flex gap-4">
             <span className="flex items-center gap-1">
@@ -1455,188 +1513,16 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       </main>
 
       {/* Modal / Panel Flotante de Bandeja de Correo y Comunicados */}
-      {showNotifInbox && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
-          onClick={() => setShowNotifInbox(false)}
-        >
-          <div 
-            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-xl w-full border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[85vh] animate-scale-up"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="bg-[#092c4c] dark:bg-slate-950 text-white px-6 py-4 flex items-center justify-between shrink-0 border-b border-white/10">
-              <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-xl bg-[#3a9ad9] flex items-center justify-center text-[#092c4c] font-bold shadow-sm">
-                  <Bell className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-white">Bandeja de Mensajes y Comunicados</h3>
-                  <p className="text-[11px] text-slate-300">Avisos oficiales y notificaciones del sistema institucional</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowNotifInbox(false)}
-                className="text-slate-300 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Actions Bar & Timeframe Filter */}
-            <div className="bg-slate-50 dark:bg-slate-800/80 px-6 py-3 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-700">Mostrar:</span>
-                <div className="inline-flex rounded-lg p-0.5 bg-slate-200/80 border border-slate-300">
-                  <button
-                    type="button"
-                    onClick={() => setNotifTimeframe('week')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                      notifTimeframe === 'week'
-                        ? 'bg-white text-[#092c4c] shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    📅 Última Semana (7 días)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNotifTimeframe('all')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                      notifTimeframe === 'all'
-                        ? 'bg-white text-[#092c4c] shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Histórico Completo
-                  </button>
-                </div>
-              </div>
-
-              {unreadCount > 0 && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const marked = notifications.map(n => ({ ...n, read: true }));
-                    setNotifications(marked);
-                    saveNotifications(marked);
-                    try {
-                      await fetch('/api/notifications/read-all', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email: user.email })
-                      });
-                    } catch (e) {}
-                  }}
-                  className="text-brand-celeste hover:text-brand-navy font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
-                >
-                  <CheckCheck className="w-3.5 h-3.5" />
-                  <span>Marcar todos como leídos</span>
-                </button>
-              )}
-            </div>
-
-            {/* Messages List */}
-            {(() => {
-              const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-              const filteredList = notifTimeframe === 'week'
-                ? notifications.filter(n => new Date(n.timestamp).getTime() >= sevenDaysAgo)
-                : notifications;
-
-              return (
-                <div className="p-6 overflow-y-auto space-y-3.5 flex-1">
-                  {filteredList.length === 0 ? (
-                    <div className="text-center py-12 text-slate-400 space-y-2">
-                      <Mail className="w-10 h-10 mx-auto text-slate-300" />
-                      <p className="text-xs font-medium">
-                        {notifTimeframe === 'week'
-                          ? 'No has recibido comunicados ni avisos en los últimos 7 días.'
-                          : 'No tienes mensajes en tu bandeja.'}
-                      </p>
-                      {notifTimeframe === 'week' && notifications.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setNotifTimeframe('all')}
-                          className="text-brand-celeste text-[11px] font-bold underline cursor-pointer hover:text-brand-navy"
-                        >
-                          Ver mensajes anteriores ({notifications.length} en historial)
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    filteredList.map(notif => {
-                      const isUnread = !notif.read;
-                      return (
-                        <div
-                          key={notif.id}
-                          onClick={async () => {
-                            if (isUnread) {
-                              const updated = notifications.map(n => n.id === notif.id ? { ...n, read: true } : n);
-                              setNotifications(updated);
-                              saveNotifications(updated);
-                              try {
-                                await fetch(`/api/notifications/${notif.id}/read`, { method: 'PUT' });
-                              } catch (e) {}
-                            }
-                          }}
-                          className={`p-4 rounded-xl border transition-all cursor-pointer overflow-hidden min-w-0 ${
-                            isUnread
-                              ? 'bg-sky-50/70 border-[#3a9ad9]/40 shadow-xs'
-                              : 'bg-white border-slate-200 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-1.5 min-w-0">
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              {isUnread && (
-                                <span className="w-2 h-2 rounded-full bg-[#3a9ad9] shrink-0" title="No leído"></span>
-                              )}
-                              <h4 className={`text-xs break-words break-all ${isUnread ? 'font-bold text-slate-900' : 'font-semibold text-slate-700'}`}>
-                                {notif.subject}
-                              </h4>
-                            </div>
-                            <span className="text-[10px] text-slate-400 shrink-0 font-mono">
-                              {new Date(notif.timestamp).toLocaleString('es-CL', {
-                                day: '2-digit',
-                                month: 'short',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </span>
-                          </div>
-
-                          <p className="text-xs text-slate-600 whitespace-pre-wrap break-words break-all leading-relaxed pl-4 border-l-2 border-slate-200 my-2 overflow-hidden">
-                            {notif.message}
-                          </p>
-
-                          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1">
-                            <span>Emisor: <strong>Centro de Apoyo UFT</strong></span>
-                            {isUnread ? (
-                              <span className="text-[#3a9ad9] font-bold">Nuevo</span>
-                            ) : (
-                              <span className="text-slate-400">Leído</span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Modal Footer */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowNotifInbox(false)}
-                className="bg-[#092c4c] hover:bg-[#153a5c] text-white text-xs font-bold py-2 px-5 rounded-xl transition-all cursor-pointer shadow-sm"
-              >
-                Cerrar Bandeja
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <NotificationModal
+        isOpen={showNotifInbox}
+        onClose={() => setShowNotifInbox(false)}
+        userEmail={user.email}
+        notifications={notifications}
+        setNotifications={setNotifications}
+        title="Bandeja de Mensajes y Comunicados"
+        subtitle="Avisos oficiales y notificaciones del sistema institucional"
+        senderLabel="Centro de Apoyo UFT"
+      />
 
       {/* MODAL DE EVALUACIÓN DE SATISFACCIÓN (12 PREGUNTAS TÍPICAS Y COMENTARIOS) */}
       {evaluatingSession && (

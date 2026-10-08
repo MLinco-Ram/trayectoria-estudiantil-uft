@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Role } from '../types';
+import { User, Role, TutorType } from '../types';
 import { getSavedSmtpSettings, saveSmtpSettings, getSavedUsers, saveUsers } from '../data';
 import { usersApi, settingsApi } from '../services/api';
 import { getSocket } from '../services/socket';
@@ -82,7 +82,7 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
   const [editCareer, setEditCareer] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [editRoles, setEditRoles] = useState<Role[]>(['alumno']);
-  const [editTutorType, setEditTutorType] = useState<'tutor_par' | 'tutor_de_tutores'>('tutor_par');
+  const [editTutorTypes, setEditTutorTypes] = useState<TutorType[]>(['tutor_par']);
   const [isUpdatingUser, setIsUpdatingUser] = useState(false);
   const [editFeedback, setEditFeedback] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
 
@@ -278,7 +278,12 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       ? targetUser.roles
       : [targetUser.role || 'alumno'];
     setEditRoles(userRoles);
-    setEditTutorType(targetUser.tutorType || 'tutor_par');
+    const userTutorTypes: TutorType[] = Array.isArray(targetUser.tutorTypes) && targetUser.tutorTypes.length > 0
+      ? targetUser.tutorTypes
+      : targetUser.tutorType
+        ? [targetUser.tutorType]
+        : ['tutor_par'];
+    setEditTutorTypes(userTutorTypes);
     setEditFeedback(null);
   };
 
@@ -313,7 +318,8 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       career: editCareer.trim(),
       role: primaryRole,
       roles: editRoles,
-      tutorType: editRoles.includes('tutor') ? editTutorType : undefined,
+      tutorTypes: editRoles.includes('tutor') ? editTutorTypes : undefined,
+      tutorType: editRoles.includes('tutor') ? (editTutorTypes[0] || 'tutor_par') : undefined,
     };
 
     if (editPassword.trim()) {
@@ -735,8 +741,8 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
             setEditPassword={setEditPassword}
             editRoles={editRoles}
             setEditRoles={setEditRoles}
-            editTutorType={editTutorType}
-            setEditTutorType={setEditTutorType}
+            editTutorTypes={editTutorTypes}
+            setEditTutorTypes={setEditTutorTypes}
             isUpdatingUser={isUpdatingUser}
             editFeedback={editFeedback}
             onClose={() => setEditingUser(null)}
@@ -746,7 +752,7 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+      <footer className="bg-[#061e34] dark:bg-slate-950 border-t border-white/10 py-5 text-center text-xs text-slate-300 dark:text-slate-400 transition-colors">
         <p>Centro de Apoyo al Aprendizaje • Trayectoria Estudiantil UFT — Universidad Finis Terrae</p>
       </footer>
     </div>

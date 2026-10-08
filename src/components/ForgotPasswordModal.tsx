@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { KeyRound, Mail, ArrowLeft, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { KeyRound, Mail, ArrowLeft, CheckCircle2, AlertCircle, Loader2, RotateCcw } from 'lucide-react';
 import { formatRut } from '../data';
 
 interface ForgotPasswordModalProps {
@@ -13,6 +13,16 @@ export default function ForgotPasswordModal({ isOpen, onClose }: ForgotPasswordM
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [feedbackMessage, setFeedbackMessage] = useState('');
 
+  // Resetear el estado cada vez que se abre la modal
+  useEffect(() => {
+    if (isOpen) {
+      setIdentifier('');
+      setLoading(false);
+      setStatus('idle');
+      setFeedbackMessage('');
+    }
+  }, [isOpen]);
+
   const handleInputChange = (val: string) => {
     // Si contiene '@' o letras de correo (excepto K al final), permitir escribir normal; si son dígitos, formatear como RUT
     if (val.includes('@') || /^[a-zA-Z._-]+$/.test(val)) {
@@ -20,6 +30,18 @@ export default function ForgotPasswordModal({ isOpen, onClose }: ForgotPasswordM
     } else {
       setIdentifier(formatRut(val));
     }
+  };
+
+  const handleResetForm = () => {
+    setIdentifier('');
+    setStatus('idle');
+    setFeedbackMessage('');
+    setLoading(false);
+  };
+
+  const handleClose = () => {
+    handleResetForm();
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -79,7 +101,7 @@ export default function ForgotPasswordModal({ isOpen, onClose }: ForgotPasswordM
         {/* Form Body */}
         <div className="p-6">
           {status === 'success' ? (
-            <div className="text-center py-4 space-y-4">
+            <div className="text-center py-4 space-y-4 animate-fade-in">
               <div className="w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center mx-auto border border-emerald-100">
                 <CheckCircle2 className="w-8 h-8 text-emerald-600" />
               </div>
@@ -92,13 +114,25 @@ export default function ForgotPasswordModal({ isOpen, onClose }: ForgotPasswordM
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800 text-left">
                 💡 <strong>Importante:</strong> El enlace expirará en 60 minutos. Si no ves el correo, revisa tu carpeta de <em>Spam</em> o <em>Correo no deseado</em>.
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-full bg-brand-navy hover:bg-[#07203b] text-white py-2.5 px-4 rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer"
-              >
-                Volver al Inicio de Sesión
-              </button>
+
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleResetForm}
+                  className="w-full py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Ingresar otro RUT o Correo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="w-full bg-brand-navy hover:bg-[#07203b] text-white py-2.5 px-4 rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer"
+                >
+                  Volver al Inicio de Sesión
+                </button>
+              </div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -113,7 +147,7 @@ export default function ForgotPasswordModal({ isOpen, onClose }: ForgotPasswordM
                     placeholder="Ej. 12.345.678-9 o usuario@uft.cl"
                     value={identifier}
                     onChange={(e) => handleInputChange(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-celeste focus:bg-white text-slate-800 transition-all text-xs pl-9"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-celeste focus:bg-white text-slate-800 transition-all text-xs pl-9 font-medium"
                   />
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                 </div>
@@ -123,7 +157,7 @@ export default function ForgotPasswordModal({ isOpen, onClose }: ForgotPasswordM
               </div>
 
               {status === 'error' && (
-                <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200 font-medium flex items-start space-x-2">
+                <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200 font-medium flex items-start space-x-2 animate-fade-in">
                   <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
                   <span>{feedbackMessage}</span>
                 </div>
@@ -132,7 +166,7 @@ export default function ForgotPasswordModal({ isOpen, onClose }: ForgotPasswordM
               <div className="flex space-x-2 pt-2">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />

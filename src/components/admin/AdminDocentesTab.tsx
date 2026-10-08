@@ -141,6 +141,8 @@ export const AdminDocentesTab: React.FC<AdminDocentesTabProps> = ({
                   <option value="Jefa de Trayectoria Estudiantil">Jefa de Trayectoria Estudiantil</option>
                   <option value="Coordinación de Tutorías">Coordinación de Tutorías</option>
                   <option value="Profesional Psicoeducativo">Profesional Psicoeducativo</option>
+                  <option value="Docente Practicante">Docente Practicante</option>
+                  <option value="Practicante (Apoyo Psicoeducativo / Tutorías)">Practicante (Apoyo Psicoeducativo / Tutorías)</option>
                   <option value="Docente Tutor de Facultad">Docente Tutor de Facultad</option>
                   <option value="Dirección Académica">Dirección Académica</option>
                 </select>

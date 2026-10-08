@@ -98,7 +98,12 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       ? userObj.roles
       : [userObj.role || 'alumno'];
 
-    if (assignedRoles.length > 1) {
+    const hasMultipleTutorSubroles = assignedRoles.includes('tutor') &&
+      Array.isArray(userObj.tutorTypes) &&
+      userObj.tutorTypes.includes('tutor_par') &&
+      userObj.tutorTypes.includes('tutor_de_tutores');
+
+    if (assignedRoles.length > 1 || hasMultipleTutorSubroles) {
       setPendingMultiRoleUser({ ...userObj, roles: assignedRoles });
       return;
     }
@@ -619,31 +624,109 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 }
 
                 if (r === 'tutor') {
-                  const isTutorDeTutores = pendingMultiRoleUser.tutorType === 'tutor_de_tutores';
+                  const userTutorTypes = Array.isArray(pendingMultiRoleUser.tutorTypes) && pendingMultiRoleUser.tutorTypes.length > 0
+                    ? pendingMultiRoleUser.tutorTypes
+                    : [pendingMultiRoleUser.tutorType || 'tutor_par'];
+
+                  const hasBoth = userTutorTypes.includes('tutor_par') && userTutorTypes.includes('tutor_de_tutores');
+
+                  if (hasBoth) {
+                    return (
+                      <React.Fragment key="tutors_both">
+                        <button
+                          type="button"
+                          onClick={() => handleSuccessfulAuth({ ...pendingMultiRoleUser, role: 'tutor', tutorType: 'tutor_par' })}
+                          className="w-full text-left p-4 rounded-2xl border-2 border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/30 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/50 hover:border-emerald-400 transition group cursor-pointer flex items-center justify-between gap-3 shadow-xs"
+                        >
+                          <div className="flex items-center gap-3.5">
+                            <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                              <BookOpen className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-extrabold text-sm text-slate-900 dark:text-white">Portal de Tutor Par</span>
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200/80 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200">
+                                  Tutor Par
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                Mis tutorías, carga de disponibilidad y toma de asistencia.
+                              </p>
+                            </div>
+                          </div>
+                          <ArrowRight className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 group-hover:translate-x-1 transition-transform" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleSuccessfulAuth({ ...pendingMultiRoleUser, role: 'tutor', tutorType: 'tutor_de_tutores' })}
+                          className="w-full text-left p-4 rounded-2xl border-2 border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/50 dark:bg-indigo-950/30 hover:bg-indigo-100/60 dark:hover:bg-indigo-900/50 hover:border-indigo-400 transition group cursor-pointer flex items-center justify-between gap-3 shadow-xs"
+                        >
+                          <div className="flex items-center gap-3.5">
+                            <div className="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                              <ShieldCheck className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-extrabold text-sm text-slate-900 dark:text-white">Portal de Tutor de Tutores</span>
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-200/80 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200">
+                                  Tutor de Tutores
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                Supervisión de tutores pares, revisión de cumplimiento y panel ampliado.
+                              </p>
+                            </div>
+                          </div>
+                          <ArrowRight className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 group-hover:translate-x-1 transition-transform" />
+                        </button>
+                      </React.Fragment>
+                    );
+                  }
+
+                  const isTutorDeTutores = userTutorTypes.includes('tutor_de_tutores') || pendingMultiRoleUser.tutorType === 'tutor_de_tutores';
+                  const activeType = isTutorDeTutores ? 'tutor_de_tutores' : 'tutor_par';
+
                   return (
                     <button
                       key="tutor"
                       type="button"
-                      onClick={() => handleSuccessfulAuth({ ...pendingMultiRoleUser, role: 'tutor' })}
-                      className="w-full text-left p-4 rounded-2xl border-2 border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/30 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/50 hover:border-emerald-400 transition group cursor-pointer flex items-center justify-between gap-3 shadow-xs"
+                      onClick={() => handleSuccessfulAuth({ ...pendingMultiRoleUser, role: 'tutor', tutorType: activeType })}
+                      className={`w-full text-left p-4 rounded-2xl border-2 transition group cursor-pointer flex items-center justify-between gap-3 shadow-xs ${
+                        isTutorDeTutores
+                          ? 'border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/50 dark:bg-indigo-950/30 hover:bg-indigo-100/60 dark:hover:bg-indigo-900/50 hover:border-indigo-400'
+                          : 'border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/30 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/50 hover:border-emerald-400'
+                      }`}
                     >
                       <div className="flex items-center gap-3.5">
-                        <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-                          <BookOpen className="w-6 h-6" />
+                        <div className={`w-11 h-11 rounded-xl text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform ${
+                          isTutorDeTutores ? 'bg-indigo-600' : 'bg-emerald-600'
+                        }`}>
+                          {isTutorDeTutores ? <ShieldCheck className="w-6 h-6" /> : <BookOpen className="w-6 h-6" />}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-extrabold text-sm text-slate-900 dark:text-white">Portal de Tutor</span>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200/80 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200">
+                            <span className="font-extrabold text-sm text-slate-900 dark:text-white">
+                              {isTutorDeTutores ? 'Portal de Tutor de Tutores' : 'Portal de Tutor Par'}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              isTutorDeTutores
+                                ? 'bg-indigo-200/80 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200'
+                                : 'bg-emerald-200/80 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200'
+                            }`}>
                               {isTutorDeTutores ? 'Tutor de Tutores' : 'Tutor Par'}
                             </span>
                           </div>
                           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            Gestión de sesiones, registro de asistencias y consultas de estudiantes.
+                            {isTutorDeTutores
+                              ? 'Supervisión de tutores pares, revisión de cumplimiento y panel ampliado.'
+                              : 'Gestión de sesiones, registro de asistencias y consultas de estudiantes.'}
                           </p>
                         </div>
                       </div>
-                      <ArrowRight className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 group-hover:translate-x-1 transition-transform" />
+                      <ArrowRight className={`w-5 h-5 shrink-0 group-hover:translate-x-1 transition-transform ${
+                        isTutorDeTutores ? 'text-indigo-600 dark:text-indigo-400' : 'text-emerald-600 dark:text-emerald-400'
+                      }`} />
                     </button>
                   );
                 }

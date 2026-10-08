@@ -83,21 +83,22 @@ export const broadcastMessage = async (req, res) => {
       for (const dest of targetUsers) {
         try {
           const actionUrl = `${baseUrl}/${dest.role === 'tutor' ? 'tutor' : dest.role === 'alumno' ? 'alumno' : 'docente'}`;
-          const summaryText = `Coordinación Docente ha emitido un nuevo comunicado: "${subject.trim()}". ${message.trim().slice(0, 140)}${message.length > 140 ? '...' : ''}`;
+          const emailSubject = `[UFT] Nuevo Comunicado Oficial de Coordinación`;
+          const summaryText = `Se ha publicado un nuevo comunicado oficial en tu portal de Trayectoria Estudiantil UFT (${contextTitle}). Para leer el contenido completo e informarte de las novedades, ingresa directamente a la plataforma.`;
 
           const htmlBody = formatMinimalEmail({
             toName: dest.name,
-            subject: `[UFT] ${subject.trim()}`,
+            subject: emailSubject,
             summary: summaryText,
             actionUrl,
-            actionText: 'Ver Comunicado en la Plataforma'
+            actionText: 'Ingresar a la Plataforma'
           });
 
           await transporter.sendMail({
             from: { name: fromName, address: config.user },
             to: `"${dest.name}" <${dest.email}>`,
-            subject: `[UFT] ${subject.trim()}`,
-            text: `Estimado/a ${dest.name},\n\n${summaryText}\n\nIngresa a la plataforma para ver el comunicado completo: ${actionUrl}`,
+            subject: emailSubject,
+            text: `Estimado/a ${dest.name},\n\nSe ha publicado un nuevo comunicado oficial en tu portal de Trayectoria Estudiantil UFT (${contextTitle}).\n\nIngresa directamente a la plataforma para leer el mensaje completo:\n${actionUrl}`,
             html: htmlBody,
           });
           sentCount++;

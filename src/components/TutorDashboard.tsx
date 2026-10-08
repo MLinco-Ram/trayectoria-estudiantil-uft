@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { User, Session, IssueReport, UserAvailability, SessionFeedback } from '../types';
-import { getSavedSessions, saveSessions, getSavedReports, saveReports, getSavedAvailabilities, saveAvailabilities, getSavedUsers, saveUsers, triggerNotification, TIME_SLOTS } from '../data';
+import { User, Session, IssueReport, UserAvailability, SessionFeedback, WebNotification } from '../types';
+import { getSavedSessions, saveSessions, getSavedReports, saveReports, getSavedAvailabilities, saveAvailabilities, getSavedUsers, saveUsers, triggerNotification, TIME_SLOTS, getSavedNotifications, saveNotifications } from '../data';
 import { getSocket } from '../services/socket';
 import { 
   Calendar, 
@@ -37,10 +37,13 @@ import {
   CheckCheck,
   Search,
   Star,
-  MessageSquare
+  MessageSquare,
+  Bell
 } from 'lucide-react';
 import { SessionQRModal } from './common/SessionQRModal';
 import { ThemeToggle } from './common/ThemeToggle';
+import { NotificationModal } from './common/NotificationModal';
+import { TutorAttendanceTab } from './tutor/TutorAttendanceTab';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, getRoleHomePath } from '../context/AuthContext';
 
@@ -50,7 +53,7 @@ interface TutorDashboardProps {
   onUpdateUser?: (user: User) => void;
 }
 
-export type TutorTab = 'my_schedule' | 'report_issue' | 'my_availability' | 'assigned_tutors' | 'compliance_review';
+export type TutorTab = 'my_schedule' | 'attendance' | 'report_issue' | 'my_availability' | 'assigned_tutors' | 'compliance_review';
 
 export default function TutorDashboard({ user: propUser, onLogout: propLogout, onUpdateUser: propUpdateUser }: TutorDashboardProps = {}) {
   const navigate = useNavigate();
@@ -64,10 +67,28 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
   const [sessions, setSessions] = useState<Session[]>([]);
   const [reports, setReports] = useState<IssueReport[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>(getSavedUsers());
+  const [notifications, setNotifications] = useState<WebNotification[]>(() => {
+    const local = getSavedNotifications();
+    return user.email ? local.filter(n => n.toEmail?.toLowerCase() === user.email.toLowerCase()) : local;
+  });
+  const [showNotifInbox, setShowNotifInbox] = useState(false);
 
   // Usuario actualizado en tiempo real desde MongoDB y WebSockets
   const effectiveUser = useMemo(() => {
-    return allUsers.find(u => u.id === user.id || u.rut === user.rut) || user;
+    const found = allUsers.find(u => u.id === user.id || u.rut === user.rut);
+    if (found) {
+      return {
+        ...found,
+        role: user.role || found.role,
+        tutorType: user.tutorType || found.tutorType || 'tutor_par',
+        tutorTypes: Array.isArray(user.tutorTypes) && user.tutorTypes.length > 0
+          ? user.tutorTypes
+          : (Array.isArray(found.tutorTypes) && found.tutorTypes.length > 0
+            ? found.tutorTypes
+            : (found.tutorType ? [found.tutorType] : ['tutor_par']))
+      };
+    }
+    return user;
   }, [allUsers, user]);
 
   const isLeadTutor = effectiveUser.tutorType === 'tutor_de_tutores';
@@ -137,6 +158,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
     socket.on('reports:changed', handleRealtimeUpdate);
     socket.on('users:changed', handleRealtimeUpdate);
     socket.on('availabilities:changed', handleRealtimeUpdate);
+    socket.on('notifications:changed', handleRealtimeUpdate);
 
     return () => {
       window.removeEventListener('storage', handleStorage);
@@ -144,6 +166,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       socket.off('reports:changed', handleRealtimeUpdate);
       socket.off('users:changed', handleRealtimeUpdate);
       socket.off('availabilities:changed', handleRealtimeUpdate);
+      socket.off('notifications:changed', handleRealtimeUpdate);
     };
   }, [user]);
 
@@ -194,6 +217,23 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       // fallback
     }
     setAllUsers(currentUsers);
+
+    // Cargar notificaciones para el tutor
+    if (user.email) {
+      try {
+        const notifRes = await fetch(`/api/notifications?email=${encodeURIComponent(user.email)}`);
+        if (notifRes.ok) {
+          const notifsFromApi = await notifRes.json();
+          if (Array.isArray(notifsFromApi)) {
+            const sorted = notifsFromApi.sort((a: WebNotification, b: WebNotification) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            setNotifications(sorted);
+            saveNotifications(sorted);
+          }
+        }
+      } catch (nErr) {
+        // fallback
+      }
+    }
 
     // Cargar disponibilidad desde MongoDB (tiene prioridad sobre localStorage)
     let list = getSavedAvailabilities();
@@ -629,6 +669,19 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
 
               <button
                 type="button"
+                onClick={() => { setActiveTab('attendance'); reloadData(); }}
+                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'attendance'
+                    ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
+                    : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <CheckSquare className="h-4 w-4 lg:h-4.5 lg:w-4.5 shrink-0" />
+                <span>Pasar Lista</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => { setActiveTab('my_availability'); reloadData(); }}
                 className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === 'my_availability'
@@ -691,8 +744,26 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
               )}
             </nav>
 
-            {/* Acciones Derecha (ThemeToggle, Perfil del Tutor & Logout) */}
+            {/* Acciones Derecha (Bandeja, ThemeToggle, Perfil del Tutor & Logout) */}
             <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowNotifInbox(true)}
+                className={`relative p-2 rounded-xl transition-all cursor-pointer ${
+                  showNotifInbox
+                    ? 'bg-[#3a9ad9] text-[#092c4c]'
+                    : 'bg-white/10 hover:bg-white/20 text-slate-200'
+                }`}
+                title="Bandeja de Mensajes y Comunicados"
+              >
+                <Bell className="h-4 w-4" />
+                {notifications.filter(n => !n.read).length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[#e28743] text-white px-1.5 py-0.2 rounded-full text-[9px] font-extrabold border-2 border-[#092c4c]">
+                    {notifications.filter(n => !n.read).length}
+                  </span>
+                )}
+              </button>
+
               <ThemeToggle />
 
               {/* Perfil del Tutor con Dropdown */}
@@ -715,28 +786,74 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                       <p className="text-[9px] text-slate-400 font-mono mt-0.5">RUT: {effectiveUser.rut}</p>
                     </div>
 
-                    {Array.isArray(effectiveUser.roles) && effectiveUser.roles.length > 1 && (
-                      <div className="pb-2 border-b border-white/10 space-y-1.5">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cambiar de Portal</p>
-                        <div className="space-y-1">
-                          {effectiveUser.roles.filter(r => r !== 'tutor').map(r => (
-                            <button
-                              key={r}
-                              type="button"
-                              onClick={() => {
-                                setShowLogoutDropdown(false);
-                                auth.login({ ...effectiveUser, role: r });
-                                navigate(getRoleHomePath(r));
-                              }}
-                              className="w-full text-left px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white transition flex items-center justify-between text-[11px] font-semibold cursor-pointer"
-                            >
-                              <span>{r === 'alumno' ? 'Portal Estudiante' : r === 'docente' ? 'Portal Docente' : 'Panel Administrador'}</span>
-                              <span className="text-[10px] text-[#3a9ad9] font-bold">Ir &rarr;</span>
-                            </button>
-                          ))}
+                    {(() => {
+                      const userTutorTypes = Array.isArray(effectiveUser.tutorTypes) && effectiveUser.tutorTypes.length > 0
+                        ? effectiveUser.tutorTypes
+                        : [effectiveUser.tutorType || 'tutor_par'];
+                      const hasBothTutorSubroles = userTutorTypes.includes('tutor_par') && userTutorTypes.includes('tutor_de_tutores');
+                      const otherRoles = Array.isArray(effectiveUser.roles) ? effectiveUser.roles.filter(r => r !== 'tutor') : [];
+
+                      if (otherRoles.length === 0 && !hasBothTutorSubroles) return null;
+
+                      return (
+                        <div className="pb-2 border-b border-white/10 space-y-1.5">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cambiar de Portal</p>
+                          <div className="space-y-1">
+                            {/* Alternar entre Tutor Par y Tutor de Tutores si tiene ambos */}
+                            {hasBothTutorSubroles && (
+                              isLeadTutor ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowLogoutDropdown(false);
+                                    const updated = { ...effectiveUser, role: 'tutor' as const, tutorType: 'tutor_par' as const };
+                                    auth.login(updated);
+                                    auth.updateUser(updated);
+                                    setActiveTab('my_schedule');
+                                  }}
+                                  className="w-full text-left px-2.5 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 hover:text-white transition flex items-center justify-between text-[11px] font-semibold cursor-pointer border border-emerald-500/30"
+                                >
+                                  <span>🧑‍🏫 Portal Tutor Par</span>
+                                  <span className="text-[10px] text-emerald-400 font-bold">&rarr;</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowLogoutDropdown(false);
+                                    const updated = { ...effectiveUser, role: 'tutor' as const, tutorType: 'tutor_de_tutores' as const };
+                                    auth.login(updated);
+                                    auth.updateUser(updated);
+                                    setActiveTab('assigned_tutors');
+                                  }}
+                                  className="w-full text-left px-2.5 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 hover:text-white transition flex items-center justify-between text-[11px] font-semibold cursor-pointer border border-indigo-500/30"
+                                >
+                                  <span>🛡️ Portal Tutor de Tutores</span>
+                                  <span className="text-[10px] text-indigo-400 font-bold">&rarr;</span>
+                                </button>
+                              )
+                            )}
+
+                            {/* Otros roles principales */}
+                            {otherRoles.map(r => (
+                              <button
+                                key={r}
+                                type="button"
+                                onClick={() => {
+                                  setShowLogoutDropdown(false);
+                                  auth.login({ ...effectiveUser, role: r });
+                                  navigate(getRoleHomePath(r));
+                                }}
+                                className="w-full text-left px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white transition flex items-center justify-between text-[11px] font-semibold cursor-pointer"
+                              >
+                                <span>{r === 'alumno' ? '🎓 Portal Estudiante' : r === 'docente' ? '👨‍🏫 Portal Docente' : '🛡️ Panel Administrador'}</span>
+                                <span className="text-[10px] text-[#3a9ad9] font-bold">Ir &rarr;</span>
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     <button
                       type="button"
@@ -763,6 +880,12 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
             className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap ${activeTab === 'my_schedule' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-white/10 text-white'}`}
           >
             Mis Tutorías
+          </button>
+          <button
+            onClick={() => { setActiveTab('attendance'); reloadData(); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap ${activeTab === 'attendance' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-white/10 text-white'}`}
+          >
+            Pasar Lista
           </button>
           <button
             onClick={() => { setActiveTab('my_availability'); reloadData(); }}
@@ -967,6 +1090,21 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                 </div>
               )}
             </div>
+          )}
+
+          {/* TAB: PASAR LISTA Y REGISTRO DE ASISTENCIA (AMBOS SUBROLES) */}
+          {activeTab === 'attendance' && (
+            <TutorAttendanceTab
+              user={user}
+              effectiveUser={effectiveUser}
+              isLeadTutor={isLeadTutor}
+              sessions={sessions}
+              setSessions={setSessions}
+              allUsers={allUsers}
+              assignedTutors={assignedTutors}
+              onReload={reloadData}
+              onOpenQRModal={(sess) => setActiveQRModalSession(sess)}
+            />
           )}
 
           {/* TAB 2: FLAG PROBLEM / REASSIGNMENT TICKET */}
@@ -2319,7 +2457,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
         </div>
 
         {/* Status Bar / Footer matching mockup */}
-        <footer className="h-10 bg-[#f1f5f9] border-t border-slate-100 flex items-center justify-between px-6 md:px-8 text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-auto shrink-0 select-none">
+        <footer className="h-10 bg-[#061e34] dark:bg-slate-950 border-t border-white/10 flex items-center justify-between px-6 md:px-8 text-[10px] text-slate-300 dark:text-slate-400 font-bold uppercase tracking-wider mt-auto shrink-0 select-none transition-colors">
           <div>Portal del {isLeadTutor ? 'Tutor de Tutores' : 'Tutor Par'} | V 2.4</div>
           <div className="flex gap-4">
             <span className="flex items-center gap-1">
@@ -2330,6 +2468,18 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
           </div>
         </footer>
       </main>
+
+      {/* Modal de Notificaciones */}
+      <NotificationModal
+        isOpen={showNotifInbox}
+        onClose={() => setShowNotifInbox(false)}
+        userEmail={user.email}
+        notifications={notifications}
+        setNotifications={setNotifications}
+        title="Bandeja de Mensajes y Comunicados"
+        subtitle="Avisos oficiales y notificaciones del sistema de tutorías"
+        senderLabel="Coordinación de Tutorías UFT"
+      />
 
       {/* Modal de Código QR Grande */}
       <SessionQRModal

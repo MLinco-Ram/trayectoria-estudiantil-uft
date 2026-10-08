@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Session, IssueReport, UserAvailability, StudentRequest } from '../types';
+import { User, Session, IssueReport, UserAvailability, StudentRequest, WebNotification } from '../types';
 import { 
   getSavedSessions, 
   saveSessions, 
@@ -10,7 +10,9 @@ import {
   getSavedStudentRequests, 
   saveStudentRequests, 
   getSavedUsers, 
-  saveUsers 
+  saveUsers,
+  getSavedNotifications,
+  saveNotifications
 } from '../data';
 import { usersApi, sessionsApi, reportsApi, studentRequestsApi, availabilitiesApi, broadcastApi } from '../services/api';
 import { getSocket } from '../services/socket';
@@ -26,8 +28,9 @@ import { DocenteAnnouncementsTab } from './docente/DocenteAnnouncementsTab';
 import { DocenteAnalyticsTab } from './docente/DocenteAnalyticsTab';
 import { DocenteCommentsTab } from './docente/DocenteCommentsTab';
 import { ThemeToggle } from './common/ThemeToggle';
+import { NotificationModal } from './common/NotificationModal';
 
-import { LogOut, GraduationCap, ShieldCheck } from 'lucide-react';
+import { LogOut, GraduationCap, ShieldCheck, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface DocenteDashboardProps {
@@ -50,6 +53,11 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
   const [reports, setReports] = useState<IssueReport[]>(getSavedReports());
   const [studentRequests, setStudentRequests] = useState<StudentRequest[]>(getSavedStudentRequests());
   const [allAvailabilities, setAllAvailabilities] = useState<UserAvailability[]>(getSavedAvailabilities());
+  const [notifications, setNotifications] = useState<WebNotification[]>(() => {
+    const local = getSavedNotifications();
+    return user.email ? local.filter(n => n.toEmail?.toLowerCase() === user.email.toLowerCase()) : local;
+  });
+  const [showNotifInbox, setShowNotifInbox] = useState(false);
   
   // Navigation tabs with localStorage persistence across page reloads
   const [activeTab, setActiveTab] = useState<DocenteTabType>(() => {
@@ -108,6 +116,22 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
         setAllAvailabilities(avList);
         saveAvailabilities(avList);
       }
+
+      if (user.email) {
+        try {
+          const notifRes = await fetch(`/api/notifications?email=${encodeURIComponent(user.email)}`);
+          if (notifRes.ok) {
+            const notifsFromApi = await notifRes.json();
+            if (Array.isArray(notifsFromApi)) {
+              const sorted = notifsFromApi.sort((a: WebNotification, b: WebNotification) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+              setNotifications(sorted);
+              saveNotifications(sorted);
+            }
+          }
+        } catch (nErr) {
+          // fallback
+        }
+      }
     } catch (e) {
       console.warn('Cargando respaldo local de datos');
     }
@@ -151,6 +175,7 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
     socket.on('reports:changed', handleRealtimeUpdate);
     socket.on('users:changed', handleRealtimeUpdate);
     socket.on('availabilities:changed', handleRealtimeUpdate);
+    socket.on('notifications:changed', handleRealtimeUpdate);
 
     return () => {
       socket.off('sessions:changed', handleSessionsUpdate);
@@ -158,8 +183,9 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
       socket.off('reports:changed', handleRealtimeUpdate);
       socket.off('users:changed', handleRealtimeUpdate);
       socket.off('availabilities:changed', handleRealtimeUpdate);
+      socket.off('notifications:changed', handleRealtimeUpdate);
     };
-  }, []);
+  }, [user.email]);
 
   const handleSendBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -207,6 +233,7 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
 
   const pendingRequestsCount = studentRequests.filter(r => r.status === 'pendiente').length;
   const pendingReportsCount = reports.filter(r => r.status === 'pendiente').length;
+  const unreadNotifCount = notifications.filter(n => !n.read).length;
 
   return (
     <div className="min-h-screen md:h-screen md:overflow-hidden bg-white dark:bg-slate-950 flex flex-col md:flex-row text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200" id="docente-dashboard-wrapper">
@@ -223,18 +250,45 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
       {/* Contenedor Principal con Cabecera Superior */}
       <div className="flex-1 flex flex-col min-w-0 md:h-screen md:overflow-y-auto relative z-10 bg-white dark:bg-slate-950 transition-colors duration-200">
         {/* Barra Superior */}
-        <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-xs shrink-0">
+        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-xs shrink-0 transition-colors">
           <div className="flex items-center gap-3">
-            <span className="font-bold text-sm sm:text-base text-slate-900 tracking-tight flex items-center gap-2">
+            <span className="font-bold text-sm sm:text-base text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               Panel de Coordinación y Docencia
             </span>
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Botón de Campana / Notificaciones */}
+            <button
+              type="button"
+              onClick={() => setShowNotifInbox(true)}
+              className="relative p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+              title="Bandeja de Mensajes y Comunicados"
+            >
+              <Bell className="w-4.5 h-4.5" />
+              {unreadNotifCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#e28743] text-white px-1.5 py-0.2 rounded-full text-[9px] font-extrabold border-2 border-white dark:border-slate-900">
+                  {unreadNotifCount}
+                </span>
+              )}
+            </button>
+
             <ThemeToggle />
           </div>
         </header>
+
+        {/* Modal de Notificaciones */}
+        <NotificationModal
+          isOpen={showNotifInbox}
+          onClose={() => setShowNotifInbox(false)}
+          userEmail={user.email}
+          notifications={notifications}
+          setNotifications={setNotifications}
+          title="Bandeja de Mensajes y Comunicados"
+          subtitle="Avisos institucionales, cambios de tutorías y comunicados de coordinación"
+          senderLabel="Coordinación y Sistema UFT"
+        />
 
         {/* Área Principal de Contenido */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full">

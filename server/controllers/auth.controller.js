@@ -1,13 +1,13 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { createTransporter } from '../services/email.service.js';
-import { hashRut, decryptField, sanitizeUserOutput } from '../services/crypto.service.js';
+import { hashRut, decryptField, sanitizeUserOutput, normalizeRut } from '../services/crypto.service.js';
 
 export const login = async (req, res) => {
   const { rut, password } = req.body;
   const db = req.db;
   try {
-    const cleanEnteredRut = (rut || '').replace(/[\.\-]/g, '').trim().toLowerCase();
+    const cleanEnteredRut = normalizeRut(rut);
     
     // Soporte especial para cuenta de Administrador (rut: admin, clave: 1234)
     if (cleanEnteredRut === 'admin' && password === '1234') {
@@ -31,7 +31,7 @@ export const login = async (req, res) => {
       const users = await db.collection('users').find({}).toArray();
       user = users.find(u => {
         const decrypted = decryptField(u.rut);
-        return (decrypted || '').replace(/[\.\-]/g, '').trim().toLowerCase() === cleanEnteredRut;
+        return normalizeRut(decrypted) === cleanEnteredRut;
       });
     }
     
@@ -59,33 +59,58 @@ export const forgotPassword = async (req, res) => {
       return res.status(400).json({ error: "Por favor, ingresa tu RUT o correo institucional." });
     }
 
-    const cleanInput = identifier.trim().toLowerCase();
-    const rutBlindIndex = hashRut(cleanInput);
+    const rawInput = identifier.trim();
+    const cleanEmail = rawInput.toLowerCase();
+    const cleanRut = normalizeRut(rawInput);
+    const rutBlindIndex = cleanRut ? hashRut(cleanRut) : '';
 
-    const user = await db.collection('users').findOne({
-      $or: [
-        { email: cleanInput },
-        { rutHash: rutBlindIndex },
-        { rut: cleanInput }
-      ]
-    });
+    // 1. Buscar en MongoDB Atlas por email, rutHash o RUT directo
+    let user = null;
 
-    if (!user) {
-      return res.json({
-        success: true,
-        message: "Si los datos coinciden con una cuenta registrada, se ha enviado un enlace para restablecer la contraseña."
+    if (cleanEmail.includes('@')) {
+      const escapedEmail = cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      user = await db.collection('users').findOne({
+        email: { $regex: new RegExp(`^${escapedEmail}$`, 'i') }
+      });
+    } else if (cleanRut) {
+      user = await db.collection('users').findOne({
+        $or: [
+          ...(rutBlindIndex ? [{ rutHash: rutBlindIndex }] : []),
+          { rut: cleanRut },
+          { rut: rawInput }
+        ]
       });
     }
 
-    if (!user.email) {
-      return res.status(400).json({ error: "El usuario encontrado no tiene un correo electrónico asociado para enviar el código." });
+    // 2. Fallback exhaustivo descifrando RUTs si aún no se encontró
+    if (!user) {
+      const allUsers = await db.collection('users').find({}).toArray();
+      user = allUsers.find(u => {
+        if (u.email && u.email.trim().toLowerCase() === cleanEmail) return true;
+        const plainRut = decryptField(u.rut);
+        const normDbRut = normalizeRut(plainRut);
+        if (cleanRut && normDbRut && normDbRut === cleanRut) return true;
+        return false;
+      });
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        error: "No se encontró ningún usuario registrado con el RUT o correo ingresado. Por favor verifica tus datos e intenta nuevamente."
+      });
+    }
+
+    if (!user.email || !user.email.trim()) {
+      return res.status(400).json({
+        error: "El usuario encontrado no tiene un correo electrónico institucional asociado para recibir el enlace de recuperación."
+      });
     }
 
     const resetToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
 
     await db.collection('password_resets').deleteMany({ userId: user.id });
-    const plainRut = decryptField(user.rut);
+    const plainRut = decryptField(user.rut) || user.rut;
     await db.collection('password_resets').insertOne({
       userId: user.id,
       userRut: plainRut,
@@ -95,7 +120,7 @@ export const forgotPassword = async (req, res) => {
     });
 
     const baseUrl = origin || 'http://localhost:3000';
-    const resetLink = `${baseUrl}?reset_token=${resetToken}`;
+    const resetLink = `${baseUrl}/reset-password?reset_token=${resetToken}`;
 
     const client = await createTransporter();
     if (client) {
