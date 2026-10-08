@@ -57,12 +57,13 @@ export const updateUser = async (req, res) => {
   const db = req.db;
   try {
     const { id } = req.params;
-    const { email, name, career, rut, password, tutorType, assignedTutorIds, role, roles } = req.body;
+    const { email, name, career, rut, password, tutorType, tutorTypes, assignedTutorIds, role, roles } = req.body;
     const updateData = {};
     if (email !== undefined) updateData.email = email.trim().toLowerCase();
     if (name !== undefined) updateData.name = name.trim();
     if (career !== undefined) updateData.career = career.trim();
     if (tutorType !== undefined) updateData.tutorType = tutorType;
+    if (tutorTypes !== undefined) updateData.tutorTypes = Array.isArray(tutorTypes) ? tutorTypes : [tutorTypes];
     if (assignedTutorIds !== undefined) updateData.assignedTutorIds = assignedTutorIds;
     if (role !== undefined) updateData.role = role;
     if (roles !== undefined) updateData.roles = Array.isArray(roles) ? roles : [roles];

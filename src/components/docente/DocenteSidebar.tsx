@@ -110,21 +110,78 @@ export const DocenteSidebar: React.FC<DocenteSidebarProps> = ({
                 <div className="pb-1.5 border-b border-white/10 space-y-1">
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Cambiar de Portal</p>
                   <div className="space-y-1">
-                    {user.roles.filter(r => r !== 'docente').map(r => (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => {
-                          setShowLogoutDropdown(false);
-                          auth.login({ ...user, role: r });
-                          navigate(getRoleHomePath(r));
-                        }}
-                        className="w-full text-left px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white transition flex items-center justify-between text-[10px] font-semibold cursor-pointer"
-                      >
-                        <span>{r === 'alumno' ? 'Portal Estudiante' : r === 'tutor' ? 'Portal Tutor' : 'Panel Administrador'}</span>
-                        <span className="text-[9px] text-brand-celeste font-bold">&rarr;</span>
-                      </button>
-                    ))}
+                    {user.roles.filter(r => r !== 'docente').map(r => {
+                      if (r === 'tutor') {
+                        const userTutorTypes = Array.isArray(user.tutorTypes) && user.tutorTypes.length > 0
+                          ? user.tutorTypes
+                          : [user.tutorType || 'tutor_par'];
+                        const hasBoth = userTutorTypes.includes('tutor_par') && userTutorTypes.includes('tutor_de_tutores');
+
+                        if (hasBoth) {
+                          return (
+                            <React.Fragment key="tutor_subroles">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowLogoutDropdown(false);
+                                  auth.login({ ...user, role: 'tutor', tutorType: 'tutor_par' });
+                                  navigate('/tutor');
+                                }}
+                                className="w-full text-left px-2 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-white transition flex items-center justify-between text-[10px] font-semibold cursor-pointer border border-emerald-500/20"
+                              >
+                                <span>🧑‍🏫 Portal Tutor Par</span>
+                                <span className="text-[9px] text-emerald-400 font-bold">&rarr;</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowLogoutDropdown(false);
+                                  auth.login({ ...user, role: 'tutor', tutorType: 'tutor_de_tutores' });
+                                  navigate('/tutor');
+                                }}
+                                className="w-full text-left px-2 py-1 rounded bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white transition flex items-center justify-between text-[10px] font-semibold cursor-pointer border border-indigo-500/20"
+                              >
+                                <span>🛡️ Tutor de Tutores</span>
+                                <span className="text-[9px] text-indigo-400 font-bold">&rarr;</span>
+                              </button>
+                            </React.Fragment>
+                          );
+                        }
+
+                        const isLead = userTutorTypes.includes('tutor_de_tutores') || user.tutorType === 'tutor_de_tutores';
+                        return (
+                          <button
+                            key="tutor"
+                            type="button"
+                            onClick={() => {
+                              setShowLogoutDropdown(false);
+                              auth.login({ ...user, role: 'tutor', tutorType: isLead ? 'tutor_de_tutores' : 'tutor_par' });
+                              navigate('/tutor');
+                            }}
+                            className="w-full text-left px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white transition flex items-center justify-between text-[10px] font-semibold cursor-pointer"
+                          >
+                            <span>{isLead ? '🛡️ Portal Tutor de Tutores' : '🧑‍🏫 Portal Tutor Par'}</span>
+                            <span className="text-[9px] text-brand-celeste font-bold">&rarr;</span>
+                          </button>
+                        );
+                      }
+
+                      return (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => {
+                            setShowLogoutDropdown(false);
+                            auth.login({ ...user, role: r });
+                            navigate(getRoleHomePath(r));
+                          }}
+                          className="w-full text-left px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white transition flex items-center justify-between text-[10px] font-semibold cursor-pointer"
+                        >
+                          <span>{r === 'alumno' ? '🎓 Portal Estudiante' : '🛡️ Panel Administrador'}</span>
+                          <span className="text-[9px] text-brand-celeste font-bold">&rarr;</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}

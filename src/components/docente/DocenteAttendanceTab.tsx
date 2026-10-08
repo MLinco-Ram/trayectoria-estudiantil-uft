@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Session, User } from '../../types';
 import { 
   CheckSquare, 
@@ -18,7 +18,7 @@ import {
   Check, 
   GraduationCap 
 } from 'lucide-react';
-import { getDynamicPresetDates, triggerNotification, saveSessions } from '../../data';
+import { getTodayDateStr, getRelativeDateStr, triggerNotification, saveSessions } from '../../data';
 import { sessionsApi } from '../../services/api';
 import { getSocket } from '../../services/socket';
 import { SessionQRModal } from '../common/SessionQRModal';
@@ -36,8 +36,11 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
   allUsers,
   onReload,
 }) => {
-  const presetDates = getDynamicPresetDates(6);
-  const [selectedDate, setSelectedDate] = useState<string>(presetDates[0]);
+  const datePickerRef = useRef<HTMLInputElement>(null);
+  const todayStr = getTodayDateStr();
+  const tomorrowStr = getRelativeDateStr(1);
+  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [attendanceFeedback, setAttendanceFeedback] = useState<string | null>(null);
   const [selectedQRModalSession, setSelectedQRModalSession] = useState<Session | null>(null);
 
@@ -83,7 +86,27 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
   const [studentSearchQuery, setStudentSearchQuery] = useState<string>('');
   const [initialStatusToAdd, setInitialStatusToAdd] = useState<'presente' | 'pendiente'>('presente');
 
-  const dailySessions = sessions.filter(s => s.date === selectedDate);
+  const dailySessions = useMemo(() => {
+    let list = sessions;
+    if (selectedDate !== 'all') {
+      list = list.filter(s => s.date === selectedDate);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(s => {
+        const studentNames = (s.studentIds || []).map(id => allUsers.find(u => u.id === id)?.name || '').join(' ');
+        const tutorObj = allUsers.find(u => u.id === s.tutorId);
+        return (
+          s.title.toLowerCase().includes(q) ||
+          (s.subject && s.subject.toLowerCase().includes(q)) ||
+          (s.location && s.location.toLowerCase().includes(q)) ||
+          studentNames.toLowerCase().includes(q) ||
+          (tutorObj && tutorObj.name.toLowerCase().includes(q))
+        );
+      });
+    }
+    return [...list].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [sessions, selectedDate, searchQuery, allUsers]);
 
   // Lista general de estudiantes registrados en el sistema
   const allStudents = useMemo(() => {
@@ -213,21 +236,98 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
             </p>
           </div>
 
-          {/* Selector de Fechas Dinámicas */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 sm:pb-0">
-            {presetDates.map((dateStr, idx) => (
+          {/* Selector de Fechas: Hoy, Mañana, Calendario interactivo y Todas */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-2 sm:pb-0 scrollbar-none">
               <button
-                key={dateStr}
-                onClick={() => setSelectedDate(dateStr)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-                  selectedDate === dateStr 
-                    ? 'bg-[#092c4c] text-white shadow-sm' 
+                type="button"
+                onClick={() => setSelectedDate(todayStr)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                  selectedDate === todayStr 
+                    ? 'bg-[#092c4c] text-white shadow-sm font-black' 
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                {idx === 0 ? 'Hoy' : idx === 1 ? 'Mañana' : dateStr}
+                Hoy ({todayStr})
               </button>
-            ))}
+
+              <button
+                type="button"
+                onClick={() => setSelectedDate(tomorrowStr)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                  selectedDate === tomorrowStr 
+                    ? 'bg-[#092c4c] text-white shadow-sm font-black' 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Mañana ({tomorrowStr})
+              </button>
+
+              {/* Selector Calendario Interactivo */}
+              <div className="relative inline-flex items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const input = datePickerRef.current;
+                    if (!input) return;
+                    try {
+                      input.showPicker();
+                    } catch {
+                      input.focus();
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer border ${
+                    selectedDate !== 'all' && selectedDate !== todayStr && selectedDate !== tomorrowStr
+                      ? 'bg-[#092c4c] text-white border-[#092c4c] shadow-sm font-black'
+                      : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                  }`}
+                >
+                  <Calendar className={`w-3.5 h-3.5 ${selectedDate !== 'all' && selectedDate !== todayStr && selectedDate !== tomorrowStr ? 'text-[#3a9ad9]' : 'text-slate-500'}`} />
+                  <span>
+                    {selectedDate !== 'all' && selectedDate !== todayStr && selectedDate !== tomorrowStr 
+                      ? `Día: ${selectedDate}` 
+                      : 'Elegir Día (Calendario)'}
+                  </span>
+                </button>
+                <input
+                  ref={datePickerRef}
+                  type="date"
+                  value={selectedDate !== 'all' ? selectedDate : ''}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setSelectedDate(e.target.value);
+                    }
+                  }}
+                  className="absolute inset-0 opacity-0 w-full h-full pointer-events-none"
+                  tabIndex={-1}
+                  title="Seleccionar un día en el calendario"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedDate('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                  selectedDate === 'all' 
+                    ? 'bg-[#092c4c] text-white shadow-sm font-black' 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Todas las Fechas
+              </button>
+            </div>
+
+            {/* Buscador de sesión / alumno */}
+            <div className="relative w-full sm:w-56">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar sesión o alumno..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#3a9ad9]"
+              />
+            </div>
           </div>
         </div>
 

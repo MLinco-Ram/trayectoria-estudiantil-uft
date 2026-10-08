@@ -33,7 +33,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
   const [editEmail, setEditEmail] = useState('');
   const [editCareer, setEditCareer] = useState('');
   const [editPassword, setEditPassword] = useState('');
-  const [editTutorType, setEditTutorType] = useState<TutorType>('tutor_par');
+  const [editTutorTypes, setEditTutorTypes] = useState<TutorType[]>(['tutor_par']);
   const [editRoles, setEditRoles] = useState<Role[]>(['tutor']);
 
   // Assignment Management State (Docente asignando tutores pares a un Tutor de Tutores)
@@ -191,7 +191,8 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       career: editCareer.trim(),
       role: primaryRole,
       roles: editRoles,
-      tutorType: editRoles.includes('tutor') ? editTutorType : undefined,
+      tutorTypes: editRoles.includes('tutor') ? editTutorTypes : undefined,
+      tutorType: editRoles.includes('tutor') ? (editTutorTypes[0] || 'tutor_par') : undefined,
     };
     if (editPassword.trim()) {
       payload.password = editPassword.trim();
@@ -635,7 +636,27 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                       <div className="text-[#3a9ad9]">{tut.career}</div>
                     </td>
                     <td className="py-3 px-4">
-                      {isLead ? (
+                      {Array.isArray(tut.tutorTypes) && tut.tutorTypes.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {tut.tutorTypes.includes('tutor_par') && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                              <BookOpen className="w-3 h-3 text-sky-600" />
+                              Tutor Par
+                            </span>
+                          )}
+                          {tut.tutorTypes.includes('tutor_de_tutores') && (
+                            <div className="space-y-0.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">
+                                <ShieldCheck className="w-3 h-3 text-indigo-600" />
+                                Tutor de Tutores
+                              </span>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {assignedCount} tutor(es) a cargo
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : isLead ? (
                         <div className="space-y-0.5">
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">
                             <ShieldCheck className="w-3 h-3 text-indigo-600" />
@@ -684,7 +705,12 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                           setEditRut(tut.rut);
                           setEditEmail(tut.email);
                           setEditCareer(tut.career || '');
-                          setEditTutorType(tut.tutorType || 'tutor_par');
+                          const userTutorTypes: TutorType[] = Array.isArray(tut.tutorTypes) && tut.tutorTypes.length > 0
+                            ? tut.tutorTypes
+                            : tut.tutorType
+                              ? [tut.tutorType]
+                              : ['tutor_par'];
+                          setEditTutorTypes(userTutorTypes);
                           setEditRoles(tut.roles && tut.roles.length > 0 ? [...tut.roles] : [tut.role || 'tutor']);
                           setEditPassword('');
                         }}
@@ -848,16 +874,64 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
 
               {/* Selector de Subtipo en Edición */}
               {editRoles.includes('tutor') && (
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Tipo de Tutor</label>
-                  <select
-                    value={editTutorType}
-                    onChange={(e) => setEditTutorType(e.target.value as TutorType)}
-                    className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-semibold"
-                  >
-                    <option value="tutor_par">Tutor Par (Estándar)</option>
-                    <option value="tutor_de_tutores">Tutor de Tutores (Coordinador de Pares)</option>
-                  </select>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase">Modalidad de Tutor</label>
+                    {editTutorTypes.includes('tutor_par') && editTutorTypes.includes('tutor_de_tutores') && (
+                      <span className="text-[9px] bg-gradient-to-r from-emerald-500 to-indigo-600 text-white font-extrabold px-1.5 py-0.2 rounded-full">
+                        Doble Perfil
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label
+                      className={`p-2 rounded-xl border text-left transition cursor-pointer select-none flex items-start gap-1.5 ${
+                        editTutorTypes.includes('tutor_par')
+                          ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-400 text-emerald-950 font-bold'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={editTutorTypes.includes('tutor_par')}
+                        onChange={() => {
+                          setEditTutorTypes(prev => prev.includes('tutor_par') ? (prev.length === 1 ? prev : prev.filter(t => t !== 'tutor_par')) : [...prev, 'tutor_par']);
+                        }}
+                        className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <div className="flex-1">
+                        <div className="text-xs flex items-center gap-1">
+                          <BookOpen className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span>Tutor Par</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 font-normal">Panel estándar</p>
+                      </div>
+                    </label>
+
+                    <label
+                      className={`p-2 rounded-xl border text-left transition cursor-pointer select-none flex items-start gap-1.5 ${
+                        editTutorTypes.includes('tutor_de_tutores')
+                          ? 'bg-indigo-50 border-indigo-500 ring-1 ring-indigo-400 text-indigo-950 font-bold'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={editTutorTypes.includes('tutor_de_tutores')}
+                        onChange={() => {
+                          setEditTutorTypes(prev => prev.includes('tutor_de_tutores') ? (prev.length === 1 ? prev : prev.filter(t => t !== 'tutor_de_tutores')) : [...prev, 'tutor_de_tutores']);
+                        }}
+                        className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div className="flex-1">
+                        <div className="text-xs flex items-center gap-1 text-indigo-950">
+                          <ShieldCheck className="w-3 h-3 text-indigo-600 shrink-0" />
+                          <span>Tutor de Tutores</span>
+                        </div>
+                        <p className="text-[10px] text-indigo-700/80 font-normal">Supervisa tutores</p>
+                      </div>
+                    </label>
+                  </div>
                 </div>
               )}
 

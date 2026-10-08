@@ -77,7 +77,22 @@ export const AdminTutoresTab: React.FC<AdminTutoresTabProps> = ({
                   </td>
                   <td className="py-3.5 px-4">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      {tut.tutorType === 'tutor_de_tutores' ? (
+                      {Array.isArray(tut.tutorTypes) && tut.tutorTypes.length > 0 ? (
+                        <>
+                          {tut.tutorTypes.includes('tutor_par') && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                              <BookOpen className="w-3 h-3 text-emerald-600" />
+                              Tutor Par
+                            </span>
+                          )}
+                          {tut.tutorTypes.includes('tutor_de_tutores') && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                              <BookOpen className="w-3 h-3 text-indigo-600" />
+                              Tutor de Tutores
+                            </span>
+                          )}
+                        </>
+                      ) : tut.tutorType === 'tutor_de_tutores' ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
                           <BookOpen className="w-3 h-3 text-indigo-600" />
                           Tutor de Tutores
