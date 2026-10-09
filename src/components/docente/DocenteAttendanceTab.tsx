@@ -110,7 +110,7 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
 
   // Lista general de estudiantes registrados en el sistema
   const allStudents = useMemo(() => {
-    return allUsers.filter(u => u.role === 'alumno');
+    return allUsers.filter(u => u && (u.role === 'alumno' || (Array.isArray(u.roles) && u.roles.includes('alumno'))));
   }, [allUsers]);
 
   const handleMarkAttendance = async (sessionId: string, studentId: string, status: 'presente' | 'ausente') => {

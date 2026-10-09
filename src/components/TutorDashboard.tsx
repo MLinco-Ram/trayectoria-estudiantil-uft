@@ -295,7 +295,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
 
   // Tutores a cargo si el usuario es Tutor de Tutores (sincronizados reactivamente con WebSockets / MongoDB)
   const assignedTutors = useMemo(() => {
-    return allUsers.filter(u => u.role === 'tutor' && (effectiveUser.assignedTutorIds || []).includes(u.id));
+    return allUsers.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor'))) && (effectiveUser.assignedTutorIds || []).includes(u.id));
   }, [allUsers, effectiveUser.assignedTutorIds]);
 
   // Helper para determinar el estado de cumplimiento de una tutoría
@@ -551,7 +551,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
     );
 
     // 2. Notificar por correo a TODOS los Docentes Coordinadores
-    const allDocentes = allUsers.filter(u => u.role === 'docente' && u.email);
+    const allDocentes = allUsers.filter(u => u && (u.role === 'docente' || (Array.isArray(u.roles) && u.roles.includes('docente'))) && u.email);
     const kindLabel = issueKind === 'reasignar_horario' ? 'Reasignación / Cambio de Horario' : issueKind === 'reasignar_tutor' ? 'Reasignación de Tutor de Apoyo' : 'Inconveniente Operativo';
     const subjectDocente = `[Alerta de Tutor] Inconveniente en Tutoría: ${user.name} - ${sessionTitle}`;
 

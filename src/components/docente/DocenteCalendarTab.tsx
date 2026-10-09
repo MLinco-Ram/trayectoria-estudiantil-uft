@@ -46,7 +46,7 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
   const [selectedSessionDetail, setSelectedSessionDetail] = useState<Session | null>(null);
 
   // Lista de tutores disponibles para el filtro
-  const tutores = useMemo(() => allUsers.filter(u => u.role === 'tutor'), [allUsers]);
+  const tutores = useMemo(() => allUsers.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor')))), [allUsers]);
 
   // Cálculo de los días de la semana actual basados en el offset
   const weekDays = useMemo(() => {

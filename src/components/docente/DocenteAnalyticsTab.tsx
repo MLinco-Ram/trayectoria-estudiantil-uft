@@ -189,8 +189,8 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
     ? (totalRatingsSum / totalRatingsCount).toFixed(1) 
     : '4.8';
 
-  const totalTutores = allUsers.filter(u => u.role === 'tutor').length;
-  const totalAlumnos = allUsers.filter(u => u.role === 'alumno').length;
+  const totalTutores = allUsers.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor')))).length;
+  const totalAlumnos = allUsers.filter(u => u && (u.role === 'alumno' || (Array.isArray(u.roles) && u.roles.includes('alumno')))).length;
 
   // Alumnos recurrentes
   let recurringStudentsCount = 0;
@@ -213,7 +213,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
 
     const studentCareerMap = new Map<string, string>();
     allUsers.forEach(u => {
-      if (u.role === 'alumno') {
+      if (u && (u.role === 'alumno' || (Array.isArray(u.roles) && u.roles.includes('alumno')))) {
         studentCareerMap.set(u.id, u.career || 'Otras Carreras / Pregrado');
       }
     });
@@ -666,7 +666,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
           cell.border = borderStyle;
         });
 
-        allUsers.filter(u => u.role === 'tutor').forEach((tutor, idx) => {
+        allUsers.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor')))).forEach((tutor, idx) => {
           const tutorSessions = filteredSessions.filter(s => s.tutorId === tutor.id);
           let totalStudents = 0;
           let tutPresentes = 0;
