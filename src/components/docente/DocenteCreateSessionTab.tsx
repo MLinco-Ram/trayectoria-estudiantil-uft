@@ -30,11 +30,16 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
   const [formLocation, setFormLocation] = useState('Sala 302 - Edificio Central');
   const [formMaxSpots, setFormMaxSpots] = useState(15);
   const [formTutorId, setFormTutorId] = useState('');
+  const [formDocenteId, setFormDocenteId] = useState(user.id || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
 
   const tutores = useMemo(() => {
     return allUsers.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor'))));
+  }, [allUsers]);
+
+  const docentes = useMemo(() => {
+    return allUsers.filter(u => u && (u.role === 'docente' || (Array.isArray(u.roles) && u.roles.includes('docente'))));
   }, [allUsers]);
 
   // Obtener nombre del día para la fecha elegida (ej. "Lunes", "Martes", etc.)
@@ -99,8 +104,14 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
       return;
     }
 
+    if (formProgram === 'tutorias' && !formTutorId) {
+      setFeedback({ status: 'error', message: 'Por favor selecciona un tutor para la tutoría académica.' });
+      return;
+    }
+
     setIsSubmitting(true);
 
+    const isTutoring = formProgram === 'tutorias';
     const newSession: Session = {
       id: `session_${Date.now()}`,
       program: formProgram,
@@ -109,8 +120,8 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
       subject: formSubject,
       date: formDate,
       timeSlot: formTimeSlot,
-      docenteId: user.id,
-      tutorId: formType === 'tutoria_general' || formType === 'psico_taller' ? null : (formTutorId || null),
+      docenteId: isTutoring ? user.id : (formDocenteId || user.id),
+      tutorId: isTutoring ? (formTutorId || null) : null,
       studentIds: [],
       maxSpots: Number(formMaxSpots),
       location: formLocation.trim(),
@@ -127,8 +138,21 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
           triggerNotification(
             tutor.email,
             tutor.name,
-            `Nueva Sesión Asignada: "${newSession.title}"`,
-            `Se ha programado a tu cargo la sesión "${newSession.title}" para el día ${newSession.date}. Ingresa a la plataforma para revisar los detalles.`
+            `Nueva Sesión de Tutoría Asignada: "${newSession.title}"`,
+            `Se ha programado a tu cargo la tutoría "${newSession.title}" para el día ${newSession.date} en horario ${newSession.timeSlot} (${newSession.location}). Ingresa a tu panel para registrar el cronograma temático.`
+          );
+        }
+      }
+
+      // Notificar al docente si es un taller psicoeducativo asignado a otro docente
+      if (!isTutoring && newSession.docenteId && newSession.docenteId !== user.id) {
+        const docObj = allUsers.find(u => u.id === newSession.docenteId);
+        if (docObj && docObj.email) {
+          triggerNotification(
+            docObj.email,
+            docObj.name,
+            `Nuevo Taller Psicoeducativo Asignado: "${newSession.title}"`,
+            `Se ha programado a tu cargo el taller psicoeducativo "${newSession.title}" para el día ${newSession.date} a las ${newSession.timeSlot} (${newSession.location}).`
           );
         }
       }
@@ -140,6 +164,9 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
 
       setFormTitle('');
       setFormLocation('Sala 302 - Edificio Central');
+      if (formProgram === 'tutorias') {
+        setFormTutorId('');
+      }
     } catch (err: any) {
       setFeedback({
         status: 'success',
@@ -184,7 +211,13 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
                 onChange={(e) => {
                   const prog = e.target.value as ProgramType;
                   setFormProgram(prog);
-                  setFormType(prog === 'tutorias' ? 'tutoria_general' : 'psico_taller');
+                  if (prog === 'tutorias') {
+                    setFormType('tutoria_general');
+                    setFormMaxSpots(15);
+                  } else {
+                    setFormType('psico_taller');
+                    setFormMaxSpots(20);
+                  }
                 }}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white"
               >
@@ -199,13 +232,23 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
               </label>
               <select
                 value={formType}
-                onChange={(e) => setFormType(e.target.value as SessionType)}
+                onChange={(e) => {
+                  const val = e.target.value as SessionType;
+                  setFormType(val);
+                  if (val === 'tutoria_personalizada' || val === 'psico_asesoria_individual') {
+                    setFormMaxSpots(1);
+                  } else if (val === 'tutoria_general') {
+                    setFormMaxSpots(15);
+                  } else if (val === 'psico_taller') {
+                    setFormMaxSpots(20);
+                  }
+                }}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white"
               >
                 {formProgram === 'tutorias' ? (
                   <>
-                    <option value="tutoria_general">Tutoría Grupal / General (Docente)</option>
-                    <option value="tutoria_personalizada">Tutoría Personalizada (Tutor Par)</option>
+                    <option value="tutoria_general">Tutoría Grupal / Colectiva</option>
+                    <option value="tutoria_personalizada">Tutoría Personalizada (1 a 1)</option>
                   </>
                 ) : (
                   <>
@@ -307,12 +350,13 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
             </div>
           </div>
 
-          {formType === 'tutoria_personalizada' && (
+          {/* SELECCIÓN DE TUTOR PARA EL PROGRAMA DE TUTORÍAS (GRUPALES Y PERSONALIZADAS) */}
+          {formProgram === 'tutorias' && (
             <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                    Tutor Par Asignado
+                    Tutor Asignado ({formType === 'tutoria_general' ? 'Tutoría Grupal' : 'Tutoría Personalizada'})
                   </label>
                   <span className="text-[11px] text-slate-600 dark:text-[#3a9ad9] font-semibold flex items-center gap-1">
                     <Sparkles className="w-3.5 h-3.5 text-[#3a9ad9]" />
@@ -446,6 +490,32 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* SELECCIÓN DE DOCENTE RESPONSABLE PARA PROGRAMA PSICOEDUCATIVO */}
+          {formProgram === 'psicoeducativo' && (
+            <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                  Docente / Profesional Psicoeducativo Responsable
+                </label>
+                <select
+                  value={formDocenteId}
+                  onChange={(e) => setFormDocenteId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
+                  required
+                >
+                  {docentes.map(d => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} {d.id === user.id ? '(Tú)' : ''} — {d.career || 'Docente / Coordinador'}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Los talleres y asesorías psicoeducativas son guiados directamente por docentes y profesionales del área de acompañamiento.
+                </p>
+              </div>
             </div>
           )}
 

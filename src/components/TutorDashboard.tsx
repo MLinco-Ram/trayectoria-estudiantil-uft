@@ -953,8 +953,14 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                         className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs hover:border-brand-celeste/70 transition-all space-y-4"
                       >
                         <div className="flex justify-between items-start">
-                          <span className="bg-sky-50 text-sky-800 font-bold text-[9px] uppercase tracking-wider px-2 py-0.5 rounded border border-sky-200">
-                            TUTORÍA INDIVIDUAL
+                          <span className={`font-bold text-[9px] uppercase tracking-wider px-2 py-0.5 rounded border ${
+                            s.type === 'tutoria_general'
+                              ? 'bg-blue-50 text-blue-800 border-blue-200'
+                              : s.type === 'psico_taller' || s.type === 'psico_asesoria_individual'
+                              ? 'bg-purple-50 text-purple-800 border-purple-200'
+                              : 'bg-sky-50 text-sky-800 border-sky-200'
+                          }`}>
+                            {s.type === 'tutoria_general' ? 'Tutoría Grupal' : s.type === 'psico_taller' ? 'Taller Psicoeducativo' : s.type === 'psico_asesoria_individual' ? 'Asesoría Psicoeducativa' : 'Tutoría Personalizada'}
                           </span>
                           <span className="text-xs font-mono font-bold text-brand-navy bg-slate-50 px-2 py-1 rounded flex items-center space-x-1">
                             <Clock className="h-3 w-3 inline text-brand-celeste hover:animate-pulse" />
@@ -1034,55 +1040,20 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                           )}
                         </div>
 
-                        {/* Attendance Tracker Block for the Tutor */}
-                        <div className="bg-slate-50 p-4.5 rounded-xl border border-slate-100 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center space-x-1">
-                              <CheckSquare className="h-3.5 w-3.5 text-brand-celeste" />
-                              <span>Control de Asistencia Estudiantil</span>
-                            </h5>
-                            <button
-                              type="button"
-                              onClick={() => setActiveQRModalSession(s)}
-                              className="px-2.5 py-1 bg-[#092c4c] hover:bg-[#153a5c] text-white text-[10px] font-bold rounded-lg flex items-center gap-1 shadow-xs cursor-pointer transition"
-                              title="Mostrar código QR para que los estudiantes escaneen su asistencia"
-                            >
-                              <QrCode className="w-3 h-3 text-[#3a9ad9]" />
-                              <span>QR Asistencia</span>
-                            </button>
-                          </div>
-
-                          {s.studentIds.map(stId => {
-                            const student = allUsers.find(u => u.id === stId);
-                            const currentStatus = s.attendance?.[stId] || 'pendiente';
-                            if (!student) return null;
-
-                            return (
-                              <div key={stId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
-                                <div className="text-xs">
-                                  <p className="font-bold text-slate-800">{student.name}</p>
-                                  <p className="text-[10px] text-slate-400 font-mono">
-                                    {student.career} • {student.rut}
-                                  </p>
-                                </div>
-
-                                <div className="flex gap-1">
-                                  <button
-                                    onClick={() => handleTutorAttendance(s.id, stId, 'presente')}
-                                    className={`px-3 py-1 text-[10px] font-bold uppercase rounded-lg cursor-pointer transition-all ${currentStatus === 'presente' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'}`}
-                                  >
-                                    Asistió
-                                  </button>
-                                  <button
-                                    onClick={() => handleTutorAttendance(s.id, stId, 'ausente')}
-                                    className={`px-3 py-1 text-[10px] font-bold uppercase rounded-lg cursor-pointer transition-all ${currentStatus === 'ausente' ? 'bg-red-600 text-white shadow-xs' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'}`}
-                                  >
-                                    Faltó
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs text-slate-500">
+                          <span className="flex items-center gap-1.5 font-medium text-slate-600">
+                            <Users className="h-3.5 w-3.5 text-[#3a9ad9]" />
+                            <span>Inscritos: <strong>{s.studentIds?.length || 0} / {s.maxSpots}</strong> estudiantes</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('attendance')}
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-[#092c4c] hover:text-white text-[#092c4c] text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                            title="Ir a Pasar Lista para marcar asistencia o proyectar QR"
+                          >
+                            <CheckSquare className="w-3 h-3 text-[#3a9ad9]" />
+                            <span>Pasar Lista &rarr;</span>
+                          </button>
                         </div>
                       </div>
                     );
