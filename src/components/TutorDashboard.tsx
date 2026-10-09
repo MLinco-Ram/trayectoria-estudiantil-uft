@@ -1511,25 +1511,33 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="p-1.5 bg-indigo-500/30 rounded-lg text-indigo-300 border border-indigo-400/30">
-                        <ShieldCheck className="w-5 h-5" />
+                        <Users className="w-5 h-5" />
                       </span>
                       <h3 className="text-xl font-bold tracking-tight font-display">
-                        Supervisión de Tutores a Cargo
+                        Directorio de Tutores a Cargo
                       </h3>
                     </div>
                     <p className="text-xs text-indigo-200 max-w-2xl">
-                      Panel de coordinación y seguimiento de los tutores pares que la coordinación docente te ha asignado. Revisa en tiempo real cuántas tutorías tienen asignadas, si han completado sus cronogramas y si sus asistencias están al día.
+                      Nómina general e información de los tutores pares que tienes asignados. Consulta sus datos de contacto, carrera, tutorías programadas y alumnos participantes.
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 self-start md:self-center">
+                  <div className="flex flex-wrap items-center gap-2 self-start md:self-center">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('compliance_review')}
+                      className="px-3.5 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full text-xs font-semibold text-white flex items-center gap-1.5 transition cursor-pointer"
+                    >
+                      <ClipboardCheck className="w-3.5 h-3.5 text-[#3a9ad9]" />
+                      <span>Ir a Revisión de Cumplimiento &rarr;</span>
+                    </button>
                     <span className="px-3.5 py-1.5 bg-indigo-500/20 border border-indigo-400/40 rounded-full text-xs font-bold text-indigo-100 flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                      <span>{assignedTutors.length} Tutor(es) Supervisado(s)</span>
+                      <span>{assignedTutors.length} Tutor(es)</span>
                     </span>
                   </div>
                 </div>
 
-                {/* Métricas Rápidas */}
+                {/* Métricas Generales */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-5 border-t border-white/10">
                   <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
                     <p className="text-[10px] uppercase font-bold text-indigo-200">Tutores Asignados</p>
@@ -1542,43 +1550,32 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                     </p>
                   </div>
                   <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
-                    <p className="text-[10px] uppercase font-bold text-indigo-200">Cronogramas al Día</p>
-                    <p className="text-xl font-extrabold text-emerald-400 mt-0.5">
-                      {assignedTutors.filter(tut => {
+                    <p className="text-[10px] uppercase font-bold text-indigo-200">Estudiantes Inscritos</p>
+                    <p className="text-xl font-extrabold text-indigo-200 mt-0.5">
+                      {assignedTutors.reduce((acc, tut) => {
                         const tSessions = sessions.filter(s => s.tutorId === tut.id);
-                        return tSessions.length > 0 && tSessions.every(s => s.syllabus && s.syllabus.trim().length > 0);
-                      }).length}
+                        return acc + tSessions.reduce((sAcc, s) => sAcc + (s.studentIds?.length || 0), 0);
+                      }, 0)}
                     </p>
                   </div>
                   <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10">
-                    <p className="text-[10px] uppercase font-bold text-indigo-200">Asistencias al Día</p>
-                    <p className="text-xl font-extrabold text-emerald-400 mt-0.5">
-                      {assignedTutors.filter(tut => {
-                        const tSessions = sessions.filter(s => s.tutorId === tut.id);
-                        const hasPending = tSessions.some(s => (s.studentIds || []).some(stId => (s.attendance?.[stId] || 'pendiente') === 'pendiente'));
-                        return tSessions.length > 0 && !hasPending;
-                      }).length}
+                    <p className="text-[10px] uppercase font-bold text-indigo-200">Carreras Representadas</p>
+                    <p className="text-xl font-extrabold text-indigo-200 mt-0.5">
+                      {new Set(assignedTutors.map(t => t.career).filter(Boolean)).size || 1}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {leadReminderFeedback && (
-                <div className="p-4 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-2xl text-xs font-semibold flex items-center gap-2.5 animate-fade-in shadow-xs">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <span>{leadReminderFeedback}</span>
-                </div>
-              )}
-
               {/* Lista de Tutores Asignados */}
               {assignedTutors.length === 0 ? (
                 <div className="bg-white rounded-2xl p-12 text-center border-2 border-dashed border-slate-200 shadow-sm space-y-3">
                   <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto">
-                    <ShieldCheck className="w-8 h-8" />
+                    <Users className="w-8 h-8" />
                   </div>
                   <h4 className="font-bold text-slate-800 text-base">Aún no tienes tutores pares asignados a tu cargo</h4>
                   <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-                    La coordinación docente (Ali / Viviana) te adjudicará tutores pares desde la pestaña <strong>"Gestión Tutores"</strong> en el Portal Docente. Una vez asignados, podrás supervisar sus tutorías, cronogramas y asistencias directamente desde este panel.
+                    La coordinación docente te adjudicará tutores pares desde la pestaña <strong>"Gestión Tutores"</strong> en el Portal Docente. Una vez asignados, podrás ver sus datos de contacto y tutorías desde esta nómina.
                   </p>
                 </div>
               ) : (
@@ -1586,27 +1583,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                   {assignedTutors.map((tutor) => {
                     const tutorSessions = sessions.filter(s => s.tutorId === tutor.id);
                     const totalSessions = tutorSessions.length;
-                    
-                    // Cálculo de pendientes de cronograma
-                    const sessionsWithoutSyllabus = tutorSessions.filter(s => !s.syllabus || !s.syllabus.trim());
-                    const missingSyllabusCount = sessionsWithoutSyllabus.length;
-                    const isSyllabusUpToDate = totalSessions > 0 && missingSyllabusCount === 0;
-
-                    // Cálculo de pendientes de asistencia
-                    let pendingAttendanceCount = 0;
-                    tutorSessions.forEach(s => {
-                      (s.studentIds || []).forEach(stId => {
-                        const status = s.attendance?.[stId] || 'pendiente';
-                        if (status === 'pendiente') {
-                          pendingAttendanceCount++;
-                        }
-                      });
-                    });
-                    const isAttendanceUpToDate = totalSessions > 0 && pendingAttendanceCount === 0;
-
-                    // Estado general
-                    const isFullyUpToDate = isSyllabusUpToDate && isAttendanceUpToDate;
-                    const hasPendingIssues = missingSyllabusCount > 0 || pendingAttendanceCount > 0;
+                    const totalStudentsEnrolled = tutorSessions.reduce((acc, s) => acc + (s.studentIds?.length || 0), 0);
                     const isExpanded = expandedTutorId === tutor.id;
 
                     return (
@@ -1618,100 +1595,67 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                         <div className="p-5 sm:p-6 space-y-4">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="flex items-start gap-3.5">
-                              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-50 to-sky-50 border border-indigo-100 flex items-center justify-center text-indigo-700 font-extrabold text-sm shrink-0">
+                              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#092c4c] to-[#103a63] text-white flex items-center justify-center font-extrabold text-sm shrink-0 shadow-xs">
                                 {tutor.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
                               </div>
                               <div>
-                                <div className="flex items-center gap-2">
-                                  <h4 className="font-bold text-slate-900 text-sm">{tutor.name}</h4>
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-700">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h4 className="font-bold text-slate-900 text-base">{tutor.name}</h4>
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
                                     {tutor.rut}
                                   </span>
                                 </div>
                                 <div className="text-xs text-[#3a9ad9] font-medium flex items-center gap-1.5 mt-0.5">
-                                  <GraduationCap className="w-3.5 h-3.5" />
+                                  <GraduationCap className="w-3.5 h-3.5 text-[#3a9ad9]" />
                                   <span>{tutor.career || 'Tutor Par'}</span>
                                 </div>
                               </div>
                             </div>
 
-                            {/* Badge Global de Estado */}
-                            <div className="self-start sm:self-auto">
-                              {totalSessions === 0 ? (
-                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                                  Sin tutorías programadas
-                                </span>
-                              ) : isFullyUpToDate ? (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                  100% Al Día
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                  <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                                  Requiere Atención
-                                </span>
-                              )}
+                            {/* Información de contacto */}
+                            <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto text-xs text-slate-600 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80">
+                              <Mail className="w-3.5 h-3.5 text-slate-400" />
+                              <span className="font-mono text-slate-700 font-medium">{tutor.email}</span>
                             </div>
                           </div>
 
-                          {/* Resumen Rápido (3 Semáforos / Indicadores) */}
+                          {/* Resumen General de Actividad */}
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                            {/* 1. Cantidad de Tutorías */}
+                            {/* 1. Tutorías Asignadas */}
                             <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-200/80 flex items-center justify-between">
                               <div className="space-y-0.5">
                                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Tutorías Asignadas</span>
                                 <span className="text-xs font-extrabold text-slate-800">
-                                  {totalSessions} {totalSessions === 1 ? 'sesión activa' : 'sesiones activas'}
+                                  {totalSessions} {totalSessions === 1 ? 'sesión programada' : 'sesiones programadas'}
                                 </span>
                               </div>
                               <Calendar className="w-4 h-4 text-slate-400" />
                             </div>
 
-                            {/* 2. Estado de Cronogramas */}
-                            <div className={`p-3 rounded-xl border flex items-center justify-between ${
-                              totalSessions === 0
-                                ? 'bg-slate-50/80 border-slate-200 text-slate-600'
-                                : isSyllabusUpToDate
-                                ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
-                                : 'bg-amber-50/70 border-amber-200 text-amber-900'
-                            }`}>
+                            {/* 2. Total Alumnos */}
+                            <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-200/80 flex items-center justify-between">
                               <div className="space-y-0.5">
-                                <span className="text-[10px] font-bold uppercase tracking-wider block opacity-80">Cronogramas / Temarios</span>
-                                <span className="text-xs font-extrabold">
-                                  {totalSessions === 0
-                                    ? 'Sin sesiones'
-                                    : isSyllabusUpToDate
-                                    ? '✓ Temarios cargados'
-                                    : `⚠ ${missingSyllabusCount} sin cronograma`}
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Estudiantes Inscritos</span>
+                                <span className="text-xs font-extrabold text-slate-800">
+                                  {totalStudentsEnrolled} {totalStudentsEnrolled === 1 ? 'estudiante' : 'estudiantes'} en total
                                 </span>
                               </div>
-                              <BookOpen className={`w-4 h-4 ${isSyllabusUpToDate ? 'text-emerald-600' : 'text-amber-600'}`} />
+                              <Users className="w-4 h-4 text-slate-400" />
                             </div>
 
-                            {/* 3. Estado de Asistencia */}
-                            <div className={`p-3 rounded-xl border flex items-center justify-between ${
-                              totalSessions === 0
-                                ? 'bg-slate-50/80 border-slate-200 text-slate-600'
-                                : isAttendanceUpToDate
-                                ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
-                                : 'bg-rose-50/70 border-rose-200 text-rose-900'
-                            }`}>
+                            {/* 3. Modalidad / Asignaturas */}
+                            <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-200/80 flex items-center justify-between">
                               <div className="space-y-0.5">
-                                <span className="text-[10px] font-bold uppercase tracking-wider block opacity-80">Registro de Asistencia</span>
-                                <span className="text-xs font-extrabold">
-                                  {totalSessions === 0
-                                    ? 'Sin asistencias'
-                                    : isAttendanceUpToDate
-                                    ? '✓ Asistencias al día'
-                                    : `⚠ ${pendingAttendanceCount} pendiente(s)`}
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Asignaturas / Áreas</span>
+                                <span className="text-xs font-extrabold text-slate-800 truncate max-w-[150px]" title={Array.from(new Set(tutorSessions.map(s => s.subject || s.title))).join(', ') || 'Sin registros'}>
+                                  {Array.from(new Set(tutorSessions.map(s => s.subject || s.title))).join(', ') || 'Sin registros'}
                                 </span>
                               </div>
-                              <CheckSquare className={`w-4 h-4 ${isAttendanceUpToDate ? 'text-emerald-600' : 'text-rose-600'}`} />
+                              <BookOpen className="w-4 h-4 text-slate-400" />
                             </div>
                           </div>
 
-                          {/* Acciones Rápidas */}
+                          {/* Acciones */}
                           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
                             <button
                               type="button"
@@ -1721,54 +1665,43 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                               {isExpanded ? (
                                 <>
                                   <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
-                                  <span>Ocultar Detalle de Tutorías</span>
+                                  <span>Ocultar Nómina de Tutorías</span>
                                 </>
                               ) : (
                                 <>
                                   <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
-                                  <span>Ver Detalle de Tutorías ({totalSessions})</span>
+                                  <span>Ver Nómina de Tutorías ({totalSessions})</span>
                                 </>
                               )}
                             </button>
 
-                            {/* Botón para despachar recordatorio al tutor */}
-                            {hasPendingIssues && (
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => handleSendTutorReminder(
-                                    tutor,
-                                    missingSyllabusCount > 0 && pendingAttendanceCount > 0 ? 'general' : missingSyllabusCount > 0 ? 'cronograma' : 'asistencia'
-                                  )}
-                                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-                                  title="Enviar correo de recordatorio institucional a este tutor"
-                                >
-                                  <Send className="w-3 h-3 text-indigo-200" />
-                                  <span>Enviar Recordatorio</span>
-                                </button>
-                              </div>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('compliance_review')}
+                              className="px-3 py-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-xl transition flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>Ver en Revisión de Cumplimiento</span>
+                              <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
+                            </button>
                           </div>
                         </div>
 
-                        {/* Desplegable con Detalle de las Sesiones del Tutor */}
+                        {/* Desplegable con Nómina de las Sesiones del Tutor */}
                         {isExpanded && (
                           <div className="bg-slate-50/90 border-t border-slate-200 p-5 sm:p-6 space-y-4 animate-fade-in">
                             <h5 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-2">
                               <Calendar className="w-4 h-4 text-[#3a9ad9]" />
-                              <span>Tutorías Asignadas a {tutor.name}</span>
+                              <span>Tutorías Registradas de {tutor.name}</span>
                             </h5>
 
                             {tutorSessions.length === 0 ? (
                               <p className="text-xs text-slate-400 italic bg-white p-4 rounded-xl border border-slate-200">
-                                Este tutor aún no tiene sesiones registradas.
+                                Este tutor aún no tiene tutorías programadas.
                               </p>
                             ) : (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                                 {tutorSessions.map((session) => {
-                                  const hasSyllabus = session.syllabus && session.syllabus.trim().length > 0;
                                   const registeredStudents = (session.studentIds || []).map(stId => allUsers.find(u => u.id === stId)).filter(Boolean) as User[];
-                                  const pendingCount = (session.studentIds || []).filter(stId => (session.attendance?.[stId] || 'pendiente') === 'pendiente').length;
 
                                   return (
                                     <div
@@ -1787,61 +1720,35 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                                         </span>
                                       </div>
 
-                                      {/* Estado del Cronograma */}
-                                      <div className="p-2.5 rounded-lg text-xs bg-slate-50 border border-slate-150 space-y-1">
-                                        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider">
-                                          <span className="flex items-center gap-1 text-slate-600">
+                                      {/* Descripción / Temario General */}
+                                      {session.syllabus && (
+                                        <div className="p-2.5 rounded-lg text-xs bg-slate-50 border border-slate-150 space-y-1">
+                                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1">
                                             <BookOpen className="w-3 h-3 text-indigo-600" />
-                                            Cronograma / Temario
+                                            Temario / Contenido
                                           </span>
-                                          {hasSyllabus ? (
-                                            <span className="text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded font-bold">Cargado</span>
-                                          ) : (
-                                            <span className="text-rose-700 bg-rose-100 px-1.5 py-0.2 rounded font-bold">Sin Temario</span>
-                                          )}
-                                        </div>
-                                        {hasSyllabus ? (
                                           <p className="text-[11px] text-slate-700 line-clamp-2 italic">
                                             "{session.syllabus}"
                                           </p>
-                                        ) : (
-                                          <p className="text-[10px] text-slate-400 italic">
-                                            El tutor aún no ha ingresado el temario para esta sesión.
-                                          </p>
-                                        )}
-                                      </div>
+                                        </div>
+                                      )}
 
-                                      {/* Alumnos y Asistencia */}
+                                      {/* Alumnos Inscritos */}
                                       <div className="space-y-1.5">
                                         <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase">
-                                          <span>Alumnos Inscritos ({registeredStudents.length})</span>
-                                          {pendingCount === 0 && registeredStudents.length > 0 ? (
-                                            <span className="text-emerald-600 font-bold">✓ Asistencia completa</span>
-                                          ) : (
-                                            <span className="text-amber-600 font-bold">{pendingCount} pendiente(s)</span>
-                                          )}
+                                          <span>Estudiantes Inscritos ({registeredStudents.length})</span>
+                                          <span className="text-slate-400 font-normal">Capacidad: {session.capacity || 10}</span>
                                         </div>
                                         {registeredStudents.length === 0 ? (
-                                          <p className="text-[10px] text-slate-400 italic">Sin alumnos inscritos aún.</p>
+                                          <p className="text-[10px] text-slate-400 italic">Sin estudiantes inscritos aún.</p>
                                         ) : (
-                                          <div className="space-y-1">
-                                            {registeredStudents.map(st => {
-                                              const att = session.attendance?.[st.id] || 'pendiente';
-                                              return (
-                                                <div key={st.id} className="flex items-center justify-between text-[11px] bg-slate-50 px-2 py-1 rounded">
-                                                  <span className="font-semibold text-slate-800 truncate">{st.name}</span>
-                                                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded ${
-                                                    att === 'presente'
-                                                      ? 'bg-emerald-100 text-emerald-800'
-                                                      : att === 'ausente'
-                                                      ? 'bg-red-100 text-red-800'
-                                                      : 'bg-amber-100 text-amber-800'
-                                                  }`}>
-                                                    {att}
-                                                  </span>
-                                                </div>
-                                              );
-                                            })}
+                                          <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                                            {registeredStudents.map(st => (
+                                              <div key={st.id} className="flex items-center justify-between text-[11px] bg-slate-50 px-2 py-1 rounded">
+                                                <span className="font-semibold text-slate-800 truncate">{st.name}</span>
+                                                <span className="text-[10px] font-mono text-slate-500">{st.rut || st.email}</span>
+                                              </div>
+                                            ))}
                                           </div>
                                         )}
                                       </div>
@@ -1987,6 +1894,56 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                   </div>
                 </div>
               )}
+
+              {/* Guía explicativa institucional del cálculo de cumplimiento */}
+              <div className="bg-slate-50/80 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3 shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 bg-[#092c4c]/10 text-[#092c4c] rounded-lg">
+                    <HelpCircle className="w-4 h-4" />
+                  </span>
+                  <h4 className="text-xs font-bold text-slate-900 tracking-tight">
+                    ¿Cómo se calcula el estado de cumplimiento de cada tutoría?
+                  </h4>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-[11px]">
+                  <div className="bg-white p-3 rounded-xl border border-emerald-100 shadow-2xs space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      <strong className="text-emerald-900 font-bold">Cumplida</strong>
+                    </div>
+                    <p className="text-slate-600 leading-relaxed">
+                      Cronograma cargado a tiempo y 100% de la asistencia registrada.
+                    </p>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-amber-100 shadow-2xs space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                      <strong className="text-amber-900 font-bold">Sin Cronograma</strong>
+                    </div>
+                    <p className="text-slate-600 leading-relaxed">
+                      Falta ingresar el temario previo a la realización de la sesión.
+                    </p>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-rose-100 shadow-2xs space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                      <strong className="text-rose-900 font-bold">Inconsistente</strong>
+                    </div>
+                    <p className="text-slate-600 leading-relaxed">
+                      Fecha vencida sin pasar lista o con alerta de inconveniente activa.
+                    </p>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                      <strong className="text-slate-800 font-bold">Pendiente</strong>
+                    </div>
+                    <p className="text-slate-600 leading-relaxed">
+                      Tutoría futura aún no realizada dentro del plazo normal.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
               {/* Contenido Principal: Tarjetas por Tutor con sus Sesiones (Diseño de Imagen de Usuario) */}
               {assignedTutors.length === 0 ? (
@@ -2503,17 +2460,6 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                                             )}
                                           </div>
 
-                                        </div>
-
-                                        {/* Tarjeta Explicativa: Cómo se saca el Cumplimiento */}
-                                        <div className="p-3.5 bg-indigo-50/70 border border-indigo-200/80 rounded-xl space-y-1 text-slate-700">
-                                          <p className="text-[11px] font-bold text-indigo-950 flex items-center gap-1.5">
-                                            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                                            <span>¿Cómo se calcula este cumplimiento?</span>
-                                          </p>
-                                          <p className="text-[11px] text-indigo-900/90 leading-relaxed">
-                                            Una tutoría se considera <strong>Cumplida</strong> cuando el tutor cargó el <strong>cronograma/temario</strong> previo a la sesión y registró el <strong>100% de la asistencia</strong> de sus alumnos. Si falta el temario pasa a <strong>Sin cronograma</strong>, y si ya venció la fecha sin pasar lista o hay un reporte de alerta activo, se marca como <strong>Inconsistente</strong>.
-                                          </p>
                                         </div>
                                       </div>
                                     )}
