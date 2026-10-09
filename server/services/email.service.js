@@ -65,7 +65,7 @@ export const formatMinimalEmail = ({
   toName = '',
   subject = 'Notificación de Trayectoria UFT',
   summary = '',
-  actionUrl = process.env.APP_URL || 'http://localhost:3000',
+  actionUrl = process.env.APP_URL || 'https://trayectoria-estudiantil-uft.vercel.app',
   actionText = 'Ver en la Plataforma'
 }) => {
   let cleanSummary = summary ? summary.trim() : 'Tienes una nueva actualización en tu cuenta de Trayectoria UFT.';
@@ -139,7 +139,7 @@ export const sendEmail = async ({ to, toName, subject, text, html, fromName: cus
 
   const { transporter, config } = client;
   const displayName = (customFromName && customFromName.trim()) || (config.fromName && config.fromName.trim()) || 'Trayectoria Estudiantil UFT';
-  const targetUrl = actionUrl || process.env.APP_URL || 'http://localhost:3000';
+  const targetUrl = actionUrl || process.env.APP_URL || 'https://trayectoria-estudiantil-uft.vercel.app';
 
   // Usar plantilla minimalista con link directo
   const rawSummary = text || (html ? html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200) : 'Tienes una nueva notificación.');

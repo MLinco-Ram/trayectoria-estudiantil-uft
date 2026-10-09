@@ -65,7 +65,7 @@ export const broadcastMessage = async (req, res) => {
       ? '<span style="background-color: #f59e0b; color: #ffffff; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase;">Prioridad Alta</span>'
       : '<span style="background-color: #3b82f6; color: #ffffff; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase;">Comunicado</span>';
 
-    const baseUrl = process.env.APP_URL || 'http://localhost:3000';
+    const baseUrl = process.env.APP_URL || 'https://trayectoria-estudiantil-uft.vercel.app';
     let sentCount = 0;
     if (config) {
       const transporter = nodemailer.createTransport({

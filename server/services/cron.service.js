@@ -39,7 +39,7 @@ export const checkAndSendTutorDailyReminders = async () => {
         ? `<ul style="margin: 8px 0; padding-left: 20px; color: #1e293b;">${registeredStudents.map(s => `<li>${s}</li>`).join('')}</ul>`
         : `<p style="color: #64748b; font-style: italic;">Aún no hay alumnos inscritos en este bloque.</p>`;
 
-      const baseUrl = process.env.APP_URL || 'http://localhost:3000';
+      const baseUrl = process.env.APP_URL || 'https://trayectoria-estudiantil-uft.vercel.app';
       const actionUrl = `${baseUrl}/tutor`;
       const summaryText = `Te recordamos que tienes una sesión de tutoría programada para mañana (${sess.date}). Ingresa a la plataforma para revisar los detalles completos, la nómina de estudiantes y pasar asistencia.`;
 
