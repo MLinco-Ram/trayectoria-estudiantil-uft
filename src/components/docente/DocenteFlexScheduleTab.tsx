@@ -86,6 +86,19 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
     return { hasAnyAvail: true, availableForDay, availableForSlot, slots };
   };
 
+  // Tutores ordenados con prioridad a quienes están disponibles en el bloque actual
+  const sortedTutores = useMemo(() => {
+    return [...tutores].sort((a, b) => {
+      const statA = getTutorAvailabilityStatus(a.id);
+      const statB = getTutorAvailabilityStatus(b.id);
+      if (statA.availableForSlot && !statB.availableForSlot) return -1;
+      if (!statA.availableForSlot && statB.availableForSlot) return 1;
+      if (statA.availableForDay && !statB.availableForDay) return -1;
+      if (!statA.availableForDay && statB.availableForDay) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [tutores, flexDate, flexTimeSlot, allAvailabilities, selectedDayName]);
+
   // Bloques disponibles del tutor seleccionado para el día de la semana elegido
   const tutorSlotsForSelectedDay = useMemo(() => {
     if (!selectedTutorAvailability || !selectedDayName) return [];
@@ -99,12 +112,18 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
     setResolvingReq(req);
     setFlexTitle(`Tutoría Personalizada: ${req.studentName}`);
     setFlexSubject(req.program === 'tutorias' ? 'Matemática' : 'Estrategias de Estudio');
-    const defaultTutorId = tutores[0]?.id || '';
-    setFlexTutorId(defaultTutorId);
-    setFlexDate(getTodayDateStr());
+    const today = getTodayDateStr();
+    setFlexDate(today);
     setFlexTimeSlot(TIME_SLOTS[0]);
     setFlexLocation('Cubículo de Tutorías 3A');
     setFeedback(null);
+
+    // Seleccionar tutor que tenga disponibilidad
+    const tutorWithAvail = tutores.find(t => {
+      const avail = allAvailabilities.find(a => a.userId === t.id && (a.role === 'tutor' || !a.role));
+      return avail && Array.isArray(avail.days) && avail.days.some(d => d.slots && d.slots.length > 0);
+    });
+    setFlexTutorId(tutorWithAvail?.id || tutores[0]?.id || '');
   };
 
   const handleConfirmFlexSession = async (e: React.FormEvent) => {
@@ -445,20 +464,26 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                    Tutor Par Asignado
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700 uppercase">
+                      Tutor Par Asignado
+                    </label>
+                    <span className="text-[10px] text-[#092c4c] font-semibold flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-[#3a9ad9]" />
+                      <span>Ordenados por disponibilidad para {selectedDayName || 'el día'}</span>
+                    </span>
+                  </div>
                   <select
                     value={flexTutorId}
                     onChange={(e) => setFlexTutorId(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white font-medium"
                   >
                     <option value="">-- Sin tutor par (A cargo de Coordinación Docente) --</option>
-                    {tutores.map(t => {
+                    {sortedTutores.map(t => {
                       const { availableForSlot, availableForDay, slots } = getTutorAvailabilityStatus(t.id);
                       let labelStatus = '';
                       if (availableForSlot) {
-                        labelStatus = ` • ✅ Disponible (${flexTimeSlot})`;
+                        labelStatus = ` • ✅ DISPONIBLE (${flexTimeSlot})`;
                       } else if (availableForDay) {
                         labelStatus = ` • ⏰ ${slots.length} bq. en ${selectedDayName}`;
                       } else {
@@ -473,6 +498,34 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
                   </select>
                 </div>
               </div>
+
+              {/* Botones de Selección Rápida de Tutores Disponibles en este Horario */}
+              {sortedTutores.filter(t => getTutorAvailabilityStatus(t.id).availableForSlot).length > 0 && (
+                <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3">
+                  <span className="text-[11px] font-bold text-emerald-900 block mb-2 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Tutores con disponibilidad exacta para {selectedDayName} a las {flexTimeSlot}:</span>
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {sortedTutores.filter(t => getTutorAvailabilityStatus(t.id).availableForSlot).map(t => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setFlexTutorId(t.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                          flexTutorId === t.id
+                            ? 'bg-emerald-700 text-white shadow-xs'
+                            : 'bg-white text-emerald-800 border border-emerald-300 hover:bg-emerald-100'
+                        }`}
+                      >
+                        <GraduationCap className="w-3.5 h-3.5" />
+                        <span>{t.name}</span>
+                        {flexTutorId === t.id && <Check className="w-3.5 h-3.5" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Panel de Disponibilidad Semanal del Tutor Seleccionado */}
               {selectedTutorAvailability && (

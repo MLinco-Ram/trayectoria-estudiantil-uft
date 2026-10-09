@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
-import { User, Session, ProgramType, SessionType } from '../../types';
-import { PlusCircle, Calendar, Clock, MapPin, Users, BookOpen, CheckCircle2, AlertTriangle } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { User, Session, ProgramType, SessionType, UserAvailability } from '../../types';
+import { PlusCircle, Calendar, Clock, MapPin, Users, BookOpen, CheckCircle2, AlertTriangle, GraduationCap, Check, Sparkles } from 'lucide-react';
 import { getTodayDateStr, TIME_SLOTS, SUBJECTS, triggerNotification } from '../../data';
 import { sessionsApi } from '../../services/api';
 
 interface DocenteCreateSessionTabProps {
   user: User;
   allUsers: User[];
+  allAvailabilities?: UserAvailability[];
   sessions: Session[];
   setSessions: React.Dispatch<React.SetStateAction<Session[]>>;
   onReload: () => void;
@@ -15,6 +16,7 @@ interface DocenteCreateSessionTabProps {
 export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = ({
   user,
   allUsers,
+  allAvailabilities = [],
   sessions,
   setSessions,
   onReload,
@@ -31,7 +33,62 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
 
-  const tutores = allUsers.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor'))));
+  const tutores = useMemo(() => {
+    return allUsers.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor'))));
+  }, [allUsers]);
+
+  // Obtener nombre del día para la fecha elegida (ej. "Lunes", "Martes", etc.)
+  const selectedDayName = useMemo(() => {
+    if (!formDate) return '';
+    const [year, month, day] = formDate.split('-').map(Number);
+    const d = new Date(year, month - 1, day);
+    const dayIndex = d.getDay(); // 0 = Domingo, 1 = Lunes...
+    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    return days[dayIndex];
+  }, [formDate]);
+
+  // Helper para verificar estado de disponibilidad de un tutor en el día y bloque actual
+  const getTutorAvailabilityStatus = (tutorId: string) => {
+    const avail = allAvailabilities.find(a => a.userId === tutorId && (a.role === 'tutor' || !a.role)) ||
+                  allAvailabilities.find(a => a.userId === tutorId);
+    if (!avail || !selectedDayName) return { hasAnyAvail: false, availableForDay: false, availableForSlot: false, slots: [] };
+    const dayObj = avail.days?.find(
+      d => d.day.toLowerCase() === selectedDayName.toLowerCase()
+    );
+    const slots = dayObj ? dayObj.slots : [];
+    const availableForDay = slots.length > 0;
+    const availableForSlot = slots.includes(formTimeSlot);
+    return { hasAnyAvail: true, availableForDay, availableForSlot, slots };
+  };
+
+  // Tutores ordenados con prioridad a quienes están disponibles en el bloque actual
+  const sortedTutores = useMemo(() => {
+    return [...tutores].sort((a, b) => {
+      const statA = getTutorAvailabilityStatus(a.id);
+      const statB = getTutorAvailabilityStatus(b.id);
+      if (statA.availableForSlot && !statB.availableForSlot) return -1;
+      if (!statA.availableForSlot && statB.availableForSlot) return 1;
+      if (statA.availableForDay && !statB.availableForDay) return -1;
+      if (!statA.availableForDay && statB.availableForDay) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [tutores, formDate, formTimeSlot, allAvailabilities, selectedDayName]);
+
+  // Obtener disponibilidad del tutor seleccionado
+  const selectedTutorAvailability = useMemo(() => {
+    if (!formTutorId) return null;
+    return allAvailabilities.find(a => a.userId === formTutorId && (a.role === 'tutor' || !a.role)) ||
+           allAvailabilities.find(a => a.userId === formTutorId) || null;
+  }, [formTutorId, allAvailabilities]);
+
+  // Bloques del tutor seleccionado para el día de la semana elegido
+  const tutorSlotsForSelectedDay = useMemo(() => {
+    if (!selectedTutorAvailability || !selectedDayName) return [];
+    const dayObj = selectedTutorAvailability.days?.find(
+      d => d.day.toLowerCase() === selectedDayName.toLowerCase()
+    );
+    return dayObj ? dayObj.slots : [];
+  }, [selectedTutorAvailability, selectedDayName]);
 
   const handleCreateSession = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -251,21 +308,144 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
           </div>
 
           {formType === 'tutoria_personalizada' && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Tutor Par Asignado
-              </label>
-              <select
-                value={formTutorId}
-                onChange={(e) => setFormTutorId(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white"
-                required
-              >
-                <option value="">-- Selecciona un tutor par --</option>
-                {tutores.map(t => (
-                  <option key={t.id} value={t.id}>{t.name} ({t.career || 'Tutor'})</option>
-                ))}
-              </select>
+            <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Tutor Par Asignado
+                  </label>
+                  <span className="text-[11px] text-slate-600 dark:text-[#3a9ad9] font-semibold flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5 text-[#3a9ad9]" />
+                    <span>Ordenados por disponibilidad para el {selectedDayName || 'día'} ({formTimeSlot})</span>
+                  </span>
+                </div>
+
+                <select
+                  value={formTutorId}
+                  onChange={(e) => setFormTutorId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
+                  required
+                >
+                  <option value="">-- Selecciona un tutor par --</option>
+                  {sortedTutores.map(t => {
+                    const { availableForSlot, availableForDay, slots } = getTutorAvailabilityStatus(t.id);
+                    let labelStatus = '';
+                    if (availableForSlot) {
+                      labelStatus = ` • ✅ DISPONIBLE (${formTimeSlot})`;
+                    } else if (availableForDay) {
+                      labelStatus = ` • ⏰ ${slots.length} bq. en ${selectedDayName}`;
+                    } else {
+                      labelStatus = ` • ⚪ Sin horario en ${selectedDayName}`;
+                    }
+                    return (
+                      <option key={t.id} value={t.id}>
+                        {t.name} ({t.career || 'Tutor'}){labelStatus}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Botones de Selección Rápida de Tutores Disponibles en este Horario */}
+              {sortedTutores.filter(t => getTutorAvailabilityStatus(t.id).availableForSlot).length > 0 && (
+                <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/70 rounded-xl p-3.5">
+                  <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 block mb-2.5 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>Tutores con disponibilidad exacta en este horario ({selectedDayName} a las {formTimeSlot}):</span>
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {sortedTutores.filter(t => getTutorAvailabilityStatus(t.id).availableForSlot).map(t => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setFormTutorId(t.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                          formTutorId === t.id
+                            ? 'bg-emerald-600 dark:bg-emerald-500 text-white shadow-sm ring-2 ring-emerald-300 dark:ring-emerald-700'
+                            : 'bg-white dark:bg-slate-800 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        <GraduationCap className="w-3.5 h-3.5" />
+                        <span>{t.name}</span>
+                        {formTutorId === t.id && <Check className="w-3.5 h-3.5" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Panel de Horarios del Tutor Seleccionado */}
+              {selectedTutorAvailability && (
+                <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase flex items-center gap-1.5">
+                      <GraduationCap className="w-4 h-4 text-[#3a9ad9]" />
+                      <span>Horarios declarados por {selectedTutorAvailability.userName || 'el Tutor'}:</span>
+                    </span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                      Bloques semanales cargados en el sistema
+                    </span>
+                  </div>
+
+                  {/* Resumen semanal */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-1.5">
+                    {selectedTutorAvailability.days?.map((d) => {
+                      const isTargetDay = d.day.toLowerCase() === selectedDayName.toLowerCase();
+                      const hasSlots = d.slots && d.slots.length > 0;
+
+                      return (
+                        <div
+                          key={d.day}
+                          className={`p-2 rounded-xl border text-center transition text-xs ${
+                            isTargetDay 
+                              ? 'bg-blue-100 dark:bg-[#3a9ad9]/20 border-[#3a9ad9] text-[#092c4c] dark:text-[#3a9ad9] font-bold shadow-xs' 
+                              : hasSlots 
+                              ? 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200' 
+                              : 'bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 opacity-60'
+                          }`}
+                        >
+                          <span className="text-[10px] block font-bold uppercase">{d.day.slice(0, 3)}</span>
+                          <span className="text-[11px] font-extrabold">
+                            {hasSlots ? `${d.slots.length} bq.` : '—'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Bloques del día seleccionado con acción al hacer clic */}
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+                      Bloques de {selectedTutorAvailability.userName || 'este tutor'} para el día {selectedDayName}:
+                    </span>
+                    {tutorSlotsForSelectedDay.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {tutorSlotsForSelectedDay.map((slot) => (
+                          <button
+                            key={slot}
+                            type="button"
+                            onClick={() => setFormTimeSlot(slot)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                              formTimeSlot === slot
+                                ? 'bg-[#092c4c] dark:bg-[#3a9ad9] text-white dark:text-slate-900 shadow-xs ring-2 ring-[#3a9ad9]'
+                                : 'bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'
+                            }`}
+                            title="Haz clic para seleccionar este horario para la sesión"
+                          >
+                            <Clock className="w-3 h-3 text-[#3a9ad9]" />
+                            <span>{slot}</span>
+                            {formTimeSlot === slot && <span className="text-[10px] bg-[#3a9ad9] text-[#092c4c] px-1 rounded font-sans font-extrabold">Seleccionado</span>}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-amber-800 dark:text-amber-300 italic bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-xl border border-amber-200 dark:border-amber-800/70">
+                        ⚠️ Este tutor no tiene bloques declarados para el día {selectedDayName}. Puedes seleccionar otro tutor disponible o mantener el bloque estándar.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
