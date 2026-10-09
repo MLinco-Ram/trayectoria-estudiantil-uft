@@ -629,6 +629,10 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
           { width: 14 }, { width: 16 }
         ];
 
+        const lastRow1 = Math.max(4, 4 + filteredSessions.length);
+        ws.autoFilter = { from: 'A4', to: `N${lastRow1}` };
+        ws.views = [{ state: 'frozen', ySplit: 4, showGridLines: true }];
+
       } else if (type === 'tutors_summary') {
         const ws = workbook.addWorksheet('Desempeño Tutores');
         ws.views = [{ showGridLines: true }];
@@ -666,7 +670,8 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
           cell.border = borderStyle;
         });
 
-        allUsers.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor')))).forEach((tutor, idx) => {
+        const tutorsList = allUsers.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor'))));
+        tutorsList.forEach((tutor, idx) => {
           const tutorSessions = filteredSessions.filter(s => s.tutorId === tutor.id);
           let totalStudents = 0;
           let tutPresentes = 0;
@@ -722,6 +727,10 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
           { width: 26 }, { width: 18 }, { width: 20 }, { width: 22 },
           { width: 16 }, { width: 18 }
         ];
+
+        const lastRow2 = Math.max(4, 4 + tutorsList.length);
+        ws.autoFilter = { from: 'A4', to: `J${lastRow2}` };
+        ws.views = [{ state: 'frozen', ySplit: 4, showGridLines: true }];
 
       } else if (type === 'detailed_attendance') {
         const ws = workbook.addWorksheet('Asistencia Nominal');
@@ -808,6 +817,10 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
           { width: 26 }, { width: 18 }
         ];
 
+        const lastRow3 = Math.max(4, 4 + rowIndex);
+        ws.autoFilter = { from: 'A4', to: `J${lastRow3}` };
+        ws.views = [{ state: 'frozen', ySplit: 4, showGridLines: true }];
+
       } else if (type === 'conflicts_summary') {
         const ws = workbook.addWorksheet('Incidentes y Topes');
         ws.views = [{ showGridLines: true }];
@@ -876,6 +889,10 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
           { width: 14 }, { width: 22 }, { width: 28 }, { width: 28 },
           { width: 18 }, { width: 22 }, { width: 40 }, { width: 16 }
         ];
+
+        const lastRow4 = Math.max(4, 4 + filteredStudentRequests.length);
+        ws.autoFilter = { from: 'A4', to: `H${lastRow4}` };
+        ws.views = [{ state: 'frozen', ySplit: 4, showGridLines: true }];
       }
 
       const buffer = await workbook.xlsx.writeBuffer();

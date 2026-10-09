@@ -236,9 +236,9 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
             </p>
           </div>
 
-          {/* Selector de Fechas: Hoy, Mañana, Calendario interactivo y Todas */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-2 sm:pb-0 scrollbar-none">
+          {/* Selector de Fechas y Buscador: Responsivo sin desbordarse */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={() => setSelectedDate(todayStr)}
@@ -248,7 +248,8 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                Hoy ({todayStr})
+                <span>Hoy</span>
+                <span className="hidden sm:inline font-mono text-[10px] ml-1 opacity-80">({todayStr})</span>
               </button>
 
               <button
@@ -260,7 +261,8 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                Mañana ({tomorrowStr})
+                <span>Mañana</span>
+                <span className="hidden sm:inline font-mono text-[10px] ml-1 opacity-80">({tomorrowStr})</span>
               </button>
 
               {/* Selector Calendario Interactivo */}
@@ -285,8 +287,8 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
                   <Calendar className={`w-3.5 h-3.5 ${selectedDate !== 'all' && selectedDate !== todayStr && selectedDate !== tomorrowStr ? 'text-[#3a9ad9]' : 'text-slate-500'}`} />
                   <span>
                     {selectedDate !== 'all' && selectedDate !== todayStr && selectedDate !== tomorrowStr 
-                      ? `Día: ${selectedDate}` 
-                      : 'Elegir Día (Calendario)'}
+                      ? selectedDate 
+                      : 'Elegir Día'}
                   </span>
                 </button>
                 <input
@@ -313,12 +315,12 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                Todas las Fechas
+                Todas
               </button>
             </div>
 
             {/* Buscador de sesión / alumno */}
-            <div className="relative w-full sm:w-56">
+            <div className="relative w-full md:w-60">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
