@@ -51,12 +51,15 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
 
-  const tutores = useMemo(() => allUsers.filter(u => u.role === 'tutor'), [allUsers]);
+  const tutores = useMemo(() => {
+    return allUsers.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor'))));
+  }, [allUsers]);
 
   // Obtener disponibilidad del tutor seleccionado
   const selectedTutorAvailability = useMemo(() => {
     if (!flexTutorId) return null;
-    return allAvailabilities.find(a => a.userId === flexTutorId) || null;
+    return allAvailabilities.find(a => a.userId === flexTutorId && (a.role === 'tutor' || !a.role)) || 
+           allAvailabilities.find(a => a.userId === flexTutorId) || null;
   }, [flexTutorId, allAvailabilities]);
 
   // Obtener nombre del día para la fecha elegida (ej. "Lunes", "Martes", etc.)
@@ -68,6 +71,20 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
     const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     return days[dayIndex];
   }, [flexDate]);
+
+  // Helper para verificar estado de disponibilidad de un tutor en el día y bloque actual
+  const getTutorAvailabilityStatus = (tutorId: string) => {
+    const avail = allAvailabilities.find(a => a.userId === tutorId && (a.role === 'tutor' || !a.role)) ||
+                  allAvailabilities.find(a => a.userId === tutorId);
+    if (!avail || !selectedDayName) return { hasAnyAvail: false, availableForDay: false, availableForSlot: false, slots: [] };
+    const dayObj = avail.days?.find(
+      d => d.day.toLowerCase() === selectedDayName.toLowerCase()
+    );
+    const slots = dayObj ? dayObj.slots : [];
+    const availableForDay = slots.length > 0;
+    const availableForSlot = slots.includes(flexTimeSlot);
+    return { hasAnyAvail: true, availableForDay, availableForSlot, slots };
+  };
 
   // Bloques disponibles del tutor seleccionado para el día de la semana elegido
   const tutorSlotsForSelectedDay = useMemo(() => {
@@ -437,9 +454,22 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white font-medium"
                   >
                     <option value="">-- Sin tutor par (A cargo de Coordinación Docente) --</option>
-                    {tutores.map(t => (
-                      <option key={t.id} value={t.id}>{t.name} ({t.career || 'Tutor'})</option>
-                    ))}
+                    {tutores.map(t => {
+                      const { availableForSlot, availableForDay, slots } = getTutorAvailabilityStatus(t.id);
+                      let labelStatus = '';
+                      if (availableForSlot) {
+                        labelStatus = ` • ✅ Disponible (${flexTimeSlot})`;
+                      } else if (availableForDay) {
+                        labelStatus = ` • ⏰ ${slots.length} bq. en ${selectedDayName}`;
+                      } else {
+                        labelStatus = ` • ⚪ Sin horario en ${selectedDayName}`;
+                      }
+                      return (
+                        <option key={t.id} value={t.id}>
+                          {t.name} ({t.career || 'Tutor'}){labelStatus}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>

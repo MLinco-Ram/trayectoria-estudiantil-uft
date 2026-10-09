@@ -59,7 +59,7 @@ export const TutorAttendanceTab: React.FC<TutorAttendanceTabProps> = ({
 
   // Lista general de estudiantes registrados en el sistema
   const allStudents = useMemo(() => {
-    return allUsers.filter(u => u.role === 'alumno');
+    return allUsers.filter(u => u && (u.role === 'alumno' || (Array.isArray(u.roles) && u.roles.includes('alumno'))));
   }, [allUsers]);
 
   // Sesiones filtradas según el rol y filtros seleccionados

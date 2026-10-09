@@ -32,7 +32,7 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
   const [editCareer, setEditCareer] = useState('');
   const [editPassword, setEditPassword] = useState('');
 
-  const alumnos = allUsers.filter(u => u.role === 'alumno');
+  const alumnos = allUsers.filter(u => u && (u.role === 'alumno' || (Array.isArray(u.roles) && u.roles.includes('alumno'))));
 
   const handleCreateStudent = async (e: React.FormEvent) => {
     e.preventDefault();

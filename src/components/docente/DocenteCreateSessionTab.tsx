@@ -31,7 +31,7 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
 
-  const tutores = allUsers.filter(u => u.role === 'tutor');
+  const tutores = allUsers.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor'))));
 
   const handleCreateSession = async (e: React.FormEvent) => {
     e.preventDefault();

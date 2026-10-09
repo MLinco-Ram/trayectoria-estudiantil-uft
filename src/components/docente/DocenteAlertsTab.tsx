@@ -24,7 +24,7 @@ export const DocenteAlertsTab: React.FC<DocenteAlertsTabProps> = ({
   const [selectedTutorForReassign, setSelectedTutorForReassign] = useState<{ [reportId: string]: string }>({});
   const [actionFeedback, setActionFeedback] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
 
-  const tutores = allUsers.filter(u => u.role === 'tutor');
+  const tutores = allUsers.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor'))));
 
   const handleResolveReassignment = async (report: IssueReport) => {
     const newTutorId = selectedTutorForReassign[report.id];
