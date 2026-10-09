@@ -137,6 +137,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   const [ratingComment, setRatingComment] = useState<string>('');
   const [ratingSuccessMsg, setRatingSuccessMsg] = useState<string | null>(null);
   const [isSubmittingRating, setIsSubmittingRating] = useState<boolean>(false);
+  const [showSurveyInstructions, setShowSurveyInstructions] = useState<boolean>(false);
 
   // Helper para abrir la encuesta con respuestas previas o iniciales
   const handleOpenEvaluationModal = (session: Session) => {
@@ -1666,19 +1667,19 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         senderLabel="Centro de Apoyo UFT"
       />
 
-      {/* MODAL DE EVALUACIÓN DE SATISFACCIÓN (12 PREGUNTAS TÍPICAS Y COMENTARIOS) */}
+      {/* MODAL DE EVALUACIÓN DE SATISFACCIÓN (12 PREGUNTAS - RESPONSIVO & DARK MODE) */}
       {evaluatingSession && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-scale-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-fade-in overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full max-h-[94vh] sm:max-h-[90vh] flex flex-col overflow-hidden my-auto animate-scale-up">
             {/* Header del Modal */}
-            <div className="bg-gradient-to-r from-[#092c4c] to-[#153a5c] text-white p-5 sm:p-6 relative shrink-0">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-400/20 text-amber-300 flex items-center justify-center font-bold">
+            <div className="bg-gradient-to-r from-[#092c4c] to-[#153a5c] text-white p-4 sm:p-5 relative shrink-0">
+              <div className="flex items-center gap-3 pr-8">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-amber-400/20 text-amber-300 flex items-center justify-center font-bold shrink-0">
                   <Sparkles className="w-5 h-5" />
                 </div>
-                <div>
-                  <h3 className="text-base font-bold tracking-tight">Encuesta de Satisfacción y Hábitos de Estudio</h3>
-                  <p className="text-xs text-slate-300">Instrumento de diagnóstico de hábitos y seguimiento académico (12 Ítems)</p>
+                <div className="min-w-0">
+                  <h3 className="text-sm sm:text-base font-bold tracking-tight truncate">Encuesta de Hábitos y Satisfacción</h3>
+                  <p className="text-[11px] sm:text-xs text-slate-300 truncate">Diagnóstico de hábitos de estudio y calidad académica (12 Ítems)</p>
                 </div>
               </div>
               <button
@@ -1687,155 +1688,202 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                   setEvaluatingSession(null);
                   setRatingSuccessMsg(null);
                 }}
-                className="absolute top-5 right-5 text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 p-1.5 rounded-xl transition-all cursor-pointer"
+                className="absolute top-4 right-4 text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 p-1.5 rounded-xl transition-all cursor-pointer"
+                title="Cerrar modal"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Cuerpo del Formulario */}
-            <form onSubmit={handleSubmitRating} className="p-5 sm:p-6 flex flex-col overflow-hidden space-y-4">
-              {/* Información de la sesión evaluada */}
-              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/70 shrink-0">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Sesión a Evaluar:</span>
-                    <h4 className="text-sm font-bold text-[#092c4c]">{evaluatingSession.title}</h4>
-                    <div className="flex flex-wrap gap-2 text-[11px] text-slate-500 font-medium pt-0.5">
-                      <span>📅 {evaluatingSession.date}</span>
-                      <span>•</span>
-                      <span>⏰ {evaluatingSession.timeSlot}</span>
+            {/* Formulario con Scroll Interno Suave */}
+            <form onSubmit={handleSubmitRating} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 space-y-3.5 scrollbar-thin">
+                {/* Información de la sesión evaluada */}
+                <div className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-700">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="space-y-0.5 min-w-0">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-400 tracking-wider block">Sesión Evaluada:</span>
+                      <h4 className="text-xs sm:text-sm font-bold text-[#092c4c] dark:text-white leading-snug break-words">{evaluatingSession.title}</h4>
+                      <div className="flex flex-wrap gap-2 text-[10.5px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium pt-0.5">
+                        <span>📅 {evaluatingSession.date}</span>
+                        <span>•</span>
+                        <span>⏰ {evaluatingSession.timeSlot}</span>
+                      </div>
+                    </div>
+
+                    {/* Promedio Calculado en Tiempo Real */}
+                    <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl px-3 py-1.5 text-center sm:text-right shrink-0 self-start sm:self-auto">
+                      <span className="text-[9px] font-bold text-amber-800 dark:text-amber-300 uppercase block">Promedio Calculado</span>
+                      <div className="flex items-center justify-center sm:justify-end gap-1">
+                        <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                        <span className="text-xs sm:text-sm font-black text-amber-900 dark:text-amber-200">
+                          {(
+                            SATISFACTION_SURVEY_QUESTIONS.reduce((acc, q) => acc + (surveyAnswers[q.id] || 5), 0) /
+                            SATISFACTION_SURVEY_QUESTIONS.length
+                          ).toFixed(1)} / 5.0
+                        </span>
+                      </div>
                     </div>
                   </div>
+                </div>
 
-                  {/* Promedio Calculado */}
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5 text-center sm:text-right shrink-0">
-                    <span className="text-[10px] font-bold text-amber-800 uppercase block">Promedio General</span>
-                    <div className="flex items-center justify-center sm:justify-end gap-1">
-                      <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                      <span className="text-sm font-black text-amber-900">
-                        {(
-                          SATISFACTION_SURVEY_QUESTIONS.reduce((acc, q) => acc + (surveyAnswers[q.id] || 3), 0) /
-                          SATISFACTION_SURVEY_QUESTIONS.length
-                        ).toFixed(1)} / 5.0
+                {ratingSuccessMsg ? (
+                  <div className="p-6 sm:p-8 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-center space-y-2.5 animate-fade-in my-6">
+                    <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12 text-emerald-600 dark:text-emerald-400 mx-auto" />
+                    <h4 className="text-sm sm:text-base font-bold text-emerald-900 dark:text-emerald-200">¡Evaluación Registrada con Éxito!</h4>
+                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">{ratingSuccessMsg}</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Barra de Acciones Rápidas (Marcar todas con un clic) */}
+                    <div className="bg-slate-100/80 dark:bg-slate-800/50 p-2.5 sm:p-3 rounded-2xl border border-slate-200/70 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#3a9ad9]" />
+                        <span>Marcar todas con un clic:</span>
                       </span>
+                      <div className="flex flex-wrap gap-1">
+                        {SURVEY_SCALE_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.score}
+                            type="button"
+                            onClick={() => handleSetAllAnswers(opt.score)}
+                            className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold text-slate-700 dark:text-slate-200 transition cursor-pointer shadow-2xs"
+                            title={`Marcar "${opt.label}" a todas las 12 preguntas`}
+                          >
+                            {opt.score}. {opt.shortLabel}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </div>
 
-              {ratingSuccessMsg ? (
-                <div className="p-8 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-3 animate-fade-in my-auto">
-                  <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
-                  <h4 className="text-base font-bold text-emerald-900">¡Evaluación Registrada!</h4>
-                  <p className="text-xs font-medium text-emerald-700">{ratingSuccessMsg}</p>
-                </div>
-              ) : (
-                <>
-                  {/* Cuadro de Instrucciones Oficiales */}
-                  <div className="p-3.5 bg-sky-50/80 rounded-2xl border border-sky-200/80 space-y-2 shrink-0">
-                    <p className="text-xs font-bold text-sky-950 flex items-center gap-1.5">
-                      <BookOpen className="w-4 h-4 text-[#3a9ad9]" />
-                      <span>Instrucciones:</span>
-                    </p>
-                    <p className="text-xs text-slate-700 leading-relaxed">
-                      {SATISFACTION_SURVEY_INSTRUCTIONS}
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-1.5 pt-1">
-                      {SURVEY_SCALE_OPTIONS.map((opt) => (
-                        <div key={opt.score} className="bg-white px-2 py-1.5 rounded-lg border border-sky-100 text-[10px] shadow-2xs">
-                          <p className="font-extrabold text-[#092c4c]">{opt.label}</p>
-                          <p className="text-slate-500 text-[9px] leading-tight mt-0.5">{opt.description}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Lista con Scroll de los 12 Enunciados */}
-                  <div className="flex-1 overflow-y-auto max-h-[42vh] space-y-3 pr-1">
-                    {SATISFACTION_SURVEY_QUESTIONS.map((q) => {
-                      const currentVal = surveyAnswers[q.id] || 3;
-                      const currentOption = SURVEY_SCALE_OPTIONS.find(o => o.score === currentVal);
-                      return (
-                        <div
-                          key={q.id}
-                          className="bg-slate-50/80 hover:bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-2.5 transition-all"
+                    {/* Acordeón / Cuadro de Instrucciones */}
+                    <div className="bg-sky-50/70 dark:bg-sky-950/30 rounded-2xl border border-sky-200/80 dark:border-sky-900/60 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-sky-950 dark:text-sky-200 flex items-center gap-1.5">
+                          <BookOpen className="w-3.5 h-3.5 text-[#3a9ad9]" />
+                          <span>Escala Oficial (Likert 1 a 5):</span>
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setShowSurveyInstructions(prev => !prev)}
+                          className="text-[10px] text-[#3a9ad9] hover:underline font-bold cursor-pointer"
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="space-y-0.5">
-                              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-slate-200/80 text-slate-700 rounded-md">
+                          {showSurveyInstructions ? 'Ocultar guía' : 'Ver guía detallada'}
+                        </button>
+                      </div>
+                      
+                      <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                        {SATISFACTION_SURVEY_INSTRUCTIONS}
+                      </p>
+
+                      {showSurveyInstructions && (
+                        <div className="grid grid-cols-1 sm:grid-cols-5 gap-1.5 pt-1 animate-fade-in">
+                          {SURVEY_SCALE_OPTIONS.map((opt) => (
+                            <div key={opt.score} className="bg-white dark:bg-slate-800 px-2 py-1.5 rounded-lg border border-sky-100 dark:border-sky-950 text-[10px] shadow-2xs">
+                              <p className="font-extrabold text-[#092c4c] dark:text-sky-300">{opt.label}</p>
+                              <p className="text-slate-500 dark:text-slate-400 text-[9px] leading-tight mt-0.5">{opt.description}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Listado Responsivo de las 12 Preguntas */}
+                    <div className="space-y-3">
+                      {SATISFACTION_SURVEY_QUESTIONS.map((q) => {
+                        const currentVal = surveyAnswers[q.id] || 5;
+                        const currentOption = SURVEY_SCALE_OPTIONS.find(o => o.score === currentVal);
+
+                        return (
+                          <div
+                            key={q.id}
+                            className="bg-slate-50/90 dark:bg-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-3 sm:p-4 space-y-2.5 transition-all"
+                          >
+                            <div className="space-y-1">
+                              <span className="inline-block text-[9.5px] font-extrabold uppercase px-2 py-0.5 bg-blue-100 dark:bg-sky-950/70 text-[#092c4c] dark:text-sky-300 rounded-md">
                                 Ítem {q.id} • {q.title}
                               </span>
-                              <p className="text-xs font-bold text-slate-800 pt-1 leading-snug">
+                              <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 leading-snug">
                                 {q.question}
                               </p>
                             </div>
-                            <span className="text-xs font-black text-[#092c4c] shrink-0 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
-                              {currentOption?.label || `Opción ${currentVal}`}
-                            </span>
-                          </div>
 
-                          {/* 5 Botones de opciones según escala oficial */}
-                          <div className="grid grid-cols-5 gap-1.5 pt-1">
-                            {SURVEY_SCALE_OPTIONS.map((opt) => {
-                              const isSelected = currentVal === opt.score;
-                              return (
-                                <button
-                                  key={opt.score}
-                                  type="button"
-                                  onClick={() => handleSetAnswer(q.id, opt.score)}
-                                  className={`py-2 px-1 rounded-xl text-[10px] font-bold transition-all text-center cursor-pointer border flex flex-col items-center justify-center gap-0.5 ${
-                                    isSelected
-                                      ? 'bg-[#092c4c] text-white border-[#092c4c] shadow-xs'
-                                      : 'bg-white text-slate-600 border-slate-200 hover:border-brand-celeste hover:text-[#092c4c]'
-                                  }`}
-                                >
-                                  <span className="font-extrabold">{opt.score}. {opt.shortLabel}</span>
-                                  <span className={`text-[8.5px] font-normal leading-tight line-clamp-1 ${isSelected ? 'text-slate-200' : 'text-slate-400'}`}>
-                                    {opt.description}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
+                            {/* 5 Botones de selección adaptables a móviles y escritorio */}
+                            <div className="grid grid-cols-5 gap-1 sm:gap-1.5 pt-0.5">
+                              {SURVEY_SCALE_OPTIONS.map((opt) => {
+                                const isSelected = currentVal === opt.score;
+                                return (
+                                  <button
+                                    key={opt.score}
+                                    type="button"
+                                    onClick={() => handleSetAnswer(q.id, opt.score)}
+                                    className={`py-2 px-1 rounded-xl text-xs font-bold transition-all text-center cursor-pointer border flex flex-col items-center justify-center gap-0.5 ${
+                                      isSelected
+                                        ? 'bg-[#092c4c] dark:bg-[#3a9ad9] text-white dark:text-slate-900 border-[#092c4c] dark:border-[#3a9ad9] shadow-xs scale-[1.02]'
+                                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-[#3a9ad9] dark:hover:border-[#3a9ad9]'
+                                    }`}
+                                  >
+                                    <span className="font-extrabold text-xs sm:text-[13px]">{opt.score}</span>
+                                    <span className="text-[9px] sm:text-[10px] font-medium hidden xs:inline sm:inline truncate max-w-full">
+                                      {opt.shortLabel}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
 
-                    {/* Cuadro de Comentarios y Sugerencias */}
-                    <div className="space-y-1.5 pt-2">
-                      <label className="block text-xs font-bold text-slate-700">
-                        Comentarios adicionales sobre tus hábitos o la sesión (Opcional):
+                            {/* Detalle explicativo de la opción seleccionada */}
+                            <div className="text-[10.5px] sm:text-[11px] text-slate-600 dark:text-slate-400 bg-white/70 dark:bg-slate-900/60 px-2.5 py-1 rounded-lg border border-slate-100 dark:border-slate-800 flex items-center gap-1.5 flex-wrap">
+                              <span className="font-semibold text-slate-500 dark:text-slate-400">Seleccionado:</span>
+                              <span className="font-extrabold text-[#092c4c] dark:text-sky-300">
+                                {currentOption?.label}
+                              </span>
+                              <span className="text-slate-400 dark:text-slate-500 hidden sm:inline">•</span>
+                              <span className="italic text-slate-600 dark:text-slate-300">
+                                "{currentOption?.description}"
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Comentarios y Sugerencias */}
+                    <div className="space-y-1.5 pt-1">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Comentarios u observaciones adicionales sobre la sesión (Opcional):
                       </label>
                       <textarea
-                        rows={3}
+                        rows={2}
                         value={ratingComment}
                         onChange={(e) => setRatingComment(e.target.value)}
-                        placeholder="Escribe aquí observaciones, sugerencias o dudas sobre tu método de estudio..."
-                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs text-slate-700 focus:bg-white focus:border-brand-celeste focus:ring-2 focus:ring-brand-celeste/20 outline-none transition-all placeholder:text-slate-400"
+                        placeholder="Escribe observaciones sobre la tutoría o temas que te gustaría reforzar..."
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-xs text-slate-800 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-[#3a9ad9] focus:ring-2 focus:ring-[#3a9ad9]/20 outline-none transition-all placeholder:text-slate-400"
                       />
                     </div>
-                  </div>
+                  </>
+                )}
+              </div>
 
-                  {/* Botones de acción */}
-                  <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setEvaluatingSession(null)}
-                      className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSubmittingRating}
-                      className="px-5 py-2.5 rounded-xl bg-[#092c4c] hover:bg-[#153a5c] text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <ThumbsUp className="w-3.5 h-3.5" />
-                      <span>{isSubmittingRating ? 'Guardando...' : 'Enviar Encuesta (12 Ítems)'}</span>
-                    </button>
-                  </div>
-                </>
+              {/* Footer Fijo con Botones de Acción */}
+              {!ratingSuccessMsg && (
+                <div className="flex items-center justify-between gap-2.5 p-3.5 sm:p-5 bg-slate-50 dark:bg-slate-950/80 border-t border-slate-200 dark:border-slate-800 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setEvaluatingSession(null)}
+                    className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingRating}
+                    className="px-5 py-2.5 rounded-xl bg-[#092c4c] dark:bg-[#3a9ad9] hover:bg-[#153a5c] dark:hover:bg-sky-400 text-white dark:text-slate-900 text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <ThumbsUp className="w-3.5 h-3.5" />
+                    <span>{isSubmittingRating ? 'Guardando...' : 'Enviar Evaluación (12 Ítems)'}</span>
+                  </button>
+                </div>
               )}
             </form>
           </div>
