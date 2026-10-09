@@ -139,27 +139,49 @@ export const DocenteAlertsTab: React.FC<DocenteAlertsTabProps> = ({
                     </p>
                   </div>
 
-                  <div className="bg-white p-3.5 rounded-xl border border-rose-100 text-xs text-slate-700">
-                    <strong>Motivo del Reporte:</strong> {report.description}
+                  <div className="bg-white p-3.5 rounded-xl border border-rose-100 text-xs text-slate-700 space-y-1.5">
+                    <p><strong>Motivo del Reporte:</strong> {report.description}</p>
+                    {report.proposedTime && (
+                      <p className="text-sky-700 font-medium">
+                        ⏰ <strong>Horario propuesto:</strong> {report.proposedTime}
+                      </p>
+                    )}
+                    {report.suggestedTutorName && (
+                      <div className="mt-2 p-2.5 bg-teal-50 border border-teal-200 rounded-lg flex items-center justify-between text-teal-900">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold">🧑‍🏫 Tutor sugerido por el tutor:</span>
+                          <span className="font-extrabold text-teal-950 underline">{report.suggestedTutorName}</span>
+                        </div>
+                        {report.suggestedTutorId && selectedTutorForReassign[report.id] !== report.suggestedTutorId && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTutorForReassign({ ...selectedTutorForReassign, [report.id]: report.suggestedTutorId! })}
+                            className="px-2 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-[11px] font-bold cursor-pointer transition shadow-2xs"
+                          >
+                            Usar Sugerencia
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2">
                     <select
-                      value={selectedTutorForReassign[report.id] || ''}
+                      value={selectedTutorForReassign[report.id] || (report.suggestedTutorId || '')}
                       onChange={(e) => setSelectedTutorForReassign({ ...selectedTutorForReassign, [report.id]: e.target.value })}
                       className="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 text-xs bg-white text-slate-700 focus:ring-2 focus:ring-[#3a9ad9]"
                     >
                       <option value="">-- Seleccionar Nuevo Tutor Sustituto --</option>
                       {tutores.filter(t => t.id !== report.tutorId).map(t => (
                         <option key={t.id} value={t.id}>
-                          {t.name} ({t.career || 'Tutor'})
+                          {t.name} ({t.career || 'Tutor'}){report.suggestedTutorId === t.id ? ' ★ [Sugerido por el tutor]' : ''}
                         </option>
                       ))}
                     </select>
 
                     <button
                       onClick={() => handleResolveReassignment(report)}
-                      className="px-4 py-2 bg-[#092c4c] text-white rounded-xl text-xs font-bold hover:bg-[#0c3c66] transition flex items-center justify-center gap-1.5"
+                      className="px-4 py-2 bg-[#092c4c] text-white rounded-xl text-xs font-bold hover:bg-[#0c3c66] transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <UserCheck className="w-3.5 h-3.5" />
                       Confirmar Reasignación

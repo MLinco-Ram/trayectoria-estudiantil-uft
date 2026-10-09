@@ -128,9 +128,11 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [issueKind, setIssueKind] = useState<'reasignar_horario' | 'reasignar_tutor' | 'otro'>('reasignar_horario');
   const [proposedTime, setProposedTime] = useState('');
+  const [suggestedTutorId, setSuggestedTutorId] = useState('');
   const [description, setDescription] = useState('');
   const [formFeedback, setFormFeedback] = useState<string | null>(null);
   const [myAvailability, setMyAvailability] = useState<UserAvailability | null>(null);
+  const [allAvailabilities, setAllAvailabilities] = useState<UserAvailability[]>(getSavedAvailabilities());
   const [activeQRModalSession, setActiveQRModalSession] = useState<Session | null>(null);
   const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
   // Evita que una recarga en segundo plano (disparada por cambios en OTRA pestaña, ej. el panel del docente)
@@ -261,6 +263,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
     } catch (e) {
       // fallback a localStorage
     }
+    setAllAvailabilities(list);
 
     let found = list.find(a => a.userId === user.id && a.role === 'tutor');
     const ALL_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -499,6 +502,20 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
     }
   };
 
+  // Otros tutores disponibles para suplir / sustituir (excluyendo al tutor actual)
+  const otherTutores = useMemo(() => {
+    return allUsers.filter(u => 
+      u && 
+      u.id !== user.id && 
+      (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor')))
+    );
+  }, [allUsers, user.id]);
+
+  // Sesión actualmente seleccionada en el formulario de aviso de inconvenientes
+  const selectedSessionForIssue = useMemo(() => {
+    return sessions.find(s => s.id === selectedSessionId) || null;
+  }, [sessions, selectedSessionId]);
+
   // Submit re-routing or re-scheduling ticket to coordinator
   const handleSendReport = (e: React.FormEvent) => {
     e.preventDefault();
@@ -515,6 +532,8 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
     }
 
     const currentReports = getSavedReports();
+    const suggestedTutorObj = suggestedTutorId ? otherTutores.find(t => t.id === suggestedTutorId) : undefined;
+
     const newReport: IssueReport = {
       id: `report_${Date.now()}`,
       sessionId: selectedSessionId,
@@ -522,6 +541,8 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       description: description,
       requestType: issueKind,
       proposedTime: proposedTime ? proposedTime : undefined,
+      suggestedTutorId: suggestedTutorId ? suggestedTutorId : undefined,
+      suggestedTutorName: suggestedTutorObj ? suggestedTutorObj.name : undefined,
       status: 'pendiente',
       createdAt: new Date().toISOString()
     };
@@ -547,7 +568,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       user.email,
       user.name,
       `Aviso de Inconveniente Registrado: ${sessionTitle}`,
-      `Hola ${user.name},\n\nHemos recibido tu reporte sobre la tutoría "${sessionTitle}".\n\n• Motivo: ${issueKind === 'reasignar_horario' ? 'Cambio de Horario' : issueKind === 'reasignar_tutor' ? 'Reasignación de Tutor' : 'Otro Inconveniente'}\n• Detalle: "${description}"\n${proposedTime ? `• Horario alternativo propuesto: ${proposedTime}\n` : ''}\nLa coordinación docente revisará tu caso a la brevedad.`
+      `Hola ${user.name},\n\nHemos recibido tu reporte sobre la tutoría "${sessionTitle}".\n\n• Motivo: ${issueKind === 'reasignar_horario' ? 'Cambio de Horario' : issueKind === 'reasignar_tutor' ? 'Reasignación de Tutor' : 'Otro Inconveniente'}\n• Detalle: "${description}"\n${proposedTime ? `• Horario alternativo propuesto: ${proposedTime}\n` : ''}${suggestedTutorObj ? `• Tutor sugerido para suplir: ${suggestedTutorObj.name} (${suggestedTutorObj.career || 'Tutor Par'})\n` : ''}\nLa coordinación docente revisará tu caso a la brevedad.`
     );
 
     // 2. Notificar por correo a TODOS los Docentes Coordinadores
@@ -586,6 +607,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                   <p style="margin: 4px 0;">👤 <strong>Tutor que reporta:</strong> ${user.name} (✉️ ${user.email})</p>
                   <p style="margin: 4px 0;">🏷️ <strong>Tipo de Solicitud:</strong> <span style="color: #dc2626; font-weight: bold;">${kindLabel}</span></p>
                   ${proposedTime ? `<p style="margin: 4px 0;">⏰ <strong>Horario propuesto:</strong> <span style="color: #0284c7; font-weight: bold;">${proposedTime}</span></p>` : ''}
+                  ${suggestedTutorObj ? `<p style="margin: 4px 0;">🧑‍🏫 <strong>Tutor Sugerido para Suplir:</strong> <span style="color: #0d9488; font-weight: bold;">${suggestedTutorObj.name} (${suggestedTutorObj.career || 'Tutor Par'})</span></p>` : ''}
                 </div>
 
                 <div style="background-color: #f1f5f9; border-left: 4px solid #ef4444; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px;">
@@ -609,7 +631,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
         </div>
       `;
 
-      const plainText = `Estimados Docentes y Coordinadores,\n\nEl tutor ${user.name} ha reportado un inconveniente (${kindLabel}) para la sesión "${sessionTitle}":\n"${description}"\n\nHorario propuesto: ${proposedTime || 'No especificado'}\nCorreo tutor: ${user.email}\n\nPueden gestionar este caso desde el panel docente.`;
+      const plainText = `Estimados Docentes y Coordinadores,\n\nEl tutor ${user.name} ha reportado un inconveniente (${kindLabel}) para la sesión "${sessionTitle}":\n"${description}"\n\nHorario propuesto: ${proposedTime || 'No especificado'}\nTutor sugerido para suplir: ${suggestedTutorObj ? `${suggestedTutorObj.name} (${suggestedTutorObj.email})` : 'No sugerido'}\nCorreo tutor que reporta: ${user.email}\n\nPueden gestionar este caso desde el panel docente.`;
 
       triggerNotification(
         docente.email,
@@ -620,9 +642,10 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       );
     });
 
-    setFormFeedback(`¡Inconveniente enviado con éxito! Se ha notificado por correo a los ${allDocentes.length} docentes coordinadores y se envió un comprobante a tu correo institucional.`);
+    setFormFeedback(`¡Inconveniente enviado con éxito! Se ha notificado por correo a los ${allDocentes.length} docentes coordinadores ${suggestedTutorObj ? `con la sugerencia de ${suggestedTutorObj.name} para suplir la sesión` : ''} y se envió un comprobante a tu correo institucional.`);
     setDescription('');
     setProposedTime('');
+    setSuggestedTutorId('');
   };
 
   return (
@@ -1170,7 +1193,89 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                   </div>
                 </div>
 
-                {/* 3. Description text */}
+                {/* 3. Sugerir Tutor Suplente / Sustituto (Lista de Tutores) */}
+                <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-4 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <label className="block text-xs font-bold text-[#092c4c] dark:text-slate-200 uppercase flex items-center gap-1.5">
+                      <GraduationCap className="w-4 h-4 text-[#3a9ad9]" />
+                      <span>Sugerir un Tutor para Suplir (Opcional)</span>
+                      {issueKind === 'reasignar_tutor' && (
+                        <span className="text-[10px] bg-teal-100 text-teal-800 px-2 py-0.2 rounded-full font-bold ml-1">
+                          Recomendado
+                        </span>
+                      )}
+                    </label>
+                    <span className="text-[11px] text-slate-500 font-medium">
+                      {otherTutores.length} tutor(es) en nómina
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Si conversaste previamente con un compañero o conoces a un tutor par disponible para cubrir tu sesión, puedes seleccionarlo en la lista para que la coordinación docente lo reasigne rápidamente.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <select
+                        className="w-full bg-white border border-slate-300 px-3.5 py-2 text-xs rounded-lg text-slate-800 font-medium focus:ring-2 focus:ring-[#3a9ad9] focus:outline-hidden"
+                        value={suggestedTutorId}
+                        onChange={(e) => setSuggestedTutorId(e.target.value)}
+                      >
+                        <option value="">-- Seleccionar Tutor Sugerido para Suplir --</option>
+                        {otherTutores.map(t => {
+                          // Verificar si el tutor tiene disponibilidad declarada en el horario de la sesión
+                          const tutorAvail = allAvailabilities.find(a => a.userId === t.id && (a.role === 'tutor' || !a.role));
+                          let daySlotInfo = '';
+                          if (selectedSessionForIssue && selectedSessionForIssue.date) {
+                            const [year, month, day] = selectedSessionForIssue.date.split('-').map(Number);
+                            const d = new Date(year, month - 1, day);
+                            const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                            const dayName = days[d.getDay()];
+                            const dayObj = tutorAvail?.days?.find(dItem => dItem.day.toLowerCase() === dayName.toLowerCase());
+                            const hasSlot = dayObj?.slots?.includes(selectedSessionForIssue.timeSlot);
+                            if (hasSlot) {
+                              daySlotInfo = ' • (Disponible en este bloque)';
+                            }
+                          }
+
+                          return (
+                            <option key={t.id} value={t.id}>
+                              {t.name} — {t.career || 'Tutor Par'}{daySlotInfo}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+
+                    {/* Resumen del tutor sugerido seleccionado */}
+                    {suggestedTutorId ? (
+                      <div className="bg-teal-50/80 border border-teal-200 rounded-lg p-2.5 flex items-center justify-between text-xs text-teal-900">
+                        <div className="space-y-0.5 truncate">
+                          <p className="font-bold text-teal-950 truncate">
+                            ✓ {otherTutores.find(t => t.id === suggestedTutorId)?.name}
+                          </p>
+                          <p className="text-[10px] text-teal-700 truncate">
+                            {otherTutores.find(t => t.id === suggestedTutorId)?.career || 'Tutor Par'} • {otherTutores.find(t => t.id === suggestedTutorId)?.email}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSuggestedTutorId('')}
+                          className="text-teal-600 hover:text-teal-900 p-1 rounded-md text-xs font-bold cursor-pointer shrink-0 ml-2"
+                          title="Quitar sugerencia"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-slate-400 italic flex items-center px-1">
+                        Sin tutor suplente propuesto (el coordinador seleccionará uno de la nómina).
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. Description text */}
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Descripciones y Justificaciones</label>
                   <textarea

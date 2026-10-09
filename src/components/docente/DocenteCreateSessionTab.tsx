@@ -112,6 +112,9 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
     setIsSubmitting(true);
 
     const isTutoring = formProgram === 'tutorias';
+    const isPersonalizedType = formType === 'tutoria_personalizada' || formType === 'psico_asesoria_individual';
+    const calculatedMaxSpots = isPersonalizedType ? 1 : Number(formMaxSpots);
+
     const newSession: Session = {
       id: `session_${Date.now()}`,
       program: formProgram,
@@ -123,7 +126,7 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
       docenteId: isTutoring ? user.id : (formDocenteId || user.id),
       tutorId: isTutoring ? (formTutorId || null) : null,
       studentIds: [],
-      maxSpots: Number(formMaxSpots),
+      maxSpots: calculatedMaxSpots,
       location: formLocation.trim(),
       attendance: {}
     };
