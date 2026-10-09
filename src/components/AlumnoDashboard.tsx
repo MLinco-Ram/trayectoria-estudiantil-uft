@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User, Session, WebNotification, UserAvailability, StudentRequest } from '../types';
 import { 
   getSavedSessions, 
@@ -386,15 +386,24 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   const availableSchedules = sessions.filter(s => {
     const isProgramMatch = s.program === activeSegment;
     const isDateMatch = s.date === targetDate;
-    // Public sessions: general, taller, induccion, clase magistral, taller ampliado, or direct student assignment
-    const isPublic = s.type === 'tutoria_general' || 
-                     s.type === 'psico_taller' || 
-                     s.type === 'induccion' || 
-                     s.type === 'clase_magistral' || 
-                     s.type === 'taller_ampliado';
-    const isPublicOrMine = isPublic || s.studentIds.includes(user.id);
-    return isProgramMatch && isDateMatch && isPublicOrMine;
+    // Si la sesión es exclusiva 1 a 1 ya asignada a otro estudiante, no mostrar a terceros
+    const isExclusiveToAnother = s.maxSpots === 1 && s.studentIds.length >= 1 && !s.studentIds.includes(user.id);
+    if (isExclusiveToAnother) return false;
+
+    return isProgramMatch && isDateMatch;
   });
+
+  // Próximas sesiones disponibles en el programa activo para facilitar la navegación
+  const upcomingProgramSessions = useMemo(() => {
+    return sessions
+      .filter(s => s.program === activeSegment && !s.isCompleted && !isSessionPast(s))
+      .sort((a, b) => a.date.localeCompare(b.date) || a.timeSlot.localeCompare(b.timeSlot));
+  }, [sessions, activeSegment]);
+
+  // Fechas únicas con sesiones programadas vigentes
+  const upcomingProgramDates = useMemo(() => {
+    return Array.from(new Set(upcomingProgramSessions.map(s => s.date)));
+  }, [upcomingProgramSessions]);
 
   // Active bookings where student is registered and session is active (not past and not completed)
   const myActiveBookings = sessions.filter(s => 
@@ -866,10 +875,32 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
           {/* Date Picker (Calendar selector widget shown above slot cards in reference gym mockup) */}
           {(activeSegment === 'tutorias' || activeSegment === 'psicoeducativo') && (
-            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 p-3.5 sm:p-4 space-y-2.5 sm:space-y-3 transition-colors">
-              <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Selecciona una Fecha
-              </label>
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 p-3.5 sm:p-4 space-y-3 transition-colors">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Selecciona una Fecha
+                  </label>
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                    Navega por los días o elige una fecha específica en el calendario
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5 text-[#3a9ad9]" />
+                    <span>Ir a fecha:</span>
+                  </span>
+                  <input
+                    type="date"
+                    value={targetDate}
+                    onChange={(e) => {
+                      if (e.target.value) setTargetDate(e.target.value);
+                    }}
+                    className="px-2.5 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-medium focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none"
+                  />
+                </div>
+              </div>
               
               <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-none">
                 {presetDates.map(d => {
@@ -877,28 +908,73 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                   const weekday = dateObj.toLocaleDateString('es-ES', { weekday: 'short' });
                   const day = dateObj.getDate();
                   const isCur = d === targetDate;
+                  const countForDay = sessions.filter(
+                    s => s.program === activeSegment && s.date === d && !s.isCompleted && !isSessionPast(s)
+                  ).length;
 
                   return (
                     <button
                       key={d}
                       onClick={() => setTargetDate(d)}
-                      className={`flex-1 min-w-[50px] py-1.5 rounded-lg border text-center transition-all cursor-pointer ${isCur ? 'bg-brand-celeste border-brand-celeste text-white font-bold shadow-xs' : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold hover:border-brand-celeste'}`}
+                      className={`flex-1 min-w-[58px] py-1.5 px-1 rounded-lg border text-center transition-all cursor-pointer relative ${
+                        isCur
+                          ? 'bg-[#092c4c] dark:bg-[#3a9ad9] border-[#092c4c] dark:border-[#3a9ad9] text-white dark:text-slate-900 font-bold shadow-xs'
+                          : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold hover:border-brand-celeste'
+                      }`}
                     >
                       <span className="block text-[8px] uppercase">{weekday}</span>
                       <span className="block text-xs sm:text-sm">{day}</span>
+                      {countForDay > 0 && (
+                        <span className={`inline-block text-[8px] font-extrabold px-1 rounded-full ${
+                          isCur ? 'bg-[#3a9ad9] text-[#092c4c] dark:bg-[#092c4c] dark:text-white' : 'bg-blue-100 dark:bg-sky-950 text-[#092c4c] dark:text-sky-300'
+                        }`}>
+                          {countForDay} {countForDay === 1 ? 'sesión' : 'sesiones'}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
               </div>
+
+              {/* Fechas adicionales con sesiones fuera de los días predeterminados */}
+              {upcomingProgramDates.filter(d => !presetDates.includes(d)).length > 0 && (
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 flex-wrap text-xs">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">
+                    Otras fechas con sesiones programadas:
+                  </span>
+                  {upcomingProgramDates.filter(d => !presetDates.includes(d)).map(d => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setTargetDate(d)}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                        targetDate === d
+                          ? 'bg-[#3a9ad9] text-[#092c4c]'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                      }`}
+                    >
+                      <Calendar className="w-3 h-3" />
+                      <span>{d}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* A. BOOK SCHEDULER VIEW (Tutorias General and Psycoeducational sessions) */}
             {(activeSegment === 'tutorias' || activeSegment === 'psicoeducativo') && (
             <div className="space-y-3">
-              <h3 className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider pl-1.5 mt-2">
-                Módulos de Horario Disponibles
-              </h3>
+              <div className="flex items-center justify-between pl-1.5 mt-2">
+                <h3 className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Módulos de Horario Disponibles ({targetDate})
+                </h3>
+                {availableSchedules.length > 0 && (
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                    {availableSchedules.length} {availableSchedules.length === 1 ? 'disponible' : 'disponibles'}
+                  </span>
+                )}
+              </div>
 
               {targetDate < getTodayDateStr() && (
                 <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-900 dark:text-amber-200 flex items-center gap-2">
@@ -908,12 +984,42 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
               )}
 
               {availableSchedules.length === 0 ? (
-                <div className="bg-white dark:bg-slate-900 p-8 sm:p-10 rounded-2xl border border-slate-100 dark:border-slate-800 text-center space-y-2 transition-colors">
+                <div className="bg-white dark:bg-slate-900 p-8 sm:p-10 rounded-2xl border border-slate-100 dark:border-slate-800 text-center space-y-3 transition-colors">
                   <Calendar className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" />
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">No hay cupos disponibles el {targetDate}</p>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                    Pregunta a tu coordinador si hay tutorías personalizadas o de apoyo extraordinario para habilitar.
-                  </p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 font-bold">No hay cupos disponibles el {targetDate}</p>
+                  
+                  {upcomingProgramDates.length > 0 ? (
+                    <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                        ¡Hay sesiones y tutorías programadas en las siguientes fechas! Selecciona una para inscribirte:
+                      </p>
+                      <div className="flex flex-wrap justify-center gap-2 pt-1">
+                        {upcomingProgramDates.map(d => {
+                          const dateObj = new Date(d + "T00:00:00");
+                          const dayName = dateObj.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+                          const count = sessions.filter(s => s.program === activeSegment && s.date === d && !s.isCompleted && !isSessionPast(s)).length;
+                          return (
+                            <button
+                              key={d}
+                              type="button"
+                              onClick={() => setTargetDate(d)}
+                              className="px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-sky-950/50 hover:bg-[#3a9ad9] hover:text-[#092c4c] text-[#092c4c] dark:text-sky-300 border border-blue-200 dark:border-sky-800 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Calendar className="w-3.5 h-3.5" />
+                              <span className="capitalize">{dayName}</span>
+                              <span className="bg-[#092c4c] text-white dark:bg-[#3a9ad9] dark:text-slate-900 text-[9px] px-1.5 py-0.2 rounded-full font-extrabold">
+                                {count}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                      Pregunta a tu coordinador si hay tutorías personalizadas o de apoyo extraordinario para habilitar.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" id="academic-visual-slots-grid">
@@ -924,19 +1030,40 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                     const isPast = isSessionPast(session);
                     const isCompleted = !!session.isCompleted;
                     const isClosedDeadline = isRegistrationWindowClosed(session.date, session.timeSlot);
+                    const tutorObj = session.tutorId ? allUsers.find(u => u.id === session.tutorId) : null;
 
                     return (
                       <div 
                         key={session.id} 
                         className={`bg-white dark:bg-slate-900 rounded-xl border p-4 text-center transition-all flex flex-col justify-between space-y-2.5 ${isRegistered ? 'border-brand-celeste ring-1 ring-brand-celeste/40 bg-blue-50/10 dark:bg-sky-950/20' : isPast || isCompleted ? 'border-slate-200 dark:border-slate-800 opacity-85' : 'border-slate-100 dark:border-slate-800 hover:border-brand-celeste dark:hover:border-brand-celeste'}`}
                       >
-                        <div>
+                        <div className="space-y-1">
                           <span className="text-xs font-extrabold text-slate-800 dark:text-white block">
                             {session.timeSlot}
                           </span>
-                          <span className="text-[9px] text-slate-400 dark:text-slate-400 block truncate font-medium mt-0.5">
+                          <span className="text-[11px] text-[#092c4c] dark:text-sky-300 block font-bold mt-0.5 leading-snug">
                             {session.title}
                           </span>
+
+                          {session.subject && (
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">
+                              📚 {session.subject}
+                            </span>
+                          )}
+
+                          {session.location && (
+                            <span className="text-[9.5px] text-slate-400 dark:text-slate-500 block truncate font-medium">
+                              📍 {session.location}
+                            </span>
+                          )}
+
+                          {tutorObj && (
+                            <div className="bg-indigo-50/70 dark:bg-indigo-950/40 px-2 py-1 rounded-md text-[10px] font-bold text-indigo-900 dark:text-indigo-200 border border-indigo-100 dark:border-indigo-900 flex items-center justify-center gap-1 mt-1">
+                              <GraduationCap className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                              <span>Tutor: {tutorObj.name}</span>
+                            </div>
+                          )}
+
                           <div className="flex items-center justify-center gap-1.5 mt-2 flex-wrap">
                             <span className="inline-block text-[9px] text-indigo-800 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 font-semibold rounded px-2">
                               {enrolledCount}/{session.maxSpots} cupos
