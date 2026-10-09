@@ -387,9 +387,17 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   const availableSchedules = sessions.filter(s => {
     const isProgramMatch = s.program === activeSegment;
     const isDateMatch = s.date === targetDate;
-    // Si la sesión es exclusiva 1 a 1 ya asignada a otro estudiante, no mostrar a terceros
-    const isExclusiveToAnother = s.maxSpots === 1 && s.studentIds.length >= 1 && !s.studentIds.includes(user.id);
-    if (isExclusiveToAnother) return false;
+
+    // Regla de Protección de Tutorías Personalizadas / Asesorías Individuales:
+    // Las sesiones personalizadas (1 a 1) o individuales solo son visibles para el estudiante asignado o si están libres para él
+    const isPersonalized = s.type === 'tutoria_personalizada' || s.type === 'psico_asesoria_individual' || s.maxSpots === 1;
+    if (isPersonalized) {
+      const isAssignedToThisStudent = s.studentIds.includes(user.id);
+      // Si ya tiene asignado a otro estudiante, o es una sesión 1 a 1 no dirigida a este estudiante, ocultarla
+      if (!isAssignedToThisStudent && s.studentIds.length > 0) {
+        return false;
+      }
+    }
 
     return isProgramMatch && isDateMatch;
   });
@@ -397,12 +405,19 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   // Próximas sesiones disponibles en el programa activo para facilitar la navegación
   const upcomingProgramSessions = useMemo(() => {
     return sessions
-      .filter(s => 
-        s.program === activeSegment && 
-        !s.isCompleted && 
-        !isSessionPast(s) &&
-        !(s.maxSpots === 1 && s.studentIds.length >= 1 && !s.studentIds.includes(user.id))
-      )
+      .filter(s => {
+        if (s.program !== activeSegment) return false;
+        if (s.isCompleted || isSessionPast(s)) return false;
+
+        const isPersonalized = s.type === 'tutoria_personalizada' || s.type === 'psico_asesoria_individual' || s.maxSpots === 1;
+        if (isPersonalized) {
+          const isAssignedToThisStudent = s.studentIds.includes(user.id);
+          if (!isAssignedToThisStudent && s.studentIds.length > 0) {
+            return false;
+          }
+        }
+        return true;
+      })
       .sort((a, b) => a.date.localeCompare(b.date) || a.timeSlot.localeCompare(b.timeSlot));
   }, [sessions, activeSegment, user.id]);
 
@@ -447,6 +462,13 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
     // Check if already registered
     if (session.studentIds.includes(user.id)) {
       setBookingFeedback('Ya te encuentras registrado en este bloque horario.');
+      return;
+    }
+
+    // Validación estricta para sesiones personalizadas / individuales (1 a 1)
+    const isPersonalized = session.type === 'tutoria_personalizada' || session.type === 'psico_asesoria_individual' || session.maxSpots === 1;
+    if (isPersonalized && session.studentIds.length > 0 && !session.studentIds.includes(user.id)) {
+      setBookingFeedback('⚠️ Esta tutoría es de carácter personalizado y ya se encuentra asignada exclusivamente a otro estudiante.');
       return;
     }
 

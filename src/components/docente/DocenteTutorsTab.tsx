@@ -832,20 +832,37 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
 
       {/* Modal de edición */}
       {editingTutor && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4">
-            <h3 className="font-bold text-slate-900 text-sm">Editar Información y Roles del Tutor</h3>
-            <form onSubmit={handleSaveEditTutor} className="space-y-3">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 dark:border-slate-800 my-auto max-h-[96vh] sm:max-h-[90vh] flex flex-col">
+            <div className="bg-[#092c4c] dark:bg-slate-950 px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between text-white shrink-0 border-b border-[#153a5c] dark:border-slate-800">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="p-1.5 bg-[#3a9ad9]/20 rounded-lg text-[#3a9ad9] shrink-0">
+                  <Edit3 className="w-4 h-4" />
+                </div>
+                <h3 className="font-bold text-slate-100 text-xs sm:text-sm truncate">
+                  Editar Información y Roles del Tutor
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingTutor(null)}
+                className="text-slate-300 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditTutor} className="p-4 sm:p-6 space-y-3.5 overflow-y-auto flex-1 overscroll-contain">
               {/* Roles del Usuario (Multi-rol) */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1.5">
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                <label className="block text-[10px] sm:text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase mb-1.5">
                   Roles Asignados (Multi-rol)
                 </label>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   {(['tutor', 'alumno', 'docente', 'admin'] as Role[]).map(roleOption => {
                     const isChecked = editRoles.includes(roleOption);
                     return (
-                      <label key={roleOption} className="flex items-center gap-2 cursor-pointer bg-white p-2 rounded-lg border border-slate-200 hover:border-[#3a9ad9]">
+                      <label key={roleOption} className="flex items-center gap-2 cursor-pointer bg-white dark:bg-slate-850 p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-[#3a9ad9]">
                         <input
                           type="checkbox"
                           checked={isChecked}
@@ -862,12 +879,12 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                           }}
                           className="rounded text-[#3a9ad9] focus:ring-[#3a9ad9]"
                         />
-                        <span className="capitalize font-semibold text-slate-700">{roleOption}</span>
+                        <span className="capitalize font-semibold text-slate-700 dark:text-slate-200 text-xs">{roleOption}</span>
                       </label>
                     );
                   })}
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1.5">
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 leading-tight">
                   Al tener 2 o más roles marcados, el usuario podrá elegir el panel de destino al iniciar sesión.
                 </p>
               </div>
@@ -876,7 +893,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
               {editRoles.includes('tutor') && (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase">Modalidad de Tutor</label>
+                    <label className="block text-[10px] sm:text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase">Modalidad de Tutor</label>
                     {editTutorTypes.includes('tutor_par') && editTutorTypes.includes('tutor_de_tutores') && (
                       <span className="text-[9px] bg-gradient-to-r from-emerald-500 to-indigo-600 text-white font-extrabold px-1.5 py-0.2 rounded-full">
                         Doble Perfil
@@ -887,8 +904,8 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                     <label
                       className={`p-2 rounded-xl border text-left transition cursor-pointer select-none flex items-start gap-1.5 ${
                         editTutorTypes.includes('tutor_par')
-                          ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-400 text-emerald-950 font-bold'
-                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                          ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 ring-1 ring-emerald-400 text-emerald-950 dark:text-emerald-200 font-bold'
+                          : 'bg-white dark:bg-slate-850 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50'
                       }`}
                     >
                       <input
@@ -899,20 +916,20 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                         }}
                         className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500"
                       />
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="text-xs flex items-center gap-1">
                           <BookOpen className="w-3 h-3 text-emerald-600 shrink-0" />
                           <span>Tutor Par</span>
                         </div>
-                        <p className="text-[10px] text-slate-500 font-normal">Panel estándar</p>
+                        <p className="text-[9.5px] text-slate-500 dark:text-slate-400 font-normal leading-tight">Panel estándar</p>
                       </div>
                     </label>
 
                     <label
                       className={`p-2 rounded-xl border text-left transition cursor-pointer select-none flex items-start gap-1.5 ${
                         editTutorTypes.includes('tutor_de_tutores')
-                          ? 'bg-indigo-50 border-indigo-500 ring-1 ring-indigo-400 text-indigo-950 font-bold'
-                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                          ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-500 ring-1 ring-indigo-400 text-indigo-950 dark:text-indigo-200 font-bold'
+                          : 'bg-white dark:bg-slate-850 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50'
                       }`}
                     >
                       <input
@@ -923,12 +940,12 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                         }}
                         className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500"
                       />
-                      <div className="flex-1">
-                        <div className="text-xs flex items-center gap-1 text-indigo-950">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs flex items-center gap-1 text-indigo-950 dark:text-indigo-200">
                           <ShieldCheck className="w-3 h-3 text-indigo-600 shrink-0" />
-                          <span>Tutor de Tutores</span>
+                          <span>Tutor Tutores</span>
                         </div>
-                        <p className="text-[10px] text-indigo-700/80 font-normal">Supervisa tutores</p>
+                        <p className="text-[9.5px] text-indigo-700/80 dark:text-indigo-300/80 font-normal leading-tight">Supervisa tutores</p>
                       </div>
                     </label>
                   </div>
@@ -936,67 +953,74 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
               )}
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Nombre</label>
+                <label className="block text-[10px] sm:text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase mb-1">Nombre</label>
                 <input
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                   required
                 />
               </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">RUT</label>
-                <input
-                  type="text"
-                  value={editRut}
-                  onChange={(e) => setEditRut(formatRut(e.target.value))}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono"
-                  required
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[10px] sm:text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase mb-1">RUT</label>
+                  <input
+                    type="text"
+                    value={editRut}
+                    onChange={(e) => setEditRut(formatRut(e.target.value))}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-mono bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] sm:text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase mb-1">Carrera</label>
+                  <input
+                    type="text"
+                    value={editCareer}
+                    onChange={(e) => setEditCareer(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Correo</label>
+                <label className="block text-[10px] sm:text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase mb-1">Correo</label>
                 <input
                   type="email"
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-mono bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                   required
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Carrera</label>
-                <input
-                  type="text"
-                  value={editCareer}
-                  onChange={(e) => setEditCareer(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Nueva Clave (opcional)</label>
+                <label className="block text-[10px] sm:text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase mb-1 flex items-center justify-between">
+                  <span>Nueva Clave</span>
+                  <span className="text-[9.5px] text-slate-400 font-normal lowercase">(opcional)</span>
+                </label>
                 <input
                   type="text"
                   value={editPassword}
                   onChange={(e) => setEditPassword(e.target.value)}
                   placeholder="Dejar en blanco para conservar"
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-mono bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400"
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
+
+              {/* Botones pegados al pie */}
+              <div className="flex gap-2 pt-3 border-t border-slate-100 dark:border-slate-800 sticky bottom-0 bg-white dark:bg-slate-900 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 p-4 sm:p-6 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingTutor(null)}
-                  className="px-3 py-1.5 border rounded-xl text-xs"
+                  className="flex-1 py-2 px-3 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-3 py-1.5 bg-[#092c4c] text-white rounded-xl text-xs font-bold"
+                  className="flex-1 py-2 px-3 bg-[#092c4c] dark:bg-[#3a9ad9] text-white dark:text-[#092c4c] rounded-xl text-xs font-bold hover:bg-[#1a4b75] dark:hover:bg-sky-400 transition cursor-pointer shadow-xs"
                 >
-                  Guardar
+                  Guardar Cambios
                 </button>
               </div>
             </form>

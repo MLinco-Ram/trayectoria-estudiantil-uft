@@ -71,6 +71,8 @@ export interface IssueReport {
   description: string;
   requestType: 'reasignar_horario' | 'reasignar_tutor' | 'otro';
   proposedTime?: string;
+  suggestedTutorId?: string;
+  suggestedTutorName?: string;
   status: 'pendiente' | 'resuelto';
   createdAt: string;
 }

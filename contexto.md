@@ -742,7 +742,7 @@ trayectoria-estudiantil-uft/
     - **Proyector / Código QR (`QR Asistencia`)**: Despliegue de modal con código QR dinámico de alta resolución para escaneo directo desde dispositivos móviles de los estudiantes.
     - Para **Tutor de Tutores**, el módulo incluye un selector de perspectiva ("Mis Tutorías Asignadas", "Tutores a Cargo" o "Todas las Tutorías") para supervisar y registrar asistencias de todo su equipo asignado.
   - **Cargar Horario (`my_availability`)**: Carga de matriz de disponibilidad horaria semanal (Lunes a Domingo) sincronizada con MongoDB Atlas.
-  - **Avisar Inconveniente (`report_issue`)**: Envío de alertas de cambio de horario o sustitución de tutor con despacho automático a todos los docentes coordinadores.
+  - **Avisar Inconveniente (`report_issue`)**: Envío de alertas de cambio de horario o sustitución de tutor con despacho automático a todos los docentes coordinadores, con selector de nómina para sugerir un tutor par suplente/sustituto (incluyendo indicación de disponibilidad horaria).
 - **Tutor de Tutores (Coordinador de Pares)**:
   - Cuenta con todos los módulos anteriores y agrega dos pestañas exclusivas:
     1. **"Tutores a Cargo" (`assigned_tutors`)**: Monitoreo de nómina supervisada, semáforo de estado, cantidad de tutorías, cronogramas y asistencia.
