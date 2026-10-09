@@ -119,7 +119,7 @@ export const forgotPassword = async (req, res) => {
       createdAt: new Date()
     });
 
-    const baseUrl = origin || 'http://localhost:3000';
+    const baseUrl = origin && !origin.includes('localhost') ? origin : (process.env.APP_URL || 'https://trayectoria-estudiantil-uft.vercel.app');
     const resetLink = `${baseUrl}/reset-password?reset_token=${resetToken}`;
 
     const client = await createTransporter();
