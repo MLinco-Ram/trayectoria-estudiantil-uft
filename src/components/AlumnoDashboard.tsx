@@ -396,9 +396,14 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   // Próximas sesiones disponibles en el programa activo para facilitar la navegación
   const upcomingProgramSessions = useMemo(() => {
     return sessions
-      .filter(s => s.program === activeSegment && !s.isCompleted && !isSessionPast(s))
+      .filter(s => 
+        s.program === activeSegment && 
+        !s.isCompleted && 
+        !isSessionPast(s) &&
+        !(s.maxSpots === 1 && s.studentIds.length >= 1 && !s.studentIds.includes(user.id))
+      )
       .sort((a, b) => a.date.localeCompare(b.date) || a.timeSlot.localeCompare(b.timeSlot));
-  }, [sessions, activeSegment]);
+  }, [sessions, activeSegment, user.id]);
 
   // Fechas únicas con sesiones programadas vigentes
   const upcomingProgramDates = useMemo(() => {
@@ -909,7 +914,11 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                   const day = dateObj.getDate();
                   const isCur = d === targetDate;
                   const countForDay = sessions.filter(
-                    s => s.program === activeSegment && s.date === d && !s.isCompleted && !isSessionPast(s)
+                    s => s.program === activeSegment && 
+                         s.date === d && 
+                         !s.isCompleted && 
+                         !isSessionPast(s) &&
+                         !(s.maxSpots === 1 && s.studentIds.length >= 1 && !s.studentIds.includes(user.id))
                   ).length;
 
                   return (
@@ -997,7 +1006,13 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                         {upcomingProgramDates.map(d => {
                           const dateObj = new Date(d + "T00:00:00");
                           const dayName = dateObj.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
-                          const count = sessions.filter(s => s.program === activeSegment && s.date === d && !s.isCompleted && !isSessionPast(s)).length;
+                          const count = sessions.filter(
+                            s => s.program === activeSegment && 
+                                 s.date === d && 
+                                 !s.isCompleted && 
+                                 !isSessionPast(s) &&
+                                 !(s.maxSpots === 1 && s.studentIds.length >= 1 && !s.studentIds.includes(user.id))
+                          ).length;
                           return (
                             <button
                               key={d}
