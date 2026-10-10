@@ -63,6 +63,7 @@ import { useAuth, getRoleHomePath } from '../context/AuthContext';
 import { MobileQRScannerModal } from './common/MobileQRScannerModal';
 import { ThemeToggle } from './common/ThemeToggle';
 import { NotificationModal } from './common/NotificationModal';
+import { AlumnoTutorialModal } from './alumno/AlumnoTutorialModal';
 
 interface AlumnoDashboardProps {
   user?: User;
@@ -106,6 +107,34 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   const [bookingFeedback, setBookingFeedback] = useState<string | null>(null);
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
   const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
+  
+  // Guided Tutorial Tour State
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+
+  // Trigger tutorial automatically the first time student enters the portal
+  useEffect(() => {
+    if (user?.id) {
+      const tutorialKey = `uft_alumno_tutorial_shown_${user.id}`;
+      const alreadyShown = localStorage.getItem(tutorialKey);
+      if (!alreadyShown) {
+        const timer = setTimeout(() => {
+          setIsTutorialOpen(true);
+        }, 700);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [user?.id]);
+
+  const handleCloseTutorial = () => {
+    setIsTutorialOpen(false);
+    if (user?.id) {
+      localStorage.setItem(`uft_alumno_tutorial_shown_${user.id}`, 'true');
+    }
+  };
+
+  const handleOpenTutorial = () => {
+    setIsTutorialOpen(true);
+  };
 
   // Availability & Requests States
   const [myAvailability, setMyAvailability] = useState<UserAvailability>({
@@ -730,6 +759,18 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
               <ThemeToggle />
 
+              {/* Botón de Tutorial Replay (!) */}
+              <button
+                type="button"
+                onClick={handleOpenTutorial}
+                className="flex items-center justify-center w-8 h-8 rounded-xl bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/40 transition-all cursor-pointer shadow-xs hover:scale-105 active:scale-95 shrink-0"
+                title="Ver Tutorial del Portal (!)"
+                aria-label="Ver Tutorial del Portal"
+                id="alumno-tutorial-replay-btn"
+              >
+                <span className="text-sm font-black leading-none font-mono">!</span>
+              </button>
+
               {/* Perfil del Alumno con Dropdown */}
               <div className="relative">
                 <button
@@ -829,6 +870,21 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                         </div>
                       </div>
                     )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowLogoutDropdown(false);
+                        handleOpenTutorial();
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-white transition flex items-center justify-between text-[11px] font-semibold cursor-pointer border border-amber-500/20"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <span className="font-mono font-black text-amber-400">!</span>
+                        <span>Ver Tutorial del Portal</span>
+                      </span>
+                      <span className="text-[10px] text-amber-400 font-bold">Abrir &rarr;</span>
+                    </button>
 
                     <button
                       type="button"
@@ -2022,6 +2078,19 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         currentUser={user}
         onAttendanceRegistered={() => {
           reloadData();
+        }}
+      />
+
+      {/* Modal de Tutorial Interactivo Guiado */}
+      <AlumnoTutorialModal
+        isOpen={isTutorialOpen}
+        onClose={handleCloseTutorial}
+        userName={user.name}
+        onNavigateTab={(tab) => {
+          setActiveSegment(tab);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          const mainElem = document.getElementById('student-main-panel-workspace');
+          if (mainElem) mainElem.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
     </div>
