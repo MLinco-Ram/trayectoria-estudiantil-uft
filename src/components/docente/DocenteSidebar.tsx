@@ -40,6 +40,7 @@ interface DocenteSidebarProps {
   pendingRequestsCount: number;
   pendingReportsCount: number;
   onLogout: () => void;
+  onOpenTutorial?: () => void;
 }
 
 export const DocenteSidebar: React.FC<DocenteSidebarProps> = ({
@@ -49,6 +50,7 @@ export const DocenteSidebar: React.FC<DocenteSidebarProps> = ({
   pendingRequestsCount,
   pendingReportsCount,
   onLogout,
+  onOpenTutorial,
 }) => {
   const navigate = useNavigate();
   const auth = useAuth();
@@ -84,13 +86,26 @@ export const DocenteSidebar: React.FC<DocenteSidebarProps> = ({
       <div className="flex flex-col flex-1 overflow-y-auto relative z-10">
         {/* Tarjeta de Perfil del Docente */}
         <div className="p-5 mx-4 mt-5 mb-4 bg-white rounded-2xl shadow-md space-y-2.5 relative shrink-0">
-          <div
-            className="flex items-center gap-1.5 text-brand-celeste font-bold text-sm cursor-pointer w-fit"
-            onClick={() => setShowLogoutDropdown(!showLogoutDropdown)}
-            title="Click para ver opciones de sesión"
-          >
-            <UserIcon className="h-4 w-4" />
-            <span>Perfil docente</span>
+          <div className="flex items-center justify-between">
+            <div
+              className="flex items-center gap-1.5 text-brand-celeste font-bold text-sm cursor-pointer w-fit"
+              onClick={() => setShowLogoutDropdown(!showLogoutDropdown)}
+              title="Click para ver opciones de sesión"
+            >
+              <UserIcon className="h-4 w-4" />
+              <span>Perfil docente</span>
+            </div>
+
+            {onOpenTutorial && (
+              <button
+                type="button"
+                onClick={onOpenTutorial}
+                className="w-5 h-5 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-black text-[11px] flex items-center justify-center shadow-xs transition-transform hover:scale-110 cursor-pointer"
+                title="Repetir mini-tutorial guiado de este apartado"
+              >
+                !
+              </button>
+            )}
           </div>
           <div className="font-extrabold text-brand-navy text-sm leading-snug">{user.name}</div>
           <div className="flex items-center gap-1.5 text-slate-500 text-xs">

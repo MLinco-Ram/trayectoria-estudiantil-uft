@@ -27,10 +27,11 @@ import { DocenteAlertsTab } from './docente/DocenteAlertsTab';
 import { DocenteAnnouncementsTab } from './docente/DocenteAnnouncementsTab';
 import { DocenteAnalyticsTab } from './docente/DocenteAnalyticsTab';
 import { DocenteCommentsTab } from './docente/DocenteCommentsTab';
+import { DocenteTutorialModal } from './docente/DocenteTutorialModal';
 import { ThemeToggle } from './common/ThemeToggle';
 import { NotificationModal } from './common/NotificationModal';
 
-import { LogOut, GraduationCap, ShieldCheck, Bell } from 'lucide-react';
+import { LogOut, GraduationCap, ShieldCheck, Bell, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface DocenteDashboardProps {
@@ -70,6 +71,39 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
       localStorage.setItem('uft_docente_active_tab', activeTab);
     }
   }, [activeTab]);
+
+  // Mini-Tutoriales Modulares por Sección
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+
+  // Auto-mostrar el mini-tutorial la primera vez que se entra a cada apartado
+  useEffect(() => {
+    if (activeTab) {
+      const hasSeen = localStorage.getItem(`uft_docente_tutorial_seen_${activeTab}`);
+      if (!hasSeen) {
+        setIsTutorialOpen(true);
+      }
+    }
+  }, [activeTab]);
+
+  const handleCloseTutorial = () => {
+    if (activeTab) {
+      localStorage.setItem(`uft_docente_tutorial_seen_${activeTab}`, 'true');
+    }
+    setIsTutorialOpen(false);
+  };
+
+  const TAB_LABELS: Record<DocenteTabType, string> = {
+    calendar: 'Panel Docente',
+    create: 'Registrar Horarios',
+    attendance: 'Pasar Lista',
+    flex_schedule: 'Horario Flexible',
+    tutors: 'Gestión Tutores',
+    students: 'Alumnos',
+    alerts: 'Alertas y Casos',
+    announcements: 'Comunicados',
+    analytics: 'Métricas',
+    comments: 'Retroalimentación',
+  };
 
   // Comments Filtering States
   const [commentFilterProgram, setCommentFilterProgram] = useState<'all' | 'tutorias' | 'psicoeducativo'>('all');
@@ -245,6 +279,7 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
         pendingRequestsCount={pendingRequestsCount}
         pendingReportsCount={pendingReportsCount}
         onLogout={onLogout}
+        onOpenTutorial={() => setIsTutorialOpen(true)}
       />
 
       {/* Contenedor Principal con Cabecera Superior */}
@@ -259,6 +294,21 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Botón de Mini-Tutorial Guiado para el Apartado Actual */}
+            <button
+              type="button"
+              onClick={() => setIsTutorialOpen(true)}
+              className="relative p-2 sm:px-3 sm:py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:border-amber-500/50 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+              title={`Repetir mini-tutorial guiado de "${TAB_LABELS[activeTab] || 'este apartado'}"`}
+            >
+              <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                !
+              </span>
+              <span className="hidden sm:inline text-xs font-extrabold tracking-tight">
+                Tutorial
+              </span>
+            </button>
+
             {/* Botón de Campana / Notificaciones */}
             <button
               type="button"
@@ -404,6 +454,14 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
         )}
       </main>
       </div>
+
+      {/* Mini-Tutorial Guiado Modular por Apartado */}
+      <DocenteTutorialModal
+        isOpen={isTutorialOpen}
+        onClose={handleCloseTutorial}
+        activeTab={activeTab}
+        userName={user.name}
+      />
     </div>
   );
 }
