@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   Sparkles, 
   Award, 
@@ -9,7 +9,8 @@ import {
   ChevronRight, 
   ChevronLeft,
   GraduationCap,
-  Bell
+  Bell,
+  Grid
 } from 'lucide-react';
 
 export interface AlumnoTutorialModalProps {
@@ -48,113 +49,141 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
   const popoverRef = useRef<HTMLDivElement>(null);
   const wasOpenRef = useRef(false);
 
-  const steps: StepItem[] = [
-    {
-      id: 'profile',
-      targetSelector: '#student-main-profile-card',
-      title: `¡Hola ${userName.split(' ')[0]}, bienvenido a tu Portal UFT!`,
-      badge: '1. Tu Perfil y Métricas',
-      icon: Sparkles,
-      accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
-      tab: 'tutorias',
-      description: 'En esta tarjeta superior puedes verificar tu carrera, RUT y el contador de reservas semanales activas y asistencias acumuladas.',
-      tips: [
-        'Consulta cuántos cupos semanales tienes disponibles.',
-        'Haz clic en las métricas para saltar a tus reservas o historial.'
-      ],
-      preferredPlacement: 'bottom'
-    },
-    {
-      id: 'navbar',
-      targetSelector: '#alumno-desktop-nav-bar',
-      title: 'Módulos de Apoyo y Navegación',
-      badge: '2. Menú de Pestañas',
-      icon: Award,
-      accentGradient: 'from-sky-900 to-indigo-950',
-      tab: 'tutorias',
-      description: 'Navega fácilmente entre todas las modalidades de aprendizaje que la UFT tiene para ti:',
-      tips: [
-        'Tutorías Colectivas: Sesiones de reforzamiento por ramo con tutores pares.',
-        'Talleres Psicoeducativos: Habilidades de estudio y manejo del tiempo.',
-        'Mis Reservas, Historial y Solicitudes de Inconveniente.'
-      ],
-      preferredPlacement: 'bottom'
-    },
-    {
-      id: 'dates',
-      targetSelector: '#alumno-date-picker-card',
-      title: 'Selector de Días y Calendario',
-      badge: '3. Fechas y Horarios',
-      icon: Calendar,
-      accentGradient: 'from-[#092c4c] to-[#153a5c]',
-      tab: 'tutorias',
-      description: 'Elige qué día deseas consultar: pulsa directamente sobre los accesos rápidos (Hoy, Mañana, etc.) o elige una fecha específica en el calendario.',
-      tips: [
-        'Las fechas con sesiones programadas se destacan visualmente.',
-        'Puedes buscar y reservar tutorías con anticipación.'
-      ],
-      preferredPlacement: 'bottom'
-    },
-    {
-      id: 'catalog',
-      targetSelector: '#academic-visual-slots-grid',
-      title: 'Módulos de Tutorías y Reserva Inmediata',
-      badge: '4. Inscripción con 1 Clic',
-      icon: GraduationCap,
-      accentGradient: 'from-emerald-900 via-[#092c4c] to-[#103a63]',
-      tab: 'tutorias',
-      description: 'Cada tarjeta muestra el horario, tutor responsable, cupos disponibles, aula y el temario/cronograma preparado para la sesión.',
-      tips: [
-        'Revisa el temario antes de reservar para saber qué se trabajará.',
-        'Presiona "Inscribirme" para asegurar tu cupo de inmediato.'
-      ],
-      preferredPlacement: 'top'
-    },
-    {
-      id: 'attendance',
-      targetSelector: '#alumno-mobile-qr-section',
-      title: 'Asistencia Digital con QR y PIN',
-      badge: '5. Control de Asistencia',
-      icon: QrCode,
-      accentGradient: 'from-indigo-900 to-[#092c4c]',
-      tab: 'my_bookings',
-      description: 'Al llegar a tu tutoría, el tutor proyectará un código QR y un PIN de 4 dígitos para registrar tu asistencia de forma automática.',
-      tips: [
-        'Usa el botón central de la cámara para escanear el QR.',
-        'También puedes ingresar el PIN de 4 dígitos si no dispones de cámara.'
-      ],
-      preferredPlacement: 'top'
-    },
-    {
-      id: 'inconvenientes',
-      targetSelector: '#alumno-inconvenientes-form-container',
-      title: 'Avisos de Inconveniente y Tope de Horario',
-      badge: '6. Flexibilidad y Contacto',
-      icon: AlertTriangle,
-      accentGradient: 'from-amber-900/90 via-[#092c4c] to-slate-900',
-      tab: 'inconvenientes',
-      description: '¿Tienes un tope de horario o problema de fuerza mayor? Envía un aviso formal a los docentes coordinadores para coordinar una sesión flexible individual.',
-      tips: [
-        'Indica tu horario de disponibilidad propuesto.',
-        'Se notificará automáticamente a la coordinación y al tutor asignado.'
-      ],
-      preferredPlacement: 'top'
-    },
-    {
-      id: 'header_actions',
-      targetSelector: '#alumno-header-actions-group',
-      title: 'Bandeja de Correo y Botón de Repetición (!)',
-      badge: '7. Centro de Ayuda',
-      icon: Bell,
-      accentGradient: 'from-emerald-800 to-[#092c4c]',
-      description: 'En la esquina superior derecha tienes tu bandeja de comunicados, modo oscuro y el botón con signo de exclamación (!) para volver a abrir este tutorial.',
-      tips: [
-        'Revisa avisos importantes y cambios de horario en la campana.',
-        'Haz clic en el botón (!) en cualquier momento si tienes dudas.'
-      ],
-      preferredPlacement: 'bottom'
-    }
-  ];
+  const isMobile = windowDimensions.width < 768;
+
+  const steps: StepItem[] = useMemo(() => {
+    const commonFirstFour: StepItem[] = [
+      {
+        id: 'profile',
+        targetSelector: '#student-main-profile-card',
+        title: `¡Hola ${userName.split(' ')[0]}, bienvenido a tu Portal UFT!`,
+        badge: '1. Tu Perfil y Métricas',
+        icon: Sparkles,
+        accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
+        tab: 'tutorias',
+        description: 'En esta tarjeta superior puedes verificar tu carrera, RUT y el contador de reservas semanales activas y asistencias acumuladas.',
+        tips: [
+          'Consulta cuántos cupos semanales tienes disponibles.',
+          'Haz clic en las métricas para saltar a tus reservas o historial.'
+        ],
+        preferredPlacement: 'bottom'
+      },
+      {
+        id: 'navbar',
+        targetSelector: '#alumno-desktop-nav-bar',
+        title: 'Módulos de Apoyo y Navegación',
+        badge: '2. Menú de Pestañas',
+        icon: Award,
+        accentGradient: 'from-sky-900 to-indigo-950',
+        tab: 'tutorias',
+        description: 'Navega fácilmente entre todas las modalidades de aprendizaje que la UFT tiene para ti:',
+        tips: [
+          'Tutorías Colectivas: Sesiones de reforzamiento por ramo con tutores pares.',
+          'Talleres Psicoeducativos: Habilidades de estudio y manejo del tiempo.',
+          'Mis Reservas, Historial y Solicitudes de Inconveniente.'
+        ],
+        preferredPlacement: 'bottom'
+      },
+      {
+        id: 'dates',
+        targetSelector: '#alumno-date-picker-card',
+        title: 'Selector de Días y Calendario',
+        badge: '3. Fechas y Horarios',
+        icon: Calendar,
+        accentGradient: 'from-[#092c4c] to-[#153a5c]',
+        tab: 'tutorias',
+        description: 'Elige qué día deseas consultar: pulsa directamente sobre los accesos rápidos (Hoy, Mañana, etc.) o elige una fecha específica en el calendario.',
+        tips: [
+          'Las fechas con sesiones programadas se destacan visualmente.',
+          'Puedes buscar y reservar tutorías con anticipación.'
+        ],
+        preferredPlacement: 'bottom'
+      },
+      {
+        id: 'catalog',
+        targetSelector: '#academic-visual-slots-grid',
+        title: 'Módulos de Tutorías y Reserva Inmediata',
+        badge: '4. Inscripción con 1 Clic',
+        icon: GraduationCap,
+        accentGradient: 'from-emerald-900 via-[#092c4c] to-[#103a63]',
+        tab: 'tutorias',
+        description: 'Cada tarjeta muestra el horario, tutor responsable, cupos disponibles, aula y el temario/cronograma preparado para la sesión.',
+        tips: [
+          'Revisa el temario antes de reservar para saber qué se trabajará.',
+          'Presiona "Inscribirme" para asegurar tu cupo de inmediato.'
+        ],
+        preferredPlacement: 'top'
+      }
+    ];
+
+    // Paso 5: Diferenciado entre Escritorio y Móvil
+    const stepFive: StepItem = isMobile
+      ? {
+          id: 'attendance_mobile',
+          targetSelector: '#alumno-mobile-qr-section',
+          title: 'Asistencia Digital con QR y PIN',
+          badge: '5. Escáner QR de Asistencia',
+          icon: QrCode,
+          accentGradient: 'from-indigo-900 to-[#092c4c]',
+          tab: 'my_bookings',
+          description: 'Al llegar a tu tutoría, utiliza el botón central de escaneo con cámara para leer el código QR que proyectará tu tutor y validar tu asistencia al instante.',
+          tips: [
+            'Usa el botón central de la cámara para escanear el código QR.',
+            'También puedes ingresar el PIN de 4 dígitos si no dispones de cámara.'
+          ],
+          preferredPlacement: 'top'
+        }
+      : {
+          id: 'bookings_desktop',
+          targetSelector: '#alumno-my-bookings-container',
+          title: 'Mis Reservas y Seguimiento de Clases',
+          badge: '5. Mis Reservas',
+          icon: Grid,
+          accentGradient: 'from-indigo-900 to-[#092c4c]',
+          tab: 'my_bookings',
+          description: 'En esta pestaña podrás gestionar todas tus tutorías y talleres confirmados, consultar salas asignadas, enlaces, temarios y cancelar oportunamente.',
+          tips: [
+            'Revisa los detalles y salas de cada clase que tienes reservada.',
+            'Si no podrás asistir, cancela con tiempo para liberar el cupo.',
+            'El tutor registrará tu asistencia en el sistema durante la sesión.'
+          ],
+          preferredPlacement: 'top'
+        };
+
+    const commonLastTwo: StepItem[] = [
+      {
+        id: 'inconvenientes',
+        targetSelector: '#alumno-inconvenientes-form-container',
+        title: 'Avisos de Inconveniente y Tope de Horario',
+        badge: '6. Flexibilidad y Contacto',
+        icon: AlertTriangle,
+        accentGradient: 'from-amber-900/90 via-[#092c4c] to-slate-900',
+        tab: 'inconvenientes',
+        description: '¿Tienes un tope de horario o problema de fuerza mayor? Envía un aviso formal a los docentes coordinadores para coordinar una sesión flexible individual.',
+        tips: [
+          'Indica tu horario de disponibilidad propuesto.',
+          'Se notificará automáticamente a la coordinación y al tutor asignado.'
+        ],
+        preferredPlacement: 'top'
+      },
+      {
+        id: 'header_actions',
+        targetSelector: '#alumno-header-actions-group',
+        title: 'Bandeja de Correo y Botón de Repetición (!)',
+        badge: '7. Centro de Ayuda',
+        icon: Bell,
+        accentGradient: 'from-emerald-800 to-[#092c4c]',
+        description: 'En la esquina superior derecha tienes tu bandeja de comunicados, modo oscuro y el botón con signo de exclamación (!) para volver a abrir este tutorial.',
+        tips: [
+          'Revisa avisos importantes y cambios de horario en la campana.',
+          'Haz clic en el botón (!) en cualquier momento si tienes dudas.'
+        ],
+        preferredPlacement: 'bottom'
+      }
+    ];
+
+    return [...commonFirstFour, stepFive, ...commonLastTwo];
+  }, [userName, isMobile]);
 
   const activeStepData = steps[currentStep] || steps[0];
 
@@ -202,27 +231,27 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
       onNavigateTab(stepObj.tab);
     }
 
-    // Pequeña espera para que el DOM de la pestaña se monte y renderice
     const timer = setTimeout(() => {
       updateTargetPositionForStep(currentStep);
     }, 150);
 
     return () => clearTimeout(timer);
-  }, [currentStep, isOpen, onNavigateTab, updateTargetPositionForStep]);
+  }, [currentStep, isOpen, onNavigateTab, updateTargetPositionForStep, steps]);
 
   // Manejo de resize y scroll para mantener alineado el spotlight
   useEffect(() => {
-    if (!isOpen) return;
-
     const handleResize = () => {
       setWindowDimensions({
         width: window.innerWidth,
         height: window.innerHeight
       });
-      updateTargetPositionForStep(currentStep);
+      if (isOpen) {
+        updateTargetPositionForStep(currentStep);
+      }
     };
 
     const handleScroll = () => {
+      if (!isOpen) return;
       const stepObj = steps[currentStep];
       if (stepObj) {
         const elem = document.querySelector(stepObj.targetSelector);
@@ -238,7 +267,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('scroll', handleScroll);
     };
-  }, [isOpen, currentStep, updateTargetPositionForStep]);
+  }, [isOpen, currentStep, updateTargetPositionForStep, steps]);
 
   // Teclado
   useEffect(() => {
@@ -265,8 +294,6 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
 
   // Cálculo de posición del Popover inteligente
   const getPopoverStyle = (): React.CSSProperties => {
-    const isMobile = windowDimensions.width < 768;
-    
     if (isMobile || !targetRect) {
       return {
         position: 'fixed',
