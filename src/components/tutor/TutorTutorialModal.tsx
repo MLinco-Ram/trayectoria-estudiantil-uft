@@ -221,7 +221,7 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
     animationFrameRef.current = requestAnimationFrame(frame);
   }, []);
 
-  // Actualizar posición del elemento objetivo con reintentos para asegurar render de la pestaña
+  // Actualizar posición del elemento objetivo INMEDIATAMENTE
   const updateTargetPositionForStep = useCallback((stepIdx: number) => {
     const stepObj = steps[stepIdx];
     if (!stepObj) {
@@ -231,7 +231,7 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
 
     const selector = stepObj.targetSelector;
     let attempts = 0;
-    const maxAttempts = 15;
+    const maxAttempts = 20;
 
     const findAndTrack = () => {
       let elem = document.querySelector(selector) as HTMLElement | null;
@@ -243,18 +243,21 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
         } else if (selector === '#tutor-attendance-tab' || selector === '#tutor-attendance-view') {
           elem = (document.querySelector('#tutor-attendance-tab') || document.querySelector('#tutor-attendance-view')) as HTMLElement | null;
         } else if (selector === '#tutor-profile-summary-card') {
-          elem = (document.querySelector('#tutor-profile-summary-card') || document.querySelector('#tutor-header-brand')) as HTMLElement | null;
+          elem = (document.querySelector('#tutor-profile-summary-card') || document.querySelector('#tutor-header-brand') || document.querySelector('#tutor-main-dynamic-card-viewport')) as HTMLElement | null;
         }
       }
 
       if (elem && elem.getBoundingClientRect().height > 0) {
+        const rect = elem.getBoundingClientRect();
+        setTargetRect(rect);
+
         const isHeaderElement = selector === '#tutor-desktop-nav-bar' || selector === '#tutor-header-actions-group' || selector === '#tutor-header-brand';
         
         if (isHeaderElement) {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         } else {
           const headerHeight = 80;
-          const rectTop = elem.getBoundingClientRect().top;
+          const rectTop = rect.top;
           const targetScrollTop = window.pageYOffset + rectTop - headerHeight;
 
           window.scrollTo({
@@ -263,17 +266,14 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
           });
         }
 
-        setTargetRect(elem.getBoundingClientRect());
-        trackTargetElementSmoothly(elem, 600);
+        trackTargetElementSmoothly(elem, 500);
       } else if (attempts < maxAttempts) {
         attempts++;
-        setTimeout(findAndTrack, 40);
+        requestAnimationFrame(findAndTrack);
       } else {
         const fallbackViewport = document.querySelector('#tutor-main-dynamic-card-viewport') as HTMLElement | null;
         if (fallbackViewport) {
           setTargetRect(fallbackViewport.getBoundingClientRect());
-        } else {
-          setTargetRect(null);
         }
       }
     };
@@ -281,19 +281,23 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
     findAndTrack();
   }, [steps, trackTargetElementSmoothly]);
 
-  // Reset del paso SOLAMENTE cuando isOpen cambia de false a true
+  // Ejecución INMEDIATA al abrir el tutorial
   useEffect(() => {
-    if (isOpen && !wasOpenRef.current) {
-      setCurrentStep(0);
-      wasOpenRef.current = true;
-    } else if (!isOpen) {
+    if (isOpen) {
+      if (!wasOpenRef.current) {
+        setCurrentStep(0);
+        wasOpenRef.current = true;
+      }
+      // Detección instantánea en el tick de apertura
+      updateTargetPositionForStep(0);
+    } else {
       wasOpenRef.current = false;
       setTargetRect(null);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     }
-  }, [isOpen]);
+  }, [isOpen, updateTargetPositionForStep]);
 
   // Manejar cambio de paso y sincronización fluida con pestañas
   useEffect(() => {
@@ -305,10 +309,13 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
       onNavigateTab(stepObj.tab);
     }
 
+    // Ejecutar inmediatamente
+    updateTargetPositionForStep(currentStep);
+
     const timer = setTimeout(() => {
       updateTargetPositionForStep(currentStep);
       setIsTransitioning(false);
-    }, 120);
+    }, 100);
 
     return () => clearTimeout(timer);
   }, [currentStep, isOpen, onNavigateTab, updateTargetPositionForStep, steps]);
