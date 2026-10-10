@@ -40,6 +40,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [windowDimensions, setWindowDimensions] = useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 1200,
     height: typeof window !== 'undefined' ? window.innerHeight : 800
@@ -47,6 +48,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
 
   const popoverRef = useRef<HTMLDivElement>(null);
   const wasOpenRef = useRef(false);
+  const animationFrameRef = useRef<number | null>(null);
 
   const isMobile = windowDimensions.width < 768;
 
@@ -178,7 +180,28 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
 
   const activeStepData = steps[currentStep] || steps[0];
 
-  // Actualizar posición del elemento objetivo desplazando suavemente hacia arriba
+  // Función continua para seguir suavemente el elemento durante la transición de scroll
+  const trackTargetElementSmoothly = useCallback((elem: HTMLElement, durationMs = 500) => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+
+    const startTime = performance.now();
+
+    const frame = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      if (elem && document.body.contains(elem)) {
+        setTargetRect(elem.getBoundingClientRect());
+      }
+      if (elapsed < durationMs) {
+        animationFrameRef.current = requestAnimationFrame(frame);
+      }
+    };
+
+    animationFrameRef.current = requestAnimationFrame(frame);
+  }, []);
+
+  // Actualizar posición del elemento objetivo
   const updateTargetPositionForStep = useCallback((stepIdx: number) => {
     const stepObj = steps[stepIdx];
     if (!stepObj) {
@@ -199,8 +222,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
       if (isHeaderElement) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
-        // Desplazar dejando espacio superior (debajo del header fijo) para que el cuadro del tour quede abajo
-        const headerHeight = 75;
+        const headerHeight = 80;
         const rectTop = elem.getBoundingClientRect().top;
         const targetScrollTop = window.pageYOffset + rectTop - headerHeight;
 
@@ -210,16 +232,11 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         });
       }
 
-      // Medir tras el inicio del scroll
-      setTimeout(() => {
-        if (elem) {
-          setTargetRect(elem.getBoundingClientRect());
-        }
-      }, 100);
+      trackTargetElementSmoothly(elem, 600);
     } else {
       setTargetRect(null);
     }
-  }, [steps]);
+  }, [steps, trackTargetElementSmoothly]);
 
   // Reset del paso SOLAMENTE cuando isOpen cambia de false a true
   useEffect(() => {
@@ -229,13 +246,17 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
     } else if (!isOpen) {
       wasOpenRef.current = false;
       setTargetRect(null);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
     }
   }, [isOpen]);
 
-  // Manejar cambio de paso y sincronización con pestañas
+  // Manejar cambio de paso y sincronización fluida con pestañas
   useEffect(() => {
     if (!isOpen) return;
 
+    setIsTransitioning(true);
     const stepObj = steps[currentStep];
     if (stepObj?.tab && onNavigateTab) {
       onNavigateTab(stepObj.tab);
@@ -243,7 +264,8 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
 
     const timer = setTimeout(() => {
       updateTargetPositionForStep(currentStep);
-    }, 150);
+      setIsTransitioning(false);
+    }, 120);
 
     return () => clearTimeout(timer);
   }, [currentStep, isOpen, onNavigateTab, updateTargetPositionForStep, steps]);
@@ -302,7 +324,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
   const isLastStep = currentStep === steps.length - 1;
   const StepIcon = activeStepData.icon;
 
-  // Cálculo de posición del Popover inteligente (siempre tiende hacia la parte inferior)
+  // Cálculo de posición del Popover con curvatura y límites
   const getPopoverStyle = (): React.CSSProperties => {
     if (isMobile || !targetRect) {
       return {
@@ -318,13 +340,11 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
 
     const popoverWidth = 470;
     const padding = 16;
-    const popoverEstimatedHeight = 290;
+    const popoverEstimatedHeight = 280;
 
-    // Posicionamiento por defecto debajo del elemento
     let top = targetRect.bottom + 14;
     let left = targetRect.left + (targetRect.width / 2) - (popoverWidth / 2);
 
-    // Ajustes horizontales para no salir de pantalla
     if (left + popoverWidth > windowDimensions.width - padding) {
       left = windowDimensions.width - popoverWidth - padding;
     }
@@ -332,7 +352,6 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
       left = padding;
     }
 
-    // Si por abajo no cabe, anclarlo cerca del fondo de la ventana para NO tapar el encabezado ni la parte superior
     if (top + popoverEstimatedHeight > windowDimensions.height - padding) {
       top = Math.max(padding, windowDimensions.height - popoverEstimatedHeight - padding);
     }
@@ -348,17 +367,18 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[10000] select-none pointer-events-auto">
-      {/* Fondo oscuro con foco/spotlight recortado */}
+    <div className="fixed inset-0 z-[10000] select-none pointer-events-auto transition-opacity duration-300">
+      {/* Fondo oscuro con foco/spotlight recortado y animación ultra-fluida */}
       {targetRect ? (
         <div
-          className="fixed pointer-events-none rounded-2xl transition-all duration-300 ease-out border-[3px] border-amber-400 dark:border-amber-300 ring-8 ring-amber-400/25 z-[10000]"
+          className="fixed pointer-events-none rounded-2xl border-[3px] border-amber-400 dark:border-amber-300 ring-8 ring-amber-400/25 z-[10000]"
           style={{
             top: `${Math.max(0, targetRect.top - 8)}px`,
             left: `${Math.max(0, targetRect.left - 8)}px`,
             width: `${Math.min(windowDimensions.width, targetRect.width + 16)}px`,
             height: `${targetRect.height + 16}px`,
-            boxShadow: '0 0 0 9999px rgba(3, 15, 29, 0.82)'
+            boxShadow: '0 0 0 9999px rgba(3, 15, 29, 0.82), 0 0 30px rgba(245, 158, 11, 0.35)',
+            transition: 'top 450ms cubic-bezier(0.25, 1, 0.5, 1), left 450ms cubic-bezier(0.25, 1, 0.5, 1), width 450ms cubic-bezier(0.25, 1, 0.5, 1), height 450ms cubic-bezier(0.25, 1, 0.5, 1)'
           }}
         >
           {/* Indicador de paso en esquina del spotlight */}
@@ -371,20 +391,23 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         </div>
       ) : (
         <div 
-          className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs transition-opacity duration-300 z-[10000]" 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs transition-opacity duration-400 z-[10000]" 
           onClick={onClose}
         />
       )}
 
-      {/* Tarjeta Flotante Explicativa con Foco (posicionada abajo) */}
+      {/* Tarjeta Flotante Explicativa con Foco y Transición Suave */}
       <div
         ref={popoverRef}
-        style={getPopoverStyle()}
+        style={{
+          ...getPopoverStyle(),
+          transition: 'top 450ms cubic-bezier(0.25, 1, 0.5, 1), left 450ms cubic-bezier(0.25, 1, 0.5, 1), opacity 300ms ease-out, transform 300ms ease-out'
+        }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border-2 border-amber-400/70 dark:border-amber-400/60 overflow-hidden flex flex-col transition-all duration-300 animate-scale-in"
+        className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-amber-400/60 dark:border-amber-400/50 overflow-hidden flex flex-col will-change-transform"
       >
-        {/* Cabecera del Paso */}
-        <div className={`bg-gradient-to-r ${activeStepData.accentGradient} p-3.5 sm:p-4 text-white relative`}>
+        {/* Cabecera del Paso con degradado */}
+        <div className={`bg-gradient-to-r ${activeStepData.accentGradient} p-3.5 sm:p-4 text-white relative transition-colors duration-400`}>
           {/* Botón de Parar / Cerrar tutorial */}
           <button
             type="button"
@@ -392,7 +415,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
               e.stopPropagation();
               onClose();
             }}
-            className="absolute top-3 right-3 p-1.5 rounded-full bg-white/15 hover:bg-white/30 text-white transition-all cursor-pointer"
+            className="absolute top-3 right-3 p-1.5 rounded-full bg-white/15 hover:bg-white/30 text-white transition-all cursor-pointer hover:scale-105 active:scale-95"
             title="Parar / Salir del Tutorial"
             aria-label="Cerrar tutorial"
           >
@@ -409,7 +432,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2.5 pr-6">
-            <div className="p-2 bg-white/10 rounded-xl border border-white/20 text-amber-300 shrink-0 shadow-xs">
+            <div className="p-2 bg-white/10 rounded-xl border border-white/20 text-amber-300 shrink-0 shadow-xs transition-transform duration-300 hover:rotate-6">
               <StepIcon className="w-4.5 h-4.5" />
             </div>
             <h3 className="text-xs sm:text-sm font-extrabold tracking-tight leading-snug">
@@ -418,12 +441,12 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
           </div>
         </div>
 
-        {/* Barra de progreso interactiva */}
-        <div className="w-full bg-slate-100 dark:bg-slate-800 h-1 flex">
+        {/* Barra de progreso fluida */}
+        <div className="w-full bg-slate-100 dark:bg-slate-800 h-1 flex overflow-hidden">
           {steps.map((_, idx) => (
             <div
               key={idx}
-              className={`h-full flex-1 transition-all duration-300 ${
+              className={`h-full flex-1 transition-all duration-500 ease-out ${
                 idx <= currentStep 
                   ? 'bg-gradient-to-r from-amber-400 to-amber-500' 
                   : 'bg-transparent'
@@ -432,13 +455,18 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
           ))}
         </div>
 
-        {/* Contenido explicativo del paso con foco */}
-        <div className="p-3.5 sm:p-4 space-y-2.5 text-slate-700 dark:text-slate-200 text-xs leading-relaxed max-h-[35vh] overflow-y-auto">
+        {/* Contenido explicativo del paso con micro-animación de entrada */}
+        <div 
+          key={currentStep}
+          className={`p-3.5 sm:p-4 space-y-2.5 text-slate-700 dark:text-slate-200 text-xs leading-relaxed max-h-[35vh] overflow-y-auto transition-all duration-300 ${
+            isTransitioning ? 'opacity-40 translate-y-1' : 'opacity-100 translate-y-0'
+          }`}
+        >
           <p className="font-semibold text-slate-800 dark:text-slate-100 text-[11.5px] sm:text-xs">
             {activeStepData.description}
           </p>
 
-          <div className="bg-slate-50 dark:bg-slate-800/80 rounded-xl p-2.5 border border-slate-200/80 dark:border-slate-700/60 space-y-1.5">
+          <div className="bg-slate-50 dark:bg-slate-800/80 rounded-xl p-2.5 border border-slate-200/80 dark:border-slate-700/60 space-y-1.5 shadow-2xs">
             {activeStepData.tips.map((tip, tIdx) => (
               <div key={tIdx} className="flex items-start gap-2">
                 <span className="w-3.5 h-3.5 rounded-full bg-amber-400/20 text-amber-600 dark:text-amber-400 font-bold text-[9px] flex items-center justify-center shrink-0 mt-0.5">
@@ -453,7 +481,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         </div>
 
         {/* Pie de navegación con controles de paso y parada */}
-        <div className="p-3 bg-slate-50 dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+        <div className="p-3 bg-slate-50/90 dark:bg-slate-850/90 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
           {/* Indicadores de bolitas */}
           <div className="flex items-center gap-1">
             {steps.map((_, idx) => (
@@ -464,17 +492,17 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
                   e.stopPropagation();
                   setCurrentStep(idx);
                 }}
-                className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
+                className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
                   idx === currentStep
-                    ? 'w-4 bg-amber-500 dark:bg-amber-400'
-                    : 'bg-slate-300 dark:bg-slate-700 hover:bg-slate-400'
+                    ? 'w-5 bg-amber-500 dark:bg-amber-400 shadow-xs'
+                    : 'w-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400'
                 }`}
                 title={`Ir al paso ${idx + 1}`}
               />
             ))}
           </div>
 
-          {/* Botones de acción */}
+          {/* Botones de acción con micro-interacciones */}
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -482,7 +510,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
                 e.stopPropagation();
                 onClose();
               }}
-              className="px-2.5 py-1.5 text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg transition cursor-pointer"
+              className="px-2.5 py-1.5 text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg transition hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer active:scale-95"
             >
               Parar
             </button>
@@ -494,7 +522,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
                   e.stopPropagation();
                   setCurrentStep(prev => Math.max(0, prev - 1));
                 }}
-                className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold rounded-lg border border-slate-200 dark:border-slate-700 transition flex items-center gap-1 cursor-pointer"
+                className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold rounded-lg border border-slate-200 dark:border-slate-700 transition flex items-center gap-1 cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-95"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
                 <span>Anterior</span>
@@ -511,7 +539,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
                   setCurrentStep(prev => prev + 1);
                 }
               }}
-              className="px-3.5 py-1.5 bg-[#092c4c] dark:bg-amber-400 hover:bg-[#153a5c] dark:hover:bg-amber-300 text-white dark:text-[#092c4c] text-[11px] font-black rounded-lg shadow-sm transition flex items-center gap-1 cursor-pointer"
+              className="px-3.5 py-1.5 bg-[#092c4c] dark:bg-amber-400 hover:bg-[#153a5c] dark:hover:bg-amber-300 text-white dark:text-[#092c4c] text-[11px] font-black rounded-lg shadow-sm transition flex items-center gap-1 cursor-pointer hover:scale-[1.02] active:scale-95"
             >
               <span>{isLastStep ? '¡Listo, comenzar!' : 'Siguiente'}</span>
               <ChevronRight className="w-3.5 h-3.5 text-amber-400 dark:text-[#092c4c]" />
