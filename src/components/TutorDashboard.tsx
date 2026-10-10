@@ -129,6 +129,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
   const [issueKind, setIssueKind] = useState<'reasignar_horario' | 'reasignar_tutor' | 'otro'>('reasignar_horario');
   const [proposedTime, setProposedTime] = useState('');
   const [suggestedTutorId, setSuggestedTutorId] = useState('');
+  const [selectedDocenteIds, setSelectedDocenteIds] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [formFeedback, setFormFeedback] = useState<string | null>(null);
   const [myAvailability, setMyAvailability] = useState<UserAvailability | null>(null);
@@ -511,6 +512,18 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
     );
   }, [allUsers, user.id]);
 
+  // Docentes coordinadores disponibles en la plataforma
+  const allDocentes = useMemo(() => {
+    return allUsers.filter(u => u && (u.role === 'docente' || (Array.isArray(u.roles) && u.roles.includes('docente'))) && u.email);
+  }, [allUsers]);
+
+  // Inicializar todos los docentes marcados por defecto
+  useEffect(() => {
+    if (allDocentes.length > 0 && selectedDocenteIds.length === 0) {
+      setSelectedDocenteIds(allDocentes.map(d => d.id));
+    }
+  }, [allDocentes]);
+
   // Sesión actualmente seleccionada en el formulario de aviso de inconvenientes
   const selectedSessionForIssue = useMemo(() => {
     return sessions.find(s => s.id === selectedSessionId) || null;
@@ -528,6 +541,12 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
 
     if (!description.trim()) {
       setFormFeedback('Por favor, ingresa una descripción para que el Docente pueda asistirte.');
+      return;
+    }
+
+    const targetDocentes = allDocentes.filter(d => selectedDocenteIds.includes(d.id));
+    if (targetDocentes.length === 0) {
+      setFormFeedback('Por favor, selecciona al menos un docente destinatario para enviar la alerta.');
       return;
     }
 
@@ -571,67 +590,65 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       `Hola ${user.name},\n\nHemos recibido tu reporte sobre la tutoría "${sessionTitle}".\n\n• Motivo: ${issueKind === 'reasignar_horario' ? 'Cambio de Horario' : issueKind === 'reasignar_tutor' ? 'Reasignación de Tutor' : 'Otro Inconveniente'}\n• Detalle: "${description}"\n${proposedTime ? `• Horario alternativo propuesto: ${proposedTime}\n` : ''}${suggestedTutorObj ? `• Tutor sugerido para suplir: ${suggestedTutorObj.name} (${suggestedTutorObj.career || 'Tutor Par'})\n` : ''}\nLa coordinación docente revisará tu caso a la brevedad.`
     );
 
-    // 2. Notificar por correo a TODOS los Docentes Coordinadores
-    const allDocentes = allUsers.filter(u => u && (u.role === 'docente' || (Array.isArray(u.roles) && u.roles.includes('docente'))) && u.email);
+    // 2. Notificar por correo a los Docentes Coordinadores SELECCIONADOS
     const kindLabel = issueKind === 'reasignar_horario' ? 'Reasignación / Cambio de Horario' : issueKind === 'reasignar_tutor' ? 'Reasignación de Tutor de Apoyo' : 'Inconveniente Operativo';
     const subjectDocente = `[Alerta de Tutor] Inconveniente en Tutoría: ${user.name} - ${sessionTitle}`;
+    const originUrl = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'http://localhost:3000';
+    const portalDocenteUrl = `${originUrl}/docente`;
 
-    allDocentes.forEach(docente => {
+    targetDocentes.forEach(docente => {
       const htmlBody = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; padding: 30px 15px;">
-          <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
-            <tr>
-              <td style="background: linear-gradient(135deg, #092c4c 0%, #153a5c 100%); padding: 28px; text-align: center;">
-                <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 800;">Trayectoria <span style="color: #3a9ad9;">UFT.</span></h1>
-                <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">Alerta de Tutoría Par</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding: 30px;">
-                <div style="text-align: center; margin-bottom: 20px;">
-                  <span style="background-color: #fef2f2; color: #991b1b; border: 1px solid #fecaca; font-weight: 700; font-size: 12px; padding: 6px 14px; border-radius: 9999px; display: inline-block;">
-                    🚨 Inconveniente Reportado por Tutor Par
-                  </span>
-                </div>
+        <div style="margin: 0; padding: 24px 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; color: #1e293b;">
+          <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 14px rgba(9, 44, 76, 0.06);">
+            
+            <!-- Header simple institucional -->
+            <div style="background-color: #092c4c; padding: 18px 24px; text-align: left;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 16px; font-weight: 700;">Trayectoria UFT</h1>
+              <span style="display: block; margin-top: 2px; color: #3a9ad9; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Aviso de Inconveniente • Tutoría Par</span>
+            </div>
 
-                <h3 style="color: #0f172a; font-size: 16px; margin: 0 0 12px 0;">
-                  Estimados Docentes y Coordinadores,
-                </h3>
-                <p style="color: #475569; font-size: 13px; line-height: 1.6; margin: 0 0 20px 0;">
-                  El tutor <strong>${user.name}</strong> (${user.career || 'Tutor Par'}) ha informado un inconveniente operativo para la tutoría asignada:
-                </p>
+            <!-- Contenido Minimalista -->
+            <div style="padding: 24px;">
+              <h2 style="margin: 0 0 10px; color: #092c4c; font-size: 15px; font-weight: 700;">Hola, ${docente.name}</h2>
+              <p style="margin: 0 0 16px; color: #475569; font-size: 13.5px; line-height: 1.55;">
+                El tutor <strong>${user.name}</strong> (${user.career || 'Tutor Par'}) ha informado un inconveniente operativo para la tutoría asignada:
+              </p>
 
-                <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 16px; margin-bottom: 20px; font-size: 13px; color: #1e293b;">
-                  <p style="margin: 4px 0;">📚 <strong>Tutoría Afectada:</strong> ${sessionTitle}</p>
-                  <p style="margin: 4px 0;">📅 <strong>Detalle:</strong> ${sessionDetails}</p>
-                  <p style="margin: 4px 0;">👤 <strong>Tutor que reporta:</strong> ${user.name} (✉️ ${user.email})</p>
-                  <p style="margin: 4px 0;">🏷️ <strong>Tipo de Solicitud:</strong> <span style="color: #dc2626; font-weight: bold;">${kindLabel}</span></p>
-                  ${proposedTime ? `<p style="margin: 4px 0;">⏰ <strong>Horario propuesto:</strong> <span style="color: #0284c7; font-weight: bold;">${proposedTime}</span></p>` : ''}
-                  ${suggestedTutorObj ? `<p style="margin: 4px 0;">🧑‍🏫 <strong>Tutor Sugerido para Suplir:</strong> <span style="color: #0d9488; font-weight: bold;">${suggestedTutorObj.name} (${suggestedTutorObj.career || 'Tutor Par'})</span></p>` : ''}
-                </div>
+              <!-- Tarjeta Resumen -->
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; font-size: 12.5px; line-height: 1.6; color: #334155;">
+                <p style="margin: 3px 0;">📚 <strong>Tutoría Afectada:</strong> ${sessionTitle}</p>
+                <p style="margin: 3px 0;">📅 <strong>Fecha y Horario:</strong> ${sessionDetails}</p>
+                <p style="margin: 3px 0;">🏷️ <strong>Tipo de Solicitud:</strong> <span style="color: #092c4c; font-weight: 700;">${kindLabel}</span></p>
+                ${proposedTime ? `<p style="margin: 3px 0;">⏰ <strong>Horario propuesto:</strong> <span style="color: #0284c7; font-weight: 700;">${proposedTime}</span></p>` : ''}
+                ${suggestedTutorObj ? `<p style="margin: 3px 0;">🧑‍🏫 <strong>Tutor sugerido para suplir:</strong> <span style="color: #0d9488; font-weight: 700;">${suggestedTutorObj.name} (${suggestedTutorObj.career || 'Tutor Par'})</span></p>` : ''}
+              </div>
 
-                <div style="background-color: #f1f5f9; border-left: 4px solid #ef4444; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px;">
-                  <p style="margin: 0 0 4px 0; color: #092c4c; font-size: 12px; font-weight: bold;">Motivo / Explicación del Tutor:</p>
-                  <p style="margin: 0; color: #334155; font-size: 13px; line-height: 1.5; font-style: italic;">
-                    "${description}"
-                  </p>
-                </div>
+              <!-- Motivo -->
+              <div style="background-color: #f1f5f9; border-left: 3px solid #3a9ad9; border-radius: 6px; padding: 10px 14px; margin-bottom: 22px; font-size: 12.5px; color: #334155; font-style: italic; line-height: 1.5;">
+                "${description}"
+              </div>
 
-                <p style="color: #64748b; font-size: 12px;">
-                  Pueden resolver este caso o reasignar la tutoría desde la pestaña <strong>Casos/Alertas</strong> en el panel de coordinación docente.
-                </p>
-              </td>
-            </tr>
-            <tr>
-              <td style="background-color: #f8fafc; padding: 16px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8;">
-                Dirección de Trayectoria Estudiantil • Universidad Finis Terrae
-              </td>
-            </tr>
-          </table>
+              <!-- Botón directo a la plataforma -->
+              <div style="text-align: center; margin: 24px 0 16px;">
+                <a href="${portalDocenteUrl}" target="_blank" style="display: inline-block; background-color: #092c4c; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 12px 24px; border-radius: 10px; box-shadow: 0 2px 6px rgba(9, 44, 76, 0.25);">
+                  Ver y Gestionar en Portal Docente &rarr;
+                </a>
+              </div>
+
+              <p style="margin: 16px 0 0; font-size: 11.5px; color: #64748b; line-height: 1.4; text-align: center;">
+                Toda la información y opciones de reasignación se encuentran disponibles directamente en el portal docente.
+              </p>
+            </div>
+
+            <!-- Footer minimal -->
+            <div style="background-color: #f8fafc; border-top: 1px solid #f1f5f9; padding: 12px 24px; text-align: center;">
+              <span style="font-size: 11px; color: #94a3b8;">Universidad Finis Terrae • Dirección de Trayectoria Estudiantil</span>
+            </div>
+          </div>
         </div>
       `;
 
-      const plainText = `Estimados Docentes y Coordinadores,\n\nEl tutor ${user.name} ha reportado un inconveniente (${kindLabel}) para la sesión "${sessionTitle}":\n"${description}"\n\nHorario propuesto: ${proposedTime || 'No especificado'}\nTutor sugerido para suplir: ${suggestedTutorObj ? `${suggestedTutorObj.name} (${suggestedTutorObj.email})` : 'No sugerido'}\nCorreo tutor que reporta: ${user.email}\n\nPueden gestionar este caso desde el panel docente.`;
+      const plainText = `Hola ${docente.name},\n\nEl tutor ${user.name} ha reportado un inconveniente (${kindLabel}) para la sesión "${sessionTitle}" (${sessionDetails}).\n\nMotivo: "${description}"\n${suggestedTutorObj ? `Tutor sugerido para suplir: ${suggestedTutorObj.name}\n` : ''}\nPuedes gestionar este caso directamente en el Portal Docente:\n${portalDocenteUrl}`;
 
       triggerNotification(
         docente.email,
@@ -642,7 +659,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       );
     });
 
-    setFormFeedback(`¡Inconveniente enviado con éxito! Se ha notificado por correo a los ${allDocentes.length} docentes coordinadores ${suggestedTutorObj ? `con la sugerencia de ${suggestedTutorObj.name} para suplir la sesión` : ''} y se envió un comprobante a tu correo institucional.`);
+    setFormFeedback(`¡Inconveniente enviado con éxito! Se ha notificado por correo a ${targetDocentes.length} docente(s) coordinador(es) ${suggestedTutorObj ? `con la sugerencia de ${suggestedTutorObj.name} para suplir la sesión` : ''} y se envió un comprobante a tu correo institucional.`);
     setDescription('');
     setProposedTime('');
     setSuggestedTutorId('');
@@ -1275,7 +1292,91 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                   </div>
                 </div>
 
-                {/* 4. Description text */}
+                {/* 4. Selección de Docentes Destinatarios */}
+                <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-4 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-[#092c4c] dark:text-slate-200 uppercase flex items-center gap-1.5">
+                        <Mail className="w-4 h-4 text-[#3a9ad9]" />
+                        <span>Docentes Coordinadores a Notificar por Correo</span>
+                      </label>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Selecciona a qué docentes coordinadores llegará el correo con este aviso. Por defecto están todos marcados.
+                      </p>
+                    </div>
+
+                    {allDocentes.length > 0 && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDocenteIds(allDocentes.map(d => d.id))}
+                          className="px-2.5 py-1 text-[11px] font-bold text-[#092c4c] hover:bg-slate-200/80 rounded-lg transition cursor-pointer"
+                        >
+                          Marcar Todos
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDocenteIds([])}
+                          className="px-2.5 py-1 text-[11px] font-bold text-slate-500 hover:text-rose-600 hover:bg-slate-200/80 rounded-lg transition cursor-pointer"
+                        >
+                          Desmarcar Todos
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {allDocentes.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic bg-white p-3 rounded-lg border border-slate-200">
+                      No hay docentes registrados en el sistema.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+                      {allDocentes.map(docente => {
+                        const isChecked = selectedDocenteIds.includes(docente.id);
+                        return (
+                          <label
+                            key={docente.id}
+                            className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                              isChecked
+                                ? 'bg-sky-50/70 border-sky-300 text-slate-900 shadow-2xs'
+                                : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedDocenteIds(prev => [...prev, docente.id]);
+                                } else {
+                                  setSelectedDocenteIds(prev => prev.filter(id => id !== docente.id));
+                                }
+                              }}
+                              className="mt-0.5 rounded text-[#092c4c] focus:ring-[#3a9ad9] accent-[#092c4c]"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-slate-800 truncate">{docente.name}</p>
+                              <p className="text-[10px] text-slate-500 font-mono truncate">{docente.email}</p>
+                              <span className="inline-block mt-0.5 text-[9px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded">
+                                {docente.career || 'Coordinación Docente'}
+                              </span>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {selectedDocenteIds.length === 0 && allDocentes.length > 0 && (
+                    <p className="text-[11px] text-rose-600 font-semibold animate-fade-in flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>Debes seleccionar al menos un docente para enviar el aviso por correo.</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* 5. Description text */}
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Descripciones y Justificaciones</label>
                   <textarea
