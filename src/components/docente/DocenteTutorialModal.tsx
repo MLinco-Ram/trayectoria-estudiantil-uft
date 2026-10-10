@@ -343,42 +343,29 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
     ],
     analytics: [
       {
-        id: 'analytics-header',
-        targetSelector: '#docente-analytics-header',
-        title: 'Métricas Institucionales y Rendimiento',
-        badge: 'Paso 1 de 3 • Reporte Integral',
-        icon: TrendingUp,
-        accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
-        description: 'Dashboard estadístico de rendimiento con indicadores clave de asistencia, participación estudiantil y cobertura académica.',
-        tips: [
-          'Supervisa la tasa de asistencia efectiva vs inasistencias en tiempo real.',
-          'Mide el índice de satisfacción general evaluado por los alumnos.'
-        ]
-      },
-      {
         id: 'analytics-filters',
         targetSelector: '#docente-analytics-filters',
         title: 'Filtro Temporal y Exportación a Excel',
-        badge: 'Paso 2 de 3 • Exportar Informes',
+        badge: 'Paso 1 de 2 • Período y Reportes',
         icon: FileSpreadsheet,
         accentGradient: 'from-emerald-950 via-[#092c4c] to-teal-900',
-        description: 'Segmenta por día, semana, mes, semestre o año, y descarga planillas Excel completas con formato institucional listo para auditorías.',
+        description: 'Segmenta las estadísticas por día, semana, mes, semestre o año, y descarga planillas Excel completas con formato institucional listo para auditorías.',
         tips: [
-          'Genera libros Excel con detalle de asistencia por alumno, sesiones y tutores.',
-          'Compatible con informes de acreditación universitaria UFT.'
+          'Selecciona el período de tiempo deseado con los botones de rango.',
+          'Elige el tipo de informe y haz clic en "Descargar Excel" para obtener el archivo .xlsx.'
         ]
       },
       {
-        id: 'analytics-charts',
-        targetSelector: '#docente-analytics-charts',
-        title: 'Gráficos Comparativos y Desglose',
-        badge: 'Paso 3 de 3 • Análisis Gráfico',
-        icon: BarChart3,
-        accentGradient: 'from-sky-900 to-indigo-950',
-        description: 'Explora gráficos interactivos de evolución mensual, distribución por asignaturas y comparación entre tutorías y talleres psicoeducativos.',
+        id: 'analytics-kpis',
+        targetSelector: '#docente-analytics-kpis',
+        title: 'Tarjetas KPI e Indicadores Clave',
+        badge: 'Paso 2 de 2 • Rendimiento Institucional',
+        icon: TrendingUp,
+        accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
+        description: 'Monitorea en tiempo real los indicadores estratégicos de sesiones totales, asistencias efectivas, inasistencias, alumnos únicos y nivel de satisfacción.',
         tips: [
-          'Pasa el cursor sobre los meses para ver el detalle de asistencia.',
-          'Identifica las materias con mayor demanda estudiantil.'
+          'Supervisa la tasa de asistencia efectiva para medir la participación de los alumnos.',
+          'Consulta el promedio de satisfacción general evaluado por los estudiantes.'
         ]
       }
     ],
