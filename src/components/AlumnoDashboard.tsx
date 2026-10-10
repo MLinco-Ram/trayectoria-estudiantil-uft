@@ -1228,7 +1228,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
           {/* B. MY RESERVED ACTIVE SESSIONS VIEW */}
           {activeSegment === 'my_bookings' && (
-            <div className="space-y-3">
+            <div id="alumno-my-bookings-container" className="space-y-3">
               <h3 className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider pl-1.5">
                 Mis Tutorías y Talleres Reservados
               </h3>
