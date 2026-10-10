@@ -663,7 +663,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
             </div>
 
             {/* Navegación Superior Horizontal Principal */}
-            <nav className="hidden md:flex items-center gap-1.5 lg:gap-2 overflow-x-auto py-1 scrollbar-none">
+            <nav id="alumno-desktop-nav-bar" className="hidden md:flex items-center gap-1.5 lg:gap-2 overflow-x-auto py-1 scrollbar-none">
               <button
                 type="button"
                 onClick={() => setActiveSegment('tutorias')}
@@ -738,7 +738,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
             </nav>
 
             {/* Acciones Derecha (Bandeja, ThemeToggle, Perfil y Logout) */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div id="alumno-header-actions-group" className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowNotifInbox(prev => !prev)}
@@ -959,7 +959,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
           {/* Date Picker (Calendar selector widget shown above slot cards in reference gym mockup) */}
           {(activeSegment === 'tutorias' || activeSegment === 'psicoeducativo') && (
-            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 p-3.5 sm:p-4 space-y-3 transition-colors">
+            <div id="alumno-date-picker-card" className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 p-3.5 sm:p-4 space-y-3 transition-colors">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -1480,7 +1480,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
           {/* D. STUDENT INCONVENIENTES & MESSAGES SECTOR */}
           {activeSegment === 'inconvenientes' && (
             <div className="space-y-4">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-6 border border-slate-100 dark:border-slate-800 shadow-xs space-y-4 transition-colors">
+              <div id="alumno-inconvenientes-form-container" className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-6 border border-slate-100 dark:border-slate-800 shadow-xs space-y-4 transition-colors">
                 <div className="flex items-center space-x-2 pb-2 border-b border-slate-100 dark:border-slate-800">
                   <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
                   <div>
@@ -2013,7 +2013,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         </button>
 
         {/* 3. Escanear QR (Botón Central Destacado) */}
-        <div className="flex flex-col items-center justify-center -mt-5 px-1.5 z-50">
+        <div id="alumno-mobile-qr-section" className="flex flex-col items-center justify-center -mt-5 px-1.5 z-50">
           <button
             type="button"
             onClick={() => setIsQRScannerOpen(true)}
