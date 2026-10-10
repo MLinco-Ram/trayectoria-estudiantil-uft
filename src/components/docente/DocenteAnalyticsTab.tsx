@@ -538,7 +538,6 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
 
       if (type === 'all_sessions') {
         const ws = workbook.addWorksheet('Sesiones y Talleres');
-        ws.views = [{ showGridLines: true }];
 
         ws.mergeCells('A1:N1');
         const titleCell = ws.getCell('A1');
@@ -558,22 +557,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
 
         ws.getRow(3).height = 10;
 
-        const headers = [
-          'ID Sesión', 'Actividad / Título', 'Programa', 'Asignatura / Área',
-          'Fecha', 'Horario', 'Lugar / Modalidad', 'Tutor a Cargo', 'RUT Tutor',
-          'Inscritos', 'Presentes', 'Ausentes', '% Asistencia', 'Estado'
-        ];
-
-        const headerRow = ws.addRow(headers);
-        headerRow.height = 24;
-        headerRow.eachCell((cell) => {
-          cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF092C4C' } };
-          cell.alignment = { vertical: 'middle', horizontal: 'center' };
-          cell.border = borderStyle;
-        });
-
-        filteredSessions.forEach((s, idx) => {
+        const tableRows: (string | number)[][] = filteredSessions.map((s) => {
           const tutor = allUsers.find(u => u.id === s.tutorId);
           const stIds = s.studentIds || [];
           let presentes = 0;
@@ -585,9 +569,8 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
           });
           const totalMarcados = presentes + ausentes;
           const pct = totalMarcados > 0 ? Math.round((presentes / totalMarcados) * 100) : (stIds.length > 0 ? 100 : 0);
-          const isEven = idx % 2 === 0;
 
-          const row = ws.addRow([
+          return [
             s.id,
             s.title,
             s.program === 'tutorias' ? 'Tutorías Académicas' : 'Acompañamiento Psicoeducativo',
@@ -602,24 +585,39 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
             ausentes,
             `${pct}%`,
             s.isCompleted ? 'Completada' : 'Programada'
-          ]);
+          ];
+        });
 
-          row.height = 20;
-          row.eachCell((cell, colNumber) => {
-            cell.font = { name: 'Arial', size: 10 };
-            cell.border = borderStyle;
-            cell.fill = {
-              type: 'pattern',
-              pattern: 'solid',
-              fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF8FAFC' }
-            };
+        if (tableRows.length === 0) {
+          tableRows.push(['-', 'Sin registros para el período seleccionado', '-', '-', '-', '-', '-', '-', '-', 0, 0, 0, '0%', '-']);
+        }
 
-            if ([1, 5, 6, 9, 10, 11, 12, 13, 14].includes(colNumber)) {
-              cell.alignment = { vertical: 'middle', horizontal: 'center' };
-            } else {
-              cell.alignment = { vertical: 'middle', horizontal: 'left' };
-            }
-          });
+        ws.addTable({
+          name: 'Tabla_Sesiones_UFT',
+          ref: 'A4',
+          headerRow: true,
+          totalsRow: false,
+          style: {
+            theme: 'TableStyleMedium9',
+            showRowStripes: true,
+          },
+          columns: [
+            { name: 'ID Sesión', filterButton: true },
+            { name: 'Actividad / Título', filterButton: true },
+            { name: 'Programa', filterButton: true },
+            { name: 'Asignatura / Área', filterButton: true },
+            { name: 'Fecha', filterButton: true },
+            { name: 'Horario', filterButton: true },
+            { name: 'Lugar / Modalidad', filterButton: true },
+            { name: 'Tutor a Cargo', filterButton: true },
+            { name: 'RUT Tutor', filterButton: true },
+            { name: 'Inscritos', filterButton: true },
+            { name: 'Presentes', filterButton: true },
+            { name: 'Ausentes', filterButton: true },
+            { name: '% Asistencia', filterButton: true },
+            { name: 'Estado', filterButton: true }
+          ],
+          rows: tableRows,
         });
 
         ws.columns = [
@@ -629,13 +627,30 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
           { width: 14 }, { width: 16 }
         ];
 
-        const lastRow1 = Math.max(4, 4 + filteredSessions.length);
-        ws.autoFilter = { from: 'A4', to: `N${lastRow1}` };
+        const headerRow1 = ws.getRow(4);
+        headerRow1.height = 26;
+        headerRow1.eachCell((cell) => {
+          cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        });
+
+        tableRows.forEach((_, idx) => {
+          const row = ws.getRow(5 + idx);
+          row.height = 20;
+          row.eachCell((cell, colNumber) => {
+            cell.font = { name: 'Arial', size: 10 };
+            if ([1, 5, 6, 9, 10, 11, 12, 13, 14].includes(colNumber)) {
+              cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            } else {
+              cell.alignment = { vertical: 'middle', horizontal: 'left' };
+            }
+          });
+        });
+
         ws.views = [{ state: 'frozen', ySplit: 4, showGridLines: true }];
 
       } else if (type === 'tutors_summary') {
         const ws = workbook.addWorksheet('Desempeño Tutores');
-        ws.views = [{ showGridLines: true }];
 
         ws.mergeCells('A1:J1');
         const titleCell = ws.getCell('A1');
@@ -655,23 +670,8 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
 
         ws.getRow(3).height = 10;
 
-        const headers = [
-          'ID Tutor', 'Nombre del Tutor', 'RUT', 'Carrera',
-          'Correo Institucional', 'Sesiones Dirigidas', 'Total Alumnos',
-          'Asistencias Efectivas', 'Ausencias Registradas', 'Tasa Efectividad'
-        ];
-
-        const headerRow = ws.addRow(headers);
-        headerRow.height = 24;
-        headerRow.eachCell((cell) => {
-          cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF092C4C' } };
-          cell.alignment = { vertical: 'middle', horizontal: 'center' };
-          cell.border = borderStyle;
-        });
-
         const tutorsList = allUsers.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor'))));
-        tutorsList.forEach((tutor, idx) => {
+        const tableRows: (string | number)[][] = tutorsList.map((tutor) => {
           const tutorSessions = filteredSessions.filter(s => s.tutorId === tutor.id);
           let totalStudents = 0;
           let tutPresentes = 0;
@@ -689,12 +689,11 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
 
           const totalMarcados = tutPresentes + tutAusentes;
           const pct = totalMarcados > 0 ? Math.round((tutPresentes / totalMarcados) * 100) : (totalStudents > 0 ? 100 : 0);
-          const isEven = idx % 2 === 0;
 
-          const row = ws.addRow([
+          return [
             tutor.id,
             tutor.name,
-            tutor.rut,
+            tutor.rut || 'N/A',
             tutor.career || 'Tutor Par',
             tutor.email || 'N/A',
             tutorSessions.length,
@@ -702,24 +701,35 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
             tutPresentes,
             tutAusentes,
             `${pct}%`
-          ]);
+          ];
+        });
 
-          row.height = 20;
-          row.eachCell((cell, colNumber) => {
-            cell.font = { name: 'Arial', size: 10 };
-            cell.border = borderStyle;
-            cell.fill = {
-              type: 'pattern',
-              pattern: 'solid',
-              fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF8FAFC' }
-            };
+        if (tableRows.length === 0) {
+          tableRows.push(['-', 'Sin tutores registrados', '-', '-', '-', 0, 0, 0, 0, '0%']);
+        }
 
-            if ([1, 3, 6, 7, 8, 9, 10].includes(colNumber)) {
-              cell.alignment = { vertical: 'middle', horizontal: 'center' };
-            } else {
-              cell.alignment = { vertical: 'middle', horizontal: 'left' };
-            }
-          });
+        ws.addTable({
+          name: 'Tabla_Desempeno_Tutores',
+          ref: 'A4',
+          headerRow: true,
+          totalsRow: false,
+          style: {
+            theme: 'TableStyleMedium9',
+            showRowStripes: true,
+          },
+          columns: [
+            { name: 'ID Tutor', filterButton: true },
+            { name: 'Nombre del Tutor', filterButton: true },
+            { name: 'RUT', filterButton: true },
+            { name: 'Carrera', filterButton: true },
+            { name: 'Correo Institucional', filterButton: true },
+            { name: 'Sesiones Dirigidas', filterButton: true },
+            { name: 'Total Alumnos', filterButton: true },
+            { name: 'Asistencias Efectivas', filterButton: true },
+            { name: 'Ausencias Registradas', filterButton: true },
+            { name: 'Tasa Efectividad', filterButton: true }
+          ],
+          rows: tableRows,
         });
 
         ws.columns = [
@@ -728,13 +738,30 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
           { width: 16 }, { width: 18 }
         ];
 
-        const lastRow2 = Math.max(4, 4 + tutorsList.length);
-        ws.autoFilter = { from: 'A4', to: `J${lastRow2}` };
+        const headerRow2 = ws.getRow(4);
+        headerRow2.height = 26;
+        headerRow2.eachCell((cell) => {
+          cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        });
+
+        tableRows.forEach((_, idx) => {
+          const row = ws.getRow(5 + idx);
+          row.height = 20;
+          row.eachCell((cell, colNumber) => {
+            cell.font = { name: 'Arial', size: 10 };
+            if ([1, 3, 6, 7, 8, 9, 10].includes(colNumber)) {
+              cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            } else {
+              cell.alignment = { vertical: 'middle', horizontal: 'left' };
+            }
+          });
+        });
+
         ws.views = [{ state: 'frozen', ySplit: 4, showGridLines: true }];
 
       } else if (type === 'detailed_attendance') {
         const ws = workbook.addWorksheet('Asistencia Nominal');
-        ws.views = [{ showGridLines: true }];
 
         ws.mergeCells('A1:J1');
         const titleCell = ws.getCell('A1');
@@ -754,32 +781,15 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
 
         ws.getRow(3).height = 10;
 
-        const headers = [
-          'Fecha', 'Actividad / Sesión', 'Programa', 'Asignatura',
-          'Tutor a Cargo', 'Nombre Alumno', 'RUT Alumno', 'Correo Alumno',
-          'Carrera Alumno', 'Estado Asistencia'
-        ];
-
-        const headerRow = ws.addRow(headers);
-        headerRow.height = 24;
-        headerRow.eachCell((cell) => {
-          cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF092C4C' } };
-          cell.alignment = { vertical: 'middle', horizontal: 'center' };
-          cell.border = borderStyle;
-        });
-
-        let rowIndex = 0;
+        const tableRows: (string | number)[][] = [];
         filteredSessions.forEach(s => {
           const tutor = allUsers.find(u => u.id === s.tutorId);
           const stIds = s.studentIds || [];
           stIds.forEach(stId => {
-            rowIndex++;
             const student = allUsers.find(u => u.id === stId);
             const status = (s.attendance?.[stId] || 'pendiente').toUpperCase();
-            const isEven = rowIndex % 2 === 0;
 
-            const row = ws.addRow([
+            tableRows.push([
               s.date,
               s.title,
               s.program === 'tutorias' ? 'Tutorías Académicas' : 'Acompañamiento Psicoeducativo',
@@ -791,24 +801,35 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
               student?.career || 'Pregrado UFT',
               status
             ]);
-
-            row.height = 20;
-            row.eachCell((cell, colNumber) => {
-              cell.font = { name: 'Arial', size: 10 };
-              cell.border = borderStyle;
-              cell.fill = {
-                type: 'pattern',
-                pattern: 'solid',
-                fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF8FAFC' }
-              };
-
-              if ([1, 7, 10].includes(colNumber)) {
-                cell.alignment = { vertical: 'middle', horizontal: 'center' };
-              } else {
-                cell.alignment = { vertical: 'middle', horizontal: 'left' };
-              }
-            });
           });
+        });
+
+        if (tableRows.length === 0) {
+          tableRows.push(['-', 'Sin asistencias registradas', '-', '-', '-', '-', '-', '-', '-', '-']);
+        }
+
+        ws.addTable({
+          name: 'Tabla_Asistencia_Nominal',
+          ref: 'A4',
+          headerRow: true,
+          totalsRow: false,
+          style: {
+            theme: 'TableStyleMedium9',
+            showRowStripes: true,
+          },
+          columns: [
+            { name: 'Fecha', filterButton: true },
+            { name: 'Actividad / Sesión', filterButton: true },
+            { name: 'Programa', filterButton: true },
+            { name: 'Asignatura', filterButton: true },
+            { name: 'Tutor a Cargo', filterButton: true },
+            { name: 'Nombre Alumno', filterButton: true },
+            { name: 'RUT Alumno', filterButton: true },
+            { name: 'Correo Alumno', filterButton: true },
+            { name: 'Carrera Alumno', filterButton: true },
+            { name: 'Estado Asistencia', filterButton: true }
+          ],
+          rows: tableRows,
         });
 
         ws.columns = [
@@ -817,13 +838,30 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
           { width: 26 }, { width: 18 }
         ];
 
-        const lastRow3 = Math.max(4, 4 + rowIndex);
-        ws.autoFilter = { from: 'A4', to: `J${lastRow3}` };
+        const headerRow3 = ws.getRow(4);
+        headerRow3.height = 26;
+        headerRow3.eachCell((cell) => {
+          cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        });
+
+        tableRows.forEach((_, idx) => {
+          const row = ws.getRow(5 + idx);
+          row.height = 20;
+          row.eachCell((cell, colNumber) => {
+            cell.font = { name: 'Arial', size: 10 };
+            if ([1, 7, 10].includes(colNumber)) {
+              cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            } else {
+              cell.alignment = { vertical: 'middle', horizontal: 'left' };
+            }
+          });
+        });
+
         ws.views = [{ state: 'frozen', ySplit: 4, showGridLines: true }];
 
       } else if (type === 'conflicts_summary') {
         const ws = workbook.addWorksheet('Incidentes y Topes');
-        ws.views = [{ showGridLines: true }];
 
         ws.mergeCells('A1:H1');
         const titleCell = ws.getCell('A1');
@@ -843,46 +881,41 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
 
         ws.getRow(3).height = 10;
 
-        const headers = [
-          'Fecha', 'Tipo Solicitud', 'Nombre Estudiante', 'Carrera',
-          'Programa', 'Horario Solicitado', 'Motivo / Mensaje', 'Estado'
-        ];
+        const tableRows: (string | number)[][] = filteredStudentRequests.map((req) => [
+          req.createdAt?.slice(0, 10) || 'N/A',
+          'Tope Horario Alumno',
+          req.studentName,
+          req.studentCareer || 'Pregrado UFT',
+          req.program === 'tutorias' ? 'Tutorías' : 'Psicoeducativo',
+          req.preferredTime || 'Flexible',
+          req.message,
+          (req.status || 'pendiente').toUpperCase()
+        ]);
 
-        const headerRow = ws.addRow(headers);
-        headerRow.height = 24;
-        headerRow.eachCell((cell) => {
-          cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF092C4C' } };
-          cell.alignment = { vertical: 'middle', horizontal: 'center' };
-          cell.border = borderStyle;
-        });
+        if (tableRows.length === 0) {
+          tableRows.push(['-', 'Sin incidentes registrados', '-', '-', '-', '-', '-', '-']);
+        }
 
-        filteredStudentRequests.forEach((req, idx) => {
-          const isEven = idx % 2 === 0;
-          const row = ws.addRow([
-            req.createdAt?.slice(0, 10) || 'N/A',
-            'Tope Horario Alumno',
-            req.studentName,
-            req.studentCareer || 'Pregrado UFT',
-            req.program === 'tutorias' ? 'Tutorías' : 'Psicoeducativo',
-            req.preferredTime || 'Flexible',
-            req.message,
-            (req.status || 'pendiente').toUpperCase()
-          ]);
-
-          row.height = 20;
-          row.eachCell((cell, colNumber) => {
-            cell.font = { name: 'Arial', size: 10 };
-            cell.border = borderStyle;
-            cell.fill = {
-              type: 'pattern',
-              pattern: 'solid',
-              fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF8FAFC' }
-            };
-            if ([1, 2, 5, 8].includes(colNumber)) {
-              cell.alignment = { vertical: 'middle', horizontal: 'center' };
-            }
-          });
+        ws.addTable({
+          name: 'Tabla_Incidentes_Topes',
+          ref: 'A4',
+          headerRow: true,
+          totalsRow: false,
+          style: {
+            theme: 'TableStyleMedium9',
+            showRowStripes: true,
+          },
+          columns: [
+            { name: 'Fecha', filterButton: true },
+            { name: 'Tipo Solicitud', filterButton: true },
+            { name: 'Nombre Estudiante', filterButton: true },
+            { name: 'Carrera', filterButton: true },
+            { name: 'Programa', filterButton: true },
+            { name: 'Horario Solicitado', filterButton: true },
+            { name: 'Motivo / Mensaje', filterButton: true },
+            { name: 'Estado', filterButton: true }
+          ],
+          rows: tableRows,
         });
 
         ws.columns = [
@@ -890,8 +923,26 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
           { width: 18 }, { width: 22 }, { width: 40 }, { width: 16 }
         ];
 
-        const lastRow4 = Math.max(4, 4 + filteredStudentRequests.length);
-        ws.autoFilter = { from: 'A4', to: `H${lastRow4}` };
+        const headerRow4 = ws.getRow(4);
+        headerRow4.height = 26;
+        headerRow4.eachCell((cell) => {
+          cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        });
+
+        tableRows.forEach((_, idx) => {
+          const row = ws.getRow(5 + idx);
+          row.height = 20;
+          row.eachCell((cell, colNumber) => {
+            cell.font = { name: 'Arial', size: 10 };
+            if ([1, 2, 5, 8].includes(colNumber)) {
+              cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            } else {
+              cell.alignment = { vertical: 'middle', horizontal: 'left' };
+            }
+          });
+        });
+
         ws.views = [{ state: 'frozen', ySplit: 4, showGridLines: true }];
       }
 
