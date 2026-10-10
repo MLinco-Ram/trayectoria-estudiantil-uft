@@ -11,7 +11,7 @@ import {
   ChevronRight, 
   ChevronLeft,
   Bell,
-  BookOpen
+  Award
 } from 'lucide-react';
 import { TutorTab } from '../TutorDashboard';
 
@@ -59,77 +59,92 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
   const steps: StepItem[] = useMemo(() => {
     const commonSteps: StepItem[] = [
       {
-        id: 'welcome',
-        targetSelector: '#tutor-desktop-nav-bar',
+        id: 'profile',
+        targetSelector: '#tutor-profile-summary-card',
         title: isLeadTutor 
           ? `¡Hola ${userName.split(' ')[0]}, bienvenido al Portal Tutor de Tutores!`
           : `¡Hola ${userName.split(' ')[0]}, bienvenido a tu Portal Tutor Par UFT!`,
-        badge: isLeadTutor ? '1. Coordinación & Liderazgo' : '1. Bienvenida al Tutor Par',
+        badge: isLeadTutor ? '1. Tu Perfil y Liderazgo' : '1. Tu Perfil y Métricas',
         icon: Sparkles,
         accentGradient: isLeadTutor ? 'from-indigo-900 via-indigo-950 to-slate-900' : 'from-[#092c4c] via-[#103a63] to-sky-900',
         tab: 'my_schedule',
         description: isLeadTutor 
-          ? 'Como Tutor de Tutores cuentas con herramientas avanzadas para supervisar el cumplimiento pedagógico, apoyar a tus tutores pares y coordinar la gestión docente.'
-          : 'Este portal está diseñado para que gestiones tus sesiones asignadas, registres asistencia digitalmente, cargues tu disponibilidad horaria y mantengas contacto con coordinación.',
+          ? 'En esta tarjeta superior puedes verificar tu carrera, rol de liderazgo institucional y el resumen general de tutorías asignadas, alumnos y tutores a cargo.'
+          : 'En esta tarjeta superior puedes verificar tu carrera, RUT y el contador en tiempo real de tutorías asignadas y total de alumnos inscritos en tus módulos.',
         tips: [
-          'Navega con la barra superior entre todas las secciones del portal.',
-          'Puedes consultar avisos y comunicados importantes en la campana de notificaciones.'
+          'Consulta el resumen de tus tutorías y participantes en cualquier momento.',
+          'Haz clic en las métricas para saltar a tus actividades o control de asistencia.'
+        ]
+      },
+      {
+        id: 'navbar',
+        targetSelector: '#tutor-desktop-nav-bar',
+        title: 'Módulos de Gestión y Navegación',
+        badge: '2. Barra de Pestañas',
+        icon: Award,
+        accentGradient: 'from-sky-900 to-indigo-950',
+        tab: 'my_schedule',
+        description: 'Utiliza la barra superior para alternar rápidamente entre todas las funciones del portal institucional:',
+        tips: [
+          'Mis Tutorías: Revisa tus clases asignadas y carga tus cronogramas.',
+          'Pasar Lista: Registra asistencia presencial u online y proyecta el código QR/PIN.',
+          'Cargar Horario & Avisar Inconveniente: Declara tus bloques libres o pide soporte docente.'
         ]
       },
       {
         id: 'my_schedule',
         targetSelector: '#tutor-my-schedule-view',
         title: 'Mis Tutorías y Carga de Cronograma/Temario',
-        badge: '2. Gestión de Sesiones',
+        badge: '3. Gestión de Clases',
         icon: Calendar,
-        accentGradient: 'from-sky-900 to-indigo-950',
+        accentGradient: 'from-sky-900 via-[#092c4c] to-[#103a63]',
         tab: 'my_schedule',
-        description: 'Revisa las clases donde has sido asignado como tutor responsable. Podrás ver cupos inscritos, sala/modalidad y cargar el plan de trabajo.',
+        description: 'Visualiza tus tutorías programadas, fechas, salas asignadas, cupos ocupados y el estado del temario.',
         tips: [
-          'Es fundamental cargar o editar el temario antes de cada sesión para mantener tu estado Cumplido.',
-          'Haz clic en "Proyectar QR y PIN" para desplegar la pantalla de escaneo para tus estudiantes.'
+          'Es fundamental cargar o editar el temario antes de cada sesión para que tu cumplimiento sea válido.',
+          'Usa el botón de proyección QR/PIN para mostrar el código de asistencia a tus estudiantes en clase.'
         ]
       },
       {
         id: 'attendance',
-        targetSelector: '#tutor-attendance-view',
-        title: 'Pasar Lista y Proyección de QR / PIN',
-        badge: '3. Control de Asistencia',
+        targetSelector: '#tutor-attendance-tab',
+        title: 'Pasar Lista y Registro de Asistencia',
+        badge: '4. Control de Asistencia',
         icon: CheckSquare,
         accentGradient: 'from-emerald-900 via-[#092c4c] to-[#103a63]',
         tab: 'attendance',
-        description: 'Registra de forma precisa la asistencia de los alumnos inscritos marcando Presente, Ausente o Justificado con 1 clic.',
+        description: 'Pasa lista de manera digital marcando a los alumnos como Presente, Ausente o Justificado en segundos.',
         tips: [
-          'Utiliza el botón de proyección QR/PIN en pantalla completa al inicio de tu clase.',
-          'La asistencia se sincroniza en tiempo real con los registros de coordinación académica.'
+          'Proyecta el código QR o comparte el PIN de 4 dígitos para que los alumnos marquen con su celular.',
+          'La asistencia queda sincronizada de inmediato en los registros centrales de la universidad.'
         ]
       },
       {
         id: 'availability',
         targetSelector: '#tutor-availability-view',
-        title: 'Cargar Horario y Disponibilidad Semanal',
-        badge: '4. Matriz de Horarios',
+        title: 'Declaración de Disponibilidad Horaria',
+        badge: '5. Matriz de Horarios',
         icon: Clock,
         accentGradient: 'from-[#092c4c] to-[#153a5c]',
         tab: 'my_availability',
-        description: 'Define qué bloques semanales tienes libres para realizar tutorías (Lunes a Viernes de 08:30 a 20:00).',
+        description: 'Define tus bloques semanales disponibles (Lunes a Viernes de 08:30 a 20:00) para que coordinación te programe tutorías en horarios compatibles.',
         tips: [
-          'Marca tus bloques disponibles en color verde y presiona "Guardar Disponibilidad".',
-          'Los docentes coordinadores asignarán tutorías respetando tus bloques declarados.'
+          'Marca en verde los bloques donde tienes disponibilidad y presiona "Guardar Disponibilidad".',
+          'Puedes actualizar tu disponibilidad cada vez que cambie tu carga académica de pregrado.'
         ]
       },
       {
         id: 'report_issue',
         targetSelector: '#tutor-report-issue-view',
         title: 'Avisar Inconveniente a Coordinación Docente',
-        badge: '5. Alertas & Flexibilidad',
+        badge: '6. Alertas & Flexibilidad',
         icon: AlertTriangle,
         accentGradient: 'from-amber-900/90 via-[#092c4c] to-slate-900',
         tab: 'report_issue',
-        description: 'Si presentas un choque de horario académico, enfermedad o imprevisto de fuerza mayor, envía un aviso formal directo a los docentes coordinadores.',
+        description: '¿Tienes un tope de horario por certamen o imprevisto de fuerza mayor? Envía un aviso formal con propuesta de reasignación a los docentes coordinadores.',
         tips: [
-          'Puedes seleccionar qué docentes específicos recibirán la notificación.',
-          'Propón una fecha u horario alternativo o solicita la reasignación de la sesión.'
+          'Selecciona qué docentes coordinadores recibirán tu mensaje.',
+          'Indica tu horario propuesto alternativo o sugiere a otro tutor par para cubrir la sesión.'
         ]
       }
     ];
@@ -139,29 +154,29 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
       {
         id: 'assigned_tutors',
         targetSelector: '#tutor-assigned-tutors-view',
-        title: 'Supervisión de Tutores a Cargo',
-        badge: '6. Directorio de Tutores',
+        title: 'Directorio de Tutores a Cargo',
+        badge: '7. Supervisión de Tutores',
         icon: ShieldCheck,
         accentGradient: 'from-indigo-900 via-purple-950 to-slate-900',
         tab: 'assigned_tutors',
-        description: 'Visualiza la lista completa de tutores pares bajo tu tutela, sus carreras, datos de contacto, ramos y estado general.',
+        description: 'Supervisa la nómina de tutores pares asignados a tu coordinación, sus carreras, ramos dictados y datos de contacto directo.',
         tips: [
-          'Consulta el resumen individual de actividades de cada tutor.',
-          'Facilita la comunicación directa y el acompañamiento metodológico entre pares.'
+          'Consulta el número de sesiones y alumnos atendidos por cada tutor a tu cargo.',
+          'Facilita el acompañamiento y apoyo pedagógico continuo entre tutores.'
         ]
       },
       {
         id: 'compliance_review',
         targetSelector: '#tutor-compliance-review-view',
-        title: 'Revisión y Auditoría de Cumplimiento',
-        badge: '7. Control de Calidad',
+        title: 'Auditoría y Revisión de Cumplimiento',
+        badge: '8. Control de Calidad',
         icon: ClipboardCheck,
         accentGradient: 'from-indigo-950 via-[#092c4c] to-slate-900',
         tab: 'compliance_review',
-        description: 'Supervisa que las sesiones se ejecuten con su cronograma previo y lista de asistencia registrada al 100%.',
+        description: 'Monitorea que cada sesión cumpla con su cronograma previo cargado y el 100% de asistencia registrada.',
         tips: [
           'Filtra por tutor o por estado (Cumplida, Sin cronograma, Inconsistente).',
-          'Envía recordatorios inmediatos por correo a los tutores que requieran regularizar sus sesiones.'
+          'Envía recordatorios masivos o individuales por correo con 1 clic.'
         ]
       }
     ] : [];
@@ -169,14 +184,14 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
     const finalStep: StepItem = {
       id: 'header_actions',
       targetSelector: '#tutor-header-actions-group',
-      title: 'Bandeja de Mensajes y Botón de Ayuda (!)',
-      badge: isLeadTutor ? '8. Centro de Ayuda' : '6. Centro de Ayuda',
+      title: 'Bandeja de Mensajes y Botón de Repetición (!)',
+      badge: isLeadTutor ? '9. Centro de Ayuda' : '7. Centro de Ayuda',
       icon: Bell,
       accentGradient: 'from-emerald-800 to-[#092c4c]',
       description: 'En la esquina superior derecha tienes tu bandeja de comunicados, modo oscuro y el botón con signo de exclamación (!) para repetir este tour cuando lo necesites.',
       tips: [
-        'Revisa avisos de asignaciones y respuestas de coordinación en la campana.',
-        'Pulsa el botón (!) si deseas volver a consultar el funcionamiento del portal.'
+        'Revisa avisos importantes y respuestas de coordinación docente en la campana.',
+        'Pulsa el botón (!) en cualquier momento si tienes alguna consulta sobre el portal.'
       ]
     };
 
@@ -206,7 +221,7 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
     animationFrameRef.current = requestAnimationFrame(frame);
   }, []);
 
-  // Actualizar posición del elemento objetivo
+  // Actualizar posición del elemento objetivo con reintentos para asegurar render de la pestaña
   const updateTargetPositionForStep = useCallback((stepIdx: number) => {
     const stepObj = steps[stepIdx];
     if (!stepObj) {
@@ -215,32 +230,55 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
     }
 
     const selector = stepObj.targetSelector;
-    let elem = document.querySelector(selector) as HTMLElement | null;
+    let attempts = 0;
+    const maxAttempts = 15;
 
-    if (!elem && selector === '#tutor-desktop-nav-bar') {
-      elem = document.querySelector('#tutor-main-dynamic-card-viewport') as HTMLElement | null;
-    }
+    const findAndTrack = () => {
+      let elem = document.querySelector(selector) as HTMLElement | null;
 
-    if (elem) {
-      const isHeaderElement = selector === '#tutor-desktop-nav-bar' || selector === '#tutor-header-actions-group';
-      
-      if (isHeaderElement) {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        const headerHeight = 80;
-        const rectTop = elem.getBoundingClientRect().top;
-        const targetScrollTop = window.pageYOffset + rectTop - headerHeight;
-
-        window.scrollTo({
-          top: Math.max(0, targetScrollTop),
-          behavior: 'smooth'
-        });
+      // Fallbacks inteligentes si el elemento está en mobile o tiene un ID alternativo
+      if (!elem) {
+        if (selector === '#tutor-desktop-nav-bar') {
+          elem = (document.querySelector('#tutor-mobile-tabs-bar') || document.querySelector('#tutor-header-brand')) as HTMLElement | null;
+        } else if (selector === '#tutor-attendance-tab' || selector === '#tutor-attendance-view') {
+          elem = (document.querySelector('#tutor-attendance-tab') || document.querySelector('#tutor-attendance-view')) as HTMLElement | null;
+        } else if (selector === '#tutor-profile-summary-card') {
+          elem = (document.querySelector('#tutor-profile-summary-card') || document.querySelector('#tutor-header-brand')) as HTMLElement | null;
+        }
       }
 
-      trackTargetElementSmoothly(elem, 600);
-    } else {
-      setTargetRect(null);
-    }
+      if (elem && elem.getBoundingClientRect().height > 0) {
+        const isHeaderElement = selector === '#tutor-desktop-nav-bar' || selector === '#tutor-header-actions-group' || selector === '#tutor-header-brand';
+        
+        if (isHeaderElement) {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          const headerHeight = 80;
+          const rectTop = elem.getBoundingClientRect().top;
+          const targetScrollTop = window.pageYOffset + rectTop - headerHeight;
+
+          window.scrollTo({
+            top: Math.max(0, targetScrollTop),
+            behavior: 'smooth'
+          });
+        }
+
+        setTargetRect(elem.getBoundingClientRect());
+        trackTargetElementSmoothly(elem, 600);
+      } else if (attempts < maxAttempts) {
+        attempts++;
+        setTimeout(findAndTrack, 40);
+      } else {
+        const fallbackViewport = document.querySelector('#tutor-main-dynamic-card-viewport') as HTMLElement | null;
+        if (fallbackViewport) {
+          setTargetRect(fallbackViewport.getBoundingClientRect());
+        } else {
+          setTargetRect(null);
+        }
+      }
+    };
+
+    findAndTrack();
   }, [steps, trackTargetElementSmoothly]);
 
   // Reset del paso SOLAMENTE cuando isOpen cambia de false a true
@@ -270,7 +308,7 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
     const timer = setTimeout(() => {
       updateTargetPositionForStep(currentStep);
       setIsTransitioning(false);
-    }, 130);
+    }, 120);
 
     return () => clearTimeout(timer);
   }, [currentStep, isOpen, onNavigateTab, updateTargetPositionForStep, steps]);
@@ -291,7 +329,10 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
       if (!isOpen) return;
       const stepObj = steps[currentStep];
       if (stepObj) {
-        const elem = document.querySelector(stepObj.targetSelector);
+        let elem = document.querySelector(stepObj.targetSelector);
+        if (!elem && stepObj.targetSelector === '#tutor-desktop-nav-bar') {
+          elem = document.querySelector('#tutor-mobile-tabs-bar') || document.querySelector('#tutor-header-brand');
+        }
         if (elem) {
           setTargetRect(elem.getBoundingClientRect());
         }

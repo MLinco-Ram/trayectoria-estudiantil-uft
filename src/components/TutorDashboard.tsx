@@ -695,7 +695,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 gap-3">
             {/* Logo e Identidad Institucional */}
-            <div className="flex items-center gap-3 shrink-0">
+            <div id="tutor-header-brand" className="flex items-center gap-3 shrink-0">
               <div className="bg-white p-1 rounded-lg flex items-center justify-center shadow-xs">
                 <img src="/logo-uft.png" alt="UFT" className="h-6 w-auto object-contain" />
               </div>
@@ -964,7 +964,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
         </div>
 
         {/* Barra de Pestañas Móviles (Scroll horizontal para celulares) */}
-        <div className="md:hidden border-t border-[#153a5c] dark:border-slate-800 px-3 py-2 flex items-center gap-1.5 overflow-x-auto scrollbar-none bg-[#07223b] dark:bg-slate-900/90">
+        <div id="tutor-mobile-tabs-bar" className="md:hidden border-t border-[#153a5c] dark:border-slate-800 px-3 py-2 flex items-center gap-1.5 overflow-x-auto scrollbar-none bg-[#07223b] dark:bg-slate-900/90">
           <button
             onClick={() => { setActiveTab('my_schedule'); reloadData(); }}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap ${activeTab === 'my_schedule' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-white/10 text-white'}`}
@@ -1014,7 +1014,55 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       <main className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-950 transition-colors duration-200" id="tutor-main-panel-workspace">
 
         {/* Content Section Wrapper */}
-        <div className="flex-1 p-6 md:p-8" id="tutor-main-dynamic-card-viewport">
+        <div className="flex-1 p-4 sm:p-6 md:p-8 max-w-5xl w-full mx-auto" id="tutor-main-dynamic-card-viewport">
+          
+          {/* Profile Info matching student card - Compact & responsive */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 p-4 sm:p-5 space-y-3.5 relative overflow-hidden transition-colors mb-5" id="tutor-profile-summary-card">
+            <div className="absolute top-0 right-0 bg-[#3a9ad9]/20 text-[#092c4c] dark:text-sky-300 rounded-bl-xl px-2.5 py-0.5 sm:px-3 sm:py-1 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider">
+              {isLeadTutor ? 'COORDINACIÓN PARES UFT' : 'TUTOR PAR UFT'}
+            </div>
+
+            <div className="pt-1">
+              <div className="space-y-0.5 min-w-0">
+                <h2 className="text-sm sm:text-base font-extrabold uppercase text-slate-800 dark:text-white tracking-tight leading-tight truncate">
+                  {effectiveUser.name}
+                </h2>
+                <p className="text-xs text-[#3a9ad9] font-bold truncate">
+                  {isLeadTutor ? 'Tutor de Tutores (Líder)' : (effectiveUser.career || 'Tutor Par UFT')}
+                </p>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">RUT: {effectiveUser.rut}</p>
+              </div>
+            </div>
+
+            {/* Tutor Metrics */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div 
+                onClick={() => { setActiveTab('my_schedule'); reloadData(); }}
+                className="bg-slate-50 dark:bg-slate-800/60 p-2.5 sm:p-3 rounded-xl border border-slate-100 dark:border-slate-800 text-center cursor-pointer hover:border-[#3a9ad9] transition-colors"
+              >
+                <span className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-400 font-semibold uppercase block">Tutorías Asignadas</span>
+                <span className="text-base sm:text-lg font-bold text-[#092c4c] dark:text-sky-300 block mt-0.5">{myAssignedSessions.length}</span>
+              </div>
+              <div 
+                onClick={() => { setActiveTab('attendance'); reloadData(); }}
+                className="bg-slate-50 dark:bg-slate-800/60 p-2.5 sm:p-3 rounded-xl border border-slate-100 dark:border-slate-800 text-center cursor-pointer hover:border-[#3a9ad9] transition-colors"
+              >
+                <span className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-400 font-semibold uppercase block">Alumnos Inscritos</span>
+                <span className="text-base sm:text-lg font-bold text-[#092c4c] dark:text-sky-300 block mt-0.5">
+                  {myAssignedSessions.reduce((acc, s) => acc + (s.studentIds?.length || 0), 0)}
+                </span>
+              </div>
+              {isLeadTutor && (
+                <div 
+                  onClick={() => { setActiveTab('assigned_tutors'); reloadData(); }}
+                  className="col-span-2 sm:col-span-1 bg-indigo-50/60 dark:bg-indigo-950/40 p-2.5 sm:p-3 rounded-xl border border-indigo-100 dark:border-indigo-900 text-center cursor-pointer hover:border-indigo-400 transition-colors"
+                >
+                  <span className="text-[9px] sm:text-[10px] text-indigo-400 font-semibold uppercase block">Tutores a Cargo</span>
+                  <span className="text-base sm:text-lg font-bold text-indigo-700 dark:text-indigo-300 block mt-0.5">{assignedTutors.length}</span>
+                </div>
+              )}
+            </div>
+          </div>
           
           {/* My Assigned appointments tab */}
           {activeTab === 'my_schedule' && (
