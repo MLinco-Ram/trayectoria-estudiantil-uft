@@ -30,7 +30,6 @@ interface StepItem {
   description: string;
   tips: string[];
   tab?: 'tutorias' | 'psicoeducativo' | 'my_bookings' | 'history' | 'inconvenientes';
-  preferredPlacement?: 'bottom' | 'top' | 'center';
 }
 
 export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
@@ -65,8 +64,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         tips: [
           'Consulta cuántos cupos semanales tienes disponibles.',
           'Haz clic en las métricas para saltar a tus reservas o historial.'
-        ],
-        preferredPlacement: 'bottom'
+        ]
       },
       {
         id: 'navbar',
@@ -81,8 +79,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
           'Tutorías Colectivas: Sesiones de reforzamiento por ramo con tutores pares.',
           'Talleres Psicoeducativos: Habilidades de estudio y manejo del tiempo.',
           'Mis Reservas, Historial y Solicitudes de Inconveniente.'
-        ],
-        preferredPlacement: 'bottom'
+        ]
       },
       {
         id: 'dates',
@@ -96,8 +93,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         tips: [
           'Las fechas con sesiones programadas se destacan visualmente.',
           'Puedes buscar y reservar tutorías con anticipación.'
-        ],
-        preferredPlacement: 'bottom'
+        ]
       },
       {
         id: 'catalog',
@@ -111,8 +107,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         tips: [
           'Revisa el temario antes de reservar para saber qué se trabajará.',
           'Presiona "Inscribirme" para asegurar tu cupo de inmediato.'
-        ],
-        preferredPlacement: 'top'
+        ]
       }
     ];
 
@@ -130,8 +125,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
           tips: [
             'Usa el botón central de la cámara para escanear el código QR.',
             'También puedes ingresar el PIN de 4 dígitos si no dispones de cámara.'
-          ],
-          preferredPlacement: 'top'
+          ]
         }
       : {
           id: 'bookings_desktop',
@@ -146,8 +140,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
             'Revisa los detalles y salas de cada clase que tienes reservada.',
             'Si no podrás asistir, cancela con tiempo para liberar el cupo.',
             'El tutor registrará tu asistencia en el sistema durante la sesión.'
-          ],
-          preferredPlacement: 'top'
+          ]
         };
 
     const commonLastTwo: StepItem[] = [
@@ -163,8 +156,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         tips: [
           'Indica tu horario de disponibilidad propuesto.',
           'Se notificará automáticamente a la coordinación y al tutor asignado.'
-        ],
-        preferredPlacement: 'top'
+        ]
       },
       {
         id: 'header_actions',
@@ -177,8 +169,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         tips: [
           'Revisa avisos importantes y cambios de horario en la campana.',
           'Haz clic en el botón (!) en cualquier momento si tienes dudas.'
-        ],
-        preferredPlacement: 'bottom'
+        ]
       }
     ];
 
@@ -187,7 +178,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
 
   const activeStepData = steps[currentStep] || steps[0];
 
-  // Actualizar posición del elemento objetivo
+  // Actualizar posición del elemento objetivo desplazando suavemente hacia arriba
   const updateTargetPositionForStep = useCallback((stepIdx: number) => {
     const stepObj = steps[stepIdx];
     if (!stepObj) {
@@ -203,9 +194,28 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
     }
 
     if (elem) {
-      elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const rect = elem.getBoundingClientRect();
-      setTargetRect(rect);
+      const isHeaderElement = selector === '#alumno-desktop-nav-bar' || selector === '#alumno-header-actions-group';
+      
+      if (isHeaderElement) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        // Desplazar dejando espacio superior (debajo del header fijo) para que el cuadro del tour quede abajo
+        const headerHeight = 75;
+        const rectTop = elem.getBoundingClientRect().top;
+        const targetScrollTop = window.pageYOffset + rectTop - headerHeight;
+
+        window.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior: 'smooth'
+        });
+      }
+
+      // Medir tras el inicio del scroll
+      setTimeout(() => {
+        if (elem) {
+          setTargetRect(elem.getBoundingClientRect());
+        }
+      }, 100);
     } else {
       setTargetRect(null);
     }
@@ -292,12 +302,12 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
   const isLastStep = currentStep === steps.length - 1;
   const StepIcon = activeStepData.icon;
 
-  // Cálculo de posición del Popover inteligente
+  // Cálculo de posición del Popover inteligente (siempre tiende hacia la parte inferior)
   const getPopoverStyle = (): React.CSSProperties => {
     if (isMobile || !targetRect) {
       return {
         position: 'fixed',
-        bottom: isMobile ? '16px' : 'auto',
+        bottom: '16px',
         left: '50%',
         transform: 'translateX(-50%)',
         width: 'calc(100% - 24px)',
@@ -306,13 +316,15 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
       };
     }
 
-    const popoverWidth = 460;
+    const popoverWidth = 470;
     const padding = 16;
-    const popoverHeight = 340;
+    const popoverEstimatedHeight = 290;
 
-    let top = targetRect.bottom + 16;
+    // Posicionamiento por defecto debajo del elemento
+    let top = targetRect.bottom + 14;
     let left = targetRect.left + (targetRect.width / 2) - (popoverWidth / 2);
 
+    // Ajustes horizontales para no salir de pantalla
     if (left + popoverWidth > windowDimensions.width - padding) {
       left = windowDimensions.width - popoverWidth - padding;
     }
@@ -320,8 +332,9 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
       left = padding;
     }
 
-    if (top + popoverHeight > windowDimensions.height - padding || activeStepData.preferredPlacement === 'top') {
-      top = Math.max(padding, targetRect.top - popoverHeight - 16);
+    // Si por abajo no cabe, anclarlo cerca del fondo de la ventana para NO tapar el encabezado ni la parte superior
+    if (top + popoverEstimatedHeight > windowDimensions.height - padding) {
+      top = Math.max(padding, windowDimensions.height - popoverEstimatedHeight - padding);
     }
 
     return {
@@ -363,15 +376,15 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         />
       )}
 
-      {/* Tarjeta Flotante Explicativa con Foco */}
+      {/* Tarjeta Flotante Explicativa con Foco (posicionada abajo) */}
       <div
         ref={popoverRef}
         style={getPopoverStyle()}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border-2 border-amber-400/60 dark:border-amber-400/50 overflow-hidden flex flex-col transition-all duration-300 animate-scale-in"
+        className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border-2 border-amber-400/70 dark:border-amber-400/60 overflow-hidden flex flex-col transition-all duration-300 animate-scale-in"
       >
         {/* Cabecera del Paso */}
-        <div className={`bg-gradient-to-r ${activeStepData.accentGradient} p-4 sm:p-5 text-white relative`}>
+        <div className={`bg-gradient-to-r ${activeStepData.accentGradient} p-3.5 sm:p-4 text-white relative`}>
           {/* Botón de Parar / Cerrar tutorial */}
           <button
             type="button"
@@ -379,27 +392,27 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
               e.stopPropagation();
               onClose();
             }}
-            className="absolute top-3.5 right-3.5 p-1.5 rounded-full bg-white/15 hover:bg-white/30 text-white transition-all cursor-pointer"
+            className="absolute top-3 right-3 p-1.5 rounded-full bg-white/15 hover:bg-white/30 text-white transition-all cursor-pointer"
             title="Parar / Salir del Tutorial"
             aria-label="Cerrar tutorial"
           >
             <X className="w-4 h-4" />
           </button>
 
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-400 text-[#092c4c] shadow-xs">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider bg-amber-400 text-[#092c4c] shadow-xs">
               {activeStepData.badge}
             </span>
-            <span className="text-[11px] text-slate-300 font-bold font-mono">
+            <span className="text-[10px] text-slate-300 font-bold font-mono">
               Paso {currentStep + 1} de {steps.length}
             </span>
           </div>
 
-          <div className="flex items-center gap-3 pr-6">
-            <div className="p-2.5 bg-white/10 rounded-xl border border-white/20 text-amber-300 shrink-0 shadow-xs">
-              <StepIcon className="w-5 h-5" />
+          <div className="flex items-center gap-2.5 pr-6">
+            <div className="p-2 bg-white/10 rounded-xl border border-white/20 text-amber-300 shrink-0 shadow-xs">
+              <StepIcon className="w-4.5 h-4.5" />
             </div>
-            <h3 className="text-sm sm:text-base font-extrabold tracking-tight leading-snug">
+            <h3 className="text-xs sm:text-sm font-extrabold tracking-tight leading-snug">
               {activeStepData.title}
             </h3>
           </div>
@@ -420,18 +433,18 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         </div>
 
         {/* Contenido explicativo del paso con foco */}
-        <div className="p-4 sm:p-5 space-y-3 text-slate-700 dark:text-slate-200 text-xs leading-relaxed max-h-[42vh] overflow-y-auto">
-          <p className="font-semibold text-slate-800 dark:text-slate-100 text-xs sm:text-[13px]">
+        <div className="p-3.5 sm:p-4 space-y-2.5 text-slate-700 dark:text-slate-200 text-xs leading-relaxed max-h-[35vh] overflow-y-auto">
+          <p className="font-semibold text-slate-800 dark:text-slate-100 text-[11.5px] sm:text-xs">
             {activeStepData.description}
           </p>
 
-          <div className="bg-slate-50 dark:bg-slate-800/80 rounded-xl p-3 border border-slate-200/80 dark:border-slate-700/60 space-y-2">
+          <div className="bg-slate-50 dark:bg-slate-800/80 rounded-xl p-2.5 border border-slate-200/80 dark:border-slate-700/60 space-y-1.5">
             {activeStepData.tips.map((tip, tIdx) => (
               <div key={tIdx} className="flex items-start gap-2">
-                <span className="w-4 h-4 rounded-full bg-amber-400/20 text-amber-600 dark:text-amber-400 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                <span className="w-3.5 h-3.5 rounded-full bg-amber-400/20 text-amber-600 dark:text-amber-400 font-bold text-[9px] flex items-center justify-center shrink-0 mt-0.5">
                   ✓
                 </span>
-                <span className="text-slate-700 dark:text-slate-300 text-[11px] sm:text-xs">
+                <span className="text-slate-700 dark:text-slate-300 text-[10.5px] sm:text-[11px] leading-tight">
                   {tip}
                 </span>
               </div>
@@ -440,7 +453,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         </div>
 
         {/* Pie de navegación con controles de paso y parada */}
-        <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+        <div className="p-3 bg-slate-50 dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
           {/* Indicadores de bolitas */}
           <div className="flex items-center gap-1">
             {steps.map((_, idx) => (
@@ -453,7 +466,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
                 }}
                 className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
                   idx === currentStep
-                    ? 'w-5 bg-amber-500 dark:bg-amber-400'
+                    ? 'w-4 bg-amber-500 dark:bg-amber-400'
                     : 'bg-slate-300 dark:bg-slate-700 hover:bg-slate-400'
                 }`}
                 title={`Ir al paso ${idx + 1}`}
