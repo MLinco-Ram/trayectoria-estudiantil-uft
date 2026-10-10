@@ -44,6 +44,7 @@ import { SessionQRModal } from './common/SessionQRModal';
 import { ThemeToggle } from './common/ThemeToggle';
 import { NotificationModal } from './common/NotificationModal';
 import { TutorAttendanceTab } from './tutor/TutorAttendanceTab';
+import { TutorTutorialModal } from './tutor/TutorTutorialModal';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, getRoleHomePath } from '../context/AuthContext';
 
@@ -141,6 +142,28 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
   const availabilityDirtyRef = useRef(false);
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const scheduleSnapshotRef = useRef<UserAvailability | null>(null);
+
+  // Tutorial Interactivo Guiado con Foco (Spotlight)
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+
+  useEffect(() => {
+    if (user?.id) {
+      const storageKey = `uft_tutor_tutorial_shown_${user.id}_${isLeadTutor ? 'lead' : 'par'}`;
+      const hasShown = localStorage.getItem(storageKey);
+      if (!hasShown) {
+        setIsTutorialOpen(true);
+        localStorage.setItem(storageKey, 'true');
+      }
+    }
+  }, [user?.id, isLeadTutor]);
+
+  const handleOpenTutorial = () => {
+    setIsTutorialOpen(true);
+  };
+
+  const handleCloseTutorial = () => {
+    setIsTutorialOpen(false);
+  };
 
   // Load database
   useEffect(() => {
@@ -693,7 +716,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
             </div>
 
             {/* Navegación Superior Horizontal Principal */}
-            <nav className="hidden md:flex items-center gap-1.5 lg:gap-2 overflow-x-auto py-1 scrollbar-none">
+            <nav id="tutor-desktop-nav-bar" className="hidden md:flex items-center gap-1.5 lg:gap-2 overflow-x-auto py-1 scrollbar-none">
               <button
                 type="button"
                 onClick={() => { setActiveTab('my_schedule'); reloadData(); }}
@@ -785,7 +808,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
             </nav>
 
             {/* Acciones Derecha (Bandeja, ThemeToggle, Perfil del Tutor & Logout) */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div id="tutor-header-actions-group" className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowNotifInbox(true)}
@@ -805,6 +828,18 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
               </button>
 
               <ThemeToggle />
+
+              {/* Botón de Tutorial Replay (!) */}
+              <button
+                type="button"
+                onClick={handleOpenTutorial}
+                className="flex items-center justify-center w-8 h-8 rounded-xl bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/40 transition-all cursor-pointer shadow-xs hover:scale-105 active:scale-95 shrink-0"
+                title="Ver Tutorial del Portal (!)"
+                aria-label="Ver Tutorial del Portal"
+                id="tutor-tutorial-replay-btn"
+              >
+                <span className="text-sm font-black leading-none font-mono">!</span>
+              </button>
 
               {/* Perfil del Tutor con Dropdown */}
               <div className="relative">
@@ -899,6 +934,21 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                       type="button"
                       onClick={() => {
                         setShowLogoutDropdown(false);
+                        handleOpenTutorial();
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-white transition flex items-center justify-between text-[11px] font-semibold cursor-pointer border border-amber-500/20"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <span className="font-mono font-black text-amber-400">!</span>
+                        <span>Ver Tutorial del Portal</span>
+                      </span>
+                      <span className="text-[10px] text-amber-400 font-bold">Abrir &rarr;</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowLogoutDropdown(false);
                         onLogout();
                       }}
                       className="w-full bg-red-650 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
@@ -968,7 +1018,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
           
           {/* My Assigned appointments tab */}
           {activeTab === 'my_schedule' && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
+            <div id="tutor-my-schedule-view" className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
               <div>
                 <h3 className="text-lg font-bold text-slate-800 font-display">Tus Actividades Diarias de Tutoría</h3>
                 <p className="text-xs text-slate-500">Visualiza las tutorías donde te han definido como tutor a disposición de un alumno.</p>
@@ -1120,7 +1170,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
 
           {/* TAB 2: FLAG PROBLEM / REASSIGNMENT TICKET */}
           {activeTab === 'report_issue' && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
+            <div id="tutor-report-issue-view" className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
               <div>
                 <h3 className="text-lg font-bold text-slate-800 font-display">Avisar Inconveniente o Solicitar Reasignaciones</h3>
                 <p className="text-xs text-slate-500">¿Tienes un contratiempo? Infórmalo aquí. El docente de coordinación responderá de inmediato.</p>
@@ -1405,7 +1455,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
 
           {/* My Availability declaration tab */}
           {activeTab === 'my_availability' && myAvailability && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
+            <div id="tutor-availability-view" className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                 <div>
                   <h3 className="text-lg font-bold text-slate-800 font-display flex items-center gap-2">
@@ -1605,7 +1655,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
 
           {/* TAB 4: TUTORES A CARGO (EXCLUSIVO PARA TUTOR DE TUTORES) */}
           {activeTab === 'assigned_tutors' && isLeadTutor && (
-            <div className="space-y-6 animate-fade-in">
+            <div id="tutor-assigned-tutors-view" className="space-y-6 animate-fade-in">
               {/* Header Card */}
               <div className="bg-gradient-to-r from-[#092c4c] via-[#103a63] to-indigo-950 rounded-2xl shadow-sm p-6 text-white border border-indigo-300/30">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1870,7 +1920,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
 
           {/* TAB 5: REVISIÓN CUMPLIMIENTO (EXCLUSIVO PARA TUTOR DE TUTORES) */}
           {activeTab === 'compliance_review' && isLeadTutor && (
-            <div className="space-y-6 animate-fade-in" id="compliance-review-section">
+            <div className="space-y-6 animate-fade-in" id="tutor-compliance-review-view">
               {/* Cabecera Principal */}
               <div className="bg-gradient-to-r from-[#092c4c] via-[#103a63] to-indigo-950 rounded-2xl shadow-sm p-6 text-white border border-indigo-300/30">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -2609,6 +2659,21 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
         session={activeQRModalSession}
         onClose={() => setActiveQRModalSession(null)}
         allUsers={allUsers}
+      />
+
+      {/* Modal de Tutorial Interactivo Guiado con Foco */}
+      <TutorTutorialModal
+        isOpen={isTutorialOpen}
+        onClose={handleCloseTutorial}
+        userName={effectiveUser.name}
+        isLeadTutor={isLeadTutor}
+        onNavigateTab={(tab) => {
+          setActiveTab(tab);
+          reloadData();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          const mainElem = document.getElementById('tutor-main-panel-workspace');
+          if (mainElem) mainElem.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
       />
     </div>
   );
