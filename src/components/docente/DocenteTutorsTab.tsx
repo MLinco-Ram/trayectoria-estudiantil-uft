@@ -435,7 +435,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       </div>
 
       {/* APARTADO DOCENTE: ASIGNACIÓN DE TUTORES A UN TUTOR DE TUTORES */}
-      <div className="bg-white rounded-2xl shadow-sm border border-indigo-200 overflow-hidden">
+      <div id="docente-tutors-lead-assignment" className="bg-white rounded-2xl shadow-sm border border-indigo-200 overflow-hidden">
         <div className="bg-gradient-to-r from-[#092c4c] to-indigo-900 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-white">
           <div className="flex items-center gap-2.5">
             <div className="p-1.5 bg-indigo-500/20 rounded-lg text-indigo-300">

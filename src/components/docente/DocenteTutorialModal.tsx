@@ -218,42 +218,42 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
     ],
     tutors: [
       {
-        id: 'tutors-header',
-        targetSelector: '#docente-tutors-header',
-        title: 'Gestión y Supervisión del Equipo de Tutores',
-        badge: 'Paso 1 de 3 • Panel de Tutores',
-        icon: BookOpen,
-        accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
-        description: 'Administra a todo el equipo docente de Tutores Pares y Tutores de Tutores asignados a tu coordinación.',
-        tips: [
-          'Consulta el número total de tutores pares y coordinadores líderes.',
-          'Supervisa la actividad y cumplimiento de cada miembro del equipo.'
-        ]
-      },
-      {
         id: 'tutors-register',
         targetSelector: '#docente-tutors-register-card',
         title: 'Registrar o Promover Tutores',
-        badge: 'Paso 2 de 3 • Registro y Roles',
+        badge: 'Paso 1 de 3 • Registro y Roles',
         icon: PlusCircle,
-        accentGradient: 'from-sky-900 to-indigo-950',
-        description: 'Ingresa nuevos tutores o asigna el rol de tutor a estudiantes existentes mediante su RUT institucional, seleccionando su especialidad.',
+        accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
+        description: 'Ingresa nuevos tutores o asigna el rol de tutor a estudiantes existentes mediante su RUT institucional, seleccionando si será Tutor Par o Tutor de Tutores.',
         tips: [
           'Tutor Par: Dicta sesiones directas y registra temarios.',
           'Tutor de Tutores: Rol de liderazgo con equipo de tutores a cargo y supervisión.'
         ]
       },
       {
+        id: 'tutors-lead-assignment',
+        targetSelector: '#docente-tutors-lead-assignment',
+        title: 'Asignar Tutores a Cargo',
+        badge: 'Paso 2 de 3 • Coordinación de Liderazgo',
+        icon: ShieldCheck,
+        accentGradient: 'from-indigo-950 via-[#092c4c] to-sky-900',
+        description: 'Coordina y asocia qué tutores pares están bajo la supervisión y acompañamiento de cada Tutor de Tutores.',
+        tips: [
+          'Selecciona al Tutor de Tutores y marca las casillas de los tutores asignados.',
+          'Permite delegar la revisión de cumplimiento y asistencia.'
+        ]
+      },
+      {
         id: 'tutors-directory',
         targetSelector: '#docente-tutors-directory',
-        title: 'Directorio y Asignación de Equipos',
-        badge: 'Paso 3 de 3 • Gestión de Carga',
+        title: 'Directorio y Nómina General de Tutores',
+        badge: 'Paso 3 de 3 • Nómina Completa',
         icon: Users,
         accentGradient: 'from-[#092c4c] via-[#153a5c] to-slate-900',
-        description: 'Edita datos de acceso, actualiza carreras o asigna qué tutores pares están bajo la tutoría de cada Tutor de Tutores.',
+        description: 'Consulta la lista completa de tutores habilitados, filtra por nombre o carrera, y edita sus credenciales o perfiles multi-rol.',
         tips: [
           'Usa el buscador para filtrar rápidamente tutores por nombre o carrera.',
-          'Puedes modificar las contraseñas o roles en cualquier momento.'
+          'Puedes modificar las contraseñas o promover roles en cualquier momento.'
         ]
       }
     ],
@@ -470,19 +470,20 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
       }
 
       if (elem && elem.getBoundingClientRect().height > 0) {
+        // Desplazar el elemento objetivo al centro del contenedor visible
+        try {
+          elem.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest'
+          });
+        } catch {
+          // fallback
+        }
+
         const rect = elem.getBoundingClientRect();
         setTargetRect(rect);
-
-        const headerHeight = 80;
-        const rectTop = rect.top;
-        const targetScrollTop = window.pageYOffset + rectTop - headerHeight;
-
-        window.scrollTo({
-          top: Math.max(0, targetScrollTop),
-          behavior: 'smooth'
-        });
-
-        trackTargetElementSmoothly(elem, 500);
+        trackTargetElementSmoothly(elem, 700);
       } else if (attempts < maxAttempts) {
         attempts++;
         requestAnimationFrame(findAndTrack);
@@ -561,7 +562,7 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
   const StepIcon = currentStepData.icon || Sparkles;
   const isLastStep = currentStep === steps.length - 1;
 
-  // Cálculo de posicionamiento del popover con prioridad inferior
+  // Cálculo de posicionamiento del popover con prioridad inferior y contención estricta
   const popoverWidth = isMobile ? Math.min(windowDimensions.width - 24, 380) : 420;
   const popoverEstimatedHeight = isMobile ? 320 : 340;
   const padding = 14;
@@ -584,21 +585,15 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
     let top = 0;
     if (preferBelow) {
       top = targetRect.bottom + padding;
-      if (top + popoverEstimatedHeight > windowDimensions.height - 10) {
-        top = Math.max(10, windowDimensions.height - popoverEstimatedHeight - 10);
-      }
     } else {
       top = targetRect.top - popoverEstimatedHeight - padding;
-      if (top < 10) {
-        top = 10;
-      }
     }
 
+    // Asegurar que el popover esté SIEMPRE 100% visible en pantalla
+    top = Math.max(12, Math.min(windowDimensions.height - popoverEstimatedHeight - 12, top));
+
     let left = targetRect.left + (targetRect.width / 2) - (popoverWidth / 2);
-    if (left < 12) left = 12;
-    if (left + popoverWidth > windowDimensions.width - 12) {
-      left = windowDimensions.width - popoverWidth - 12;
-    }
+    left = Math.max(12, Math.min(windowDimensions.width - popoverWidth - 12, left));
 
     popoverStyle.top = `${top}px`;
     popoverStyle.left = `${left}px`;
