@@ -293,8 +293,8 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
   return (
     <div className="space-y-8">
       {/* Formulario de Registro con Opción de Tipo de Tutor */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="bg-[#092c4c] px-6 py-4 flex items-center justify-between text-white">
+      <div id="docente-tutors-register-card" className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div id="docente-tutors-header" className="bg-[#092c4c] px-6 py-4 flex items-center justify-between text-white">
           <div className="flex items-center gap-2.5">
             <UserPlus className="w-5 h-5 text-[#3a9ad9]" />
             <h2 className="font-bold text-base">Registrar Nuevo Tutor (Tutor Par o Tutor de Tutores)</h2>
@@ -586,7 +586,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       </div>
 
       {/* Nómina General de Tutores */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div id="docente-tutors-directory" className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h3 className="font-bold text-slate-900 text-base">Equipo Completo de Tutores ({tutores.length})</h3>

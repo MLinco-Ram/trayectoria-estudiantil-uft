@@ -239,7 +239,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         {/* Banner Superior */}
-        <div className="bg-gradient-to-r from-[#092c4c] via-[#0e375e] to-[#1a4a75] text-white p-6 md:p-8">
+        <div id="docente-flex-banner" className="bg-gradient-to-r from-[#092c4c] via-[#0e375e] to-[#1a4a75] text-white p-6 md:p-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-[#3a9ad9]/20 text-[#3a9ad9] rounded-2xl border border-[#3a9ad9]/30">
@@ -297,7 +297,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
         </div>
 
         {/* Lista de Solicitudes */}
-        <div className="p-6 md:p-8 space-y-4">
+        <div id="docente-flex-requests-list" className="p-6 md:p-8 space-y-4">
           {filteredRequests.length === 0 ? (
             <div className="py-16 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
               <Inbox className="w-12 h-12 mx-auto mb-3 text-slate-300" />

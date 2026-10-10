@@ -186,7 +186,7 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
       {/* Barra Superior Principal con Métricas Rápidas y Controles */}
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
         {/* Banner Institucional Superior */}
-        <div className="bg-gradient-to-r from-[#092c4c] via-[#0e375e] to-[#1a4a75] text-white p-6">
+        <div id="docente-calendar-header" className="bg-gradient-to-r from-[#092c4c] via-[#0e375e] to-[#1a4a75] text-white p-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2.5">
@@ -230,7 +230,7 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
         </div>
 
         {/* Barra de Filtros, Buscador y Conmutador de Vistas */}
-        <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div id="docente-calendar-filters" className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Filtros Izquierda */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Buscador */}
@@ -278,7 +278,7 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
           </div>
 
           {/* Selector de Modos de Vista */}
-          <div className="flex items-center gap-2 self-end md:self-auto">
+          <div id="docente-calendar-view-modes" className="flex items-center gap-2 self-end md:self-auto">
             <div className="bg-slate-200/80 p-1 rounded-xl flex items-center gap-1 border border-slate-300/50">
               <button
                 onClick={() => setViewMode('week')}

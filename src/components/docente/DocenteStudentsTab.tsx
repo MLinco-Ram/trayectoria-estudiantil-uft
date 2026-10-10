@@ -148,8 +148,8 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
   return (
     <div className="space-y-6">
       {/* Registro */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="bg-[#092c4c] px-6 py-4 flex items-center justify-between text-white">
+      <div id="docente-students-register-card" className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div id="docente-students-header" className="bg-[#092c4c] px-6 py-4 flex items-center justify-between text-white">
           <div className="flex items-center gap-2.5">
             <UserPlus className="w-5 h-5 text-[#3a9ad9]" />
             <h2 className="font-bold text-base">Registrar Nuevo Alumno</h2>
@@ -205,6 +205,7 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
                 type="text"
                 value={newStudentCareer}
                 onChange={(e) => setNewStudentCareer(e.target.value)}
+                placeholder="Ing. Civil en Informática"
                 className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-[#3a9ad9]"
                 required
               />
@@ -233,7 +234,7 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
       </div>
 
       {/* Nómina */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div id="docente-students-directory" className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h3 className="font-bold text-slate-900 text-base">Estudiantes Registrados ({alumnos.length})</h3>

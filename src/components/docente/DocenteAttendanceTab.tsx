@@ -225,7 +225,7 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+        <div id="docente-attendance-header" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
           <div>
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <CheckSquare className="w-5 h-5 text-[#3a9ad9]" />
@@ -237,7 +237,7 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
           </div>
 
           {/* Selector de Fechas y Buscador: Responsivo sin desbordarse */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
+          <div id="docente-attendance-controls" className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <button
                 type="button"
@@ -340,7 +340,7 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
           </div>
         )}
 
-        <div className="mt-6 space-y-6">
+        <div id="docente-attendance-table" className="mt-6 space-y-6">
           {dailySessions.length === 0 ? (
             <div className="py-12 text-center text-slate-400">
               <Calendar className="w-10 h-10 mx-auto mb-2 text-slate-300" />
@@ -396,6 +396,7 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
                         )}
                       </button>
                       <button
+                        id="docente-attendance-qr-action"
                         type="button"
                         onClick={() => setSelectedQRModalSession(sess)}
                         className="px-3 py-1.5 rounded-xl bg-[#092c4c] hover:bg-[#153a5c] text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"

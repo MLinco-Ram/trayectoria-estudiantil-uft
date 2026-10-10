@@ -986,7 +986,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
         
         {/* Cabecera Principal */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-100">
+        <div id="docente-analytics-header" className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-100">
           <div>
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-[#3a9ad9]" />
@@ -1028,7 +1028,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
         </div>
 
         {/* Barra de Filtros por Rango de Tiempo */}
-        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 mb-8">
+        <div id="docente-analytics-filters" className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
               <Filter className="w-4 h-4 text-[#3a9ad9]" />
@@ -1070,7 +1070,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
         </div>
 
         {/* Tarjetas KPI Superiores (6 Indicadores Estratégicos) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+        <div id="docente-analytics-kpis" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
           
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 relative overflow-hidden">
             <div className="flex items-center justify-between">
@@ -1136,7 +1136,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
             1. GRÁFICO GRANDE 1: TUTORÍAS ACADÉMICAS (12 MESES JUNTOS Y PEGADOS)
             2. GRÁFICO GRANDE 2: TALLERES PSICOEDUCATIVOS (12 MESES JUNTOS Y PEGADOS)
             ========================================================================= */}
-        <div className="space-y-10 mb-10">
+        <div id="docente-analytics-charts" className="space-y-10 mb-10">
           
           {/* GRÁFICO GRANDE 1: EXCLUSIVO TUTORÍAS ACADÉMICAS (12 MESES CONTINUOS JUNTOS) */}
           <div className="bg-slate-50/75 border border-slate-200 rounded-2xl p-6 md:p-8 shadow-xs">

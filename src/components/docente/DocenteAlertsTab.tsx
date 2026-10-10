@@ -78,7 +78,7 @@ export const DocenteAlertsTab: React.FC<DocenteAlertsTabProps> = ({
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
-        <div className="flex items-center justify-between pb-6 border-b border-slate-100">
+        <div id="docente-alerts-header" className="flex items-center justify-between pb-6 border-b border-slate-100">
           <div>
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-rose-500" />
@@ -104,7 +104,7 @@ export const DocenteAlertsTab: React.FC<DocenteAlertsTabProps> = ({
           </div>
         )}
 
-        <div className="mt-6 space-y-4">
+        <div id="docente-alerts-list" className="mt-6 space-y-4">
           {pendingReports.length === 0 ? (
             <div className="py-12 text-center text-slate-400">
               <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-emerald-500" />

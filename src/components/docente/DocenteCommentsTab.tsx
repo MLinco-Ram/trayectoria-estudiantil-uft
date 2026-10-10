@@ -77,7 +77,7 @@ export const DocenteCommentsTab: React.FC<DocenteCommentsTabProps> = ({
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+        <div id="docente-comments-header" className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
           <div>
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-[#3a9ad9]" />
@@ -88,7 +88,7 @@ export const DocenteCommentsTab: React.FC<DocenteCommentsTabProps> = ({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div id="docente-comments-filters" className="flex flex-wrap items-center gap-2">
             <select
               value={commentFilterProgram}
               onChange={(e) => setCommentFilterProgram(e.target.value as any)}
@@ -132,7 +132,7 @@ export const DocenteCommentsTab: React.FC<DocenteCommentsTabProps> = ({
               <p className="text-sm font-semibold">No se encontraron comentarios registrados con los filtros actuales.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div id="docente-comments-list" className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredFeedbacks.map((fb, idx) => {
                 const answerEntries = fb.answers ? Object.entries(fb.answers) : [];
                 const hasSurvey = answerEntries.length > 0;
