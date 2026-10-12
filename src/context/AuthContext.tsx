@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Role } from '../types';
-import { getSavedUsers, saveUsers } from '../data';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -17,7 +16,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 function setSessionCookie(user: User, days = 7) {
   const expires = new Date(Date.now() + days * 864e5).toUTCString();
   document.cookie = `uft_session_user=${encodeURIComponent(JSON.stringify(user))}; expires=${expires}; path=/; SameSite=Lax`;
-  localStorage.setItem('uft_session_user', JSON.stringify(user));
 }
 
 function getSessionCookie(): User | null {
@@ -29,20 +27,11 @@ function getSessionCookie(): User | null {
       console.warn('Error leyendo cookie de sesión:', e);
     }
   }
-  const local = localStorage.getItem('uft_session_user');
-  if (local) {
-    try {
-      return JSON.parse(local);
-    } catch (e) {
-      console.warn('Error leyendo sesión de localStorage:', e);
-    }
-  }
   return null;
 }
 
 function removeSessionCookie() {
   document.cookie = 'uft_session_user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
-  localStorage.removeItem('uft_session_user');
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -61,15 +50,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateUser = (updatedUser: User) => {
     setSessionCookie(updatedUser);
     setCurrentUser(updatedUser);
-
-    const currentList = getSavedUsers();
-    const index = currentList.findIndex(u => u.id === updatedUser.id || u.rut === updatedUser.rut);
-    if (index >= 0) {
-      currentList[index] = { ...currentList[index], ...updatedUser };
-    } else {
-      currentList.push(updatedUser);
-    }
-    saveUsers(currentList);
   };
 
   return (

@@ -73,6 +73,13 @@ export const registerQRAttendance = async (req, res) => {
       return res.status(404).json({ error: 'Sesión no encontrada' });
     }
 
+    // Las sesiones personalizadas (1 a 1) solo admiten al estudiante para quien fueron creadas
+    const isPersonalized = session.type === 'tutoria_personalizada' || session.type === 'psico_asesoria_individual' || session.maxSpots === 1;
+    const isAssigned = (session.studentIds || []).includes(studentId) || session.reservedForStudentId === studentId;
+    if (isPersonalized && !isAssigned) {
+      return res.status(403).json({ error: 'Esta tutoría es personalizada y está asignada exclusivamente a otro estudiante.' });
+    }
+
     const attendance = session.attendance || {};
     const wasAlreadyPresent = attendance[studentId] === 'presente';
 

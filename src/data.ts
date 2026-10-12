@@ -147,6 +147,23 @@ export function isRegistrationWindowClosed(sessionDate: string, timeSlot?: strin
 }
 
 // ==========================================
+// PROTECCIÓN DE TUTORÍAS PERSONALIZADAS (1 A 1)
+// ==========================================
+
+export function isPersonalizedSession(session: Pick<Session, 'type' | 'maxSpots'>): boolean {
+  return session.type === 'tutoria_personalizada' || session.type === 'psico_asesoria_individual' || session.maxSpots === 1;
+}
+
+/**
+ * Una sesión personalizada solo puede verla e inscribirse el estudiante para quien fue creada
+ * (o quien ya figura inscrito). Nunca queda abierta al resto, aunque esté sin inscritos.
+ */
+export function canStudentAccessSession(session: Session, studentId: string): boolean {
+  if (!isPersonalizedSession(session)) return true;
+  return (session.studentIds || []).includes(studentId) || session.reservedForStudentId === studentId;
+}
+
+// ==========================================
 // CONTROL DE LÍMITE INSTITUCIONAL DE RESERVAS
 // ==========================================
 
@@ -185,78 +202,10 @@ export function getStudentActiveBookingsInWeek(sessions: Session[], studentId: s
 }
 
 // ==========================================
-// HELPERS DE CACHÉ LOCAL (SOLO SINCRONIZADA CON MONGO)
-// ==========================================
-
-export function getSavedUsers(): User[] {
-  const data = localStorage.getItem('uft_te_users');
-  return data ? JSON.parse(data) : [];
-}
-
-export function saveUsers(users: User[]) {
-  localStorage.setItem('uft_te_users', JSON.stringify(users));
-}
-
-export function getSavedSessions(): Session[] {
-  const data = localStorage.getItem('uft_te_sessions');
-  return data ? JSON.parse(data) : [];
-}
-
-export function saveSessions(sessions: Session[]) {
-  localStorage.setItem('uft_te_sessions', JSON.stringify(sessions));
-}
-
-export function getSavedReports(): IssueReport[] {
-  const data = localStorage.getItem('uft_te_reports');
-  return data ? JSON.parse(data) : [];
-}
-
-export function saveReports(reports: IssueReport[]) {
-  localStorage.setItem('uft_te_reports', JSON.stringify(reports));
-}
-
-export function getSavedNotifications(): WebNotification[] {
-  const data = localStorage.getItem('uft_te_notifications');
-  return data ? JSON.parse(data) : [];
-}
-
-export function saveNotifications(notifications: WebNotification[]) {
-  localStorage.setItem('uft_te_notifications', JSON.stringify(notifications));
-}
-
-export function getSavedAvailabilities(): UserAvailability[] {
-  const data = localStorage.getItem('uft_te_availabilities');
-  return data ? JSON.parse(data) : [];
-}
-
-export function saveAvailabilities(availabilities: UserAvailability[]) {
-  localStorage.setItem('uft_te_availabilities', JSON.stringify(availabilities));
-}
-
-export function getSavedStudentRequests(): StudentRequest[] {
-  const data = localStorage.getItem('uft_te_student_requests');
-  return data ? JSON.parse(data) : [];
-}
-
-export function saveStudentRequests(requests: StudentRequest[]) {
-  localStorage.setItem('uft_te_student_requests', JSON.stringify(requests));
-}
-
-export function getSavedSmtpSettings(): any {
-  const data = localStorage.getItem('uft_te_smtp_settings');
-  return data ? JSON.parse(data) : null;
-}
-
-export function saveSmtpSettings(settings: any) {
-  localStorage.setItem('uft_te_smtp_settings', JSON.stringify(settings));
-}
-
-// ==========================================
 // DESPACHO DE NOTIFICACIONES Y CORREOS
 // ==========================================
 
 export function triggerNotification(toEmail: string, toName: string, subject: string, message: string, htmlContent?: string) {
-  const notifs = getSavedNotifications();
   const newNotif: WebNotification = {
     id: 'notif_' + Date.now(),
     toEmail,
@@ -266,9 +215,6 @@ export function triggerNotification(toEmail: string, toName: string, subject: st
     timestamp: new Date().toISOString(),
     read: false
   };
-  notifs.unshift(newNotif);
-  saveNotifications(notifs);
-
   // Guardar en MongoDB Atlas
   fetch('/api/notifications', {
     method: 'POST',

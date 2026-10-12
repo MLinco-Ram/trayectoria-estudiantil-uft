@@ -1,18 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { User, Session, WebNotification, UserAvailability, StudentRequest } from '../types';
 import { 
-  getSavedSessions, 
-  saveSessions, 
-  getSavedNotifications, 
-  saveNotifications, 
   triggerNotification, 
-  getSavedUsers,
-  saveUsers,
   TIME_SLOTS,
-  getSavedAvailabilities,
-  saveAvailabilities,
-  getSavedStudentRequests,
-  saveStudentRequests,
   getTodayDateStr,
   getDynamicPresetDates,
   SATISFACTION_SURVEY_QUESTIONS,
@@ -23,7 +13,8 @@ import {
   isRegistrationWindowClosed,
   MAX_WEEKLY_ACTIVE_BOOKINGS,
   getStudentActiveBookingsInWeek,
-  getWeekKey
+  getWeekKey,
+  canStudentAccessSession,
 } from '../data';
 import { getSocket } from '../services/socket';
 import { 
@@ -60,7 +51,6 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, getRoleHomePath } from '../context/AuthContext';
-import { MobileQRScannerModal } from './common/MobileQRScannerModal';
 import { ThemeToggle } from './common/ThemeToggle';
 import { NotificationModal } from './common/NotificationModal';
 import { AlumnoTutorialModal } from './alumno/AlumnoTutorialModal';
@@ -70,6 +60,9 @@ interface AlumnoDashboardProps {
   onLogout?: () => void;
   onUpdateUser?: (user: User) => void;
 }
+
+// El escáner QR (html5-qrcode) se descarga recién al abrirlo
+const MobileQRScannerModal = lazy(() => import('./common/MobileQRScannerModal').then(m => ({ default: m.MobileQRScannerModal })));
 
 export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, onUpdateUser: propUpdateUser }: AlumnoDashboardProps = {}) {
   const navigate = useNavigate();
@@ -82,7 +75,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [notifications, setNotifications] = useState<WebNotification[]>([]);
-  const [allUsers, setAllUsers] = useState<User[]>(getSavedUsers());
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   
   // Tab view controller with persistence across reloads
   // tutorias, psicoeducativo, my_bookings, history, inconvenientes
@@ -156,7 +149,22 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   
   // Form hooks
   const [reqMessage, setReqMessage] = useState('');
-  const [reqPreferredTime, setReqPreferredTime] = useState('');
+  // Horarios propuestos: día -> módulos elegidos. Se envían como texto en `preferredTime`.
+  const REQUEST_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const [reqSlots, setReqSlots] = useState<Record<string, string[]>>({});
+  const [reqActiveDay, setReqActiveDay] = useState('Lunes');
+  const [reqConflictSessionId, setReqConflictSessionId] = useState('');
+  const toggleReqSlot = (day: string, slot: string) => {
+    setReqSlots(prev => {
+      const current = prev[day] || [];
+      const next = current.includes(slot) ? current.filter(s => s !== slot) : [...current, slot];
+      return { ...prev, [day]: next };
+    });
+  };
+  const reqSelectedDays = REQUEST_DAYS.filter(day => (reqSlots[day] || []).length > 0);
+  const reqPreferredTime = reqSelectedDays
+    .map(day => `${day}: ${TIME_SLOTS.filter(slot => reqSlots[day].includes(slot)).join(', ')}`)
+    .join(' | ');
   const [reqProgram, setReqProgram] = useState<'tutorias' | 'psicoeducativo'>('tutorias');
   const [formFeedback, setFormFeedback] = useState<string | null>(null);
 
@@ -238,37 +246,26 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       createdAt: new Date().toISOString()
     };
 
-    const current = getSavedSessions();
-    let updatedTargetSession: Session | null = null;
-    const updated = current.map(s => {
-      if (s.id === evaluatingSession.id) {
-        updatedTargetSession = {
-          ...s,
-          ratings: {
-            ...(s.ratings || {}),
-            [user.id]: feedbackObj
-          }
-        };
-        return updatedTargetSession;
-      }
-      return s;
-    });
-
-    saveSessions(updated);
-    setSessions(updated);
-
-    // Sync to backend/MongoDB
-    if (updatedTargetSession) {
-      try {
-        await fetch(`/api/sessions/${evaluatingSession.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedTargetSession)
-        });
-      } catch (err) {
-        console.warn('Sync rating error:', err);
-      }
+    // Guardar la encuesta en MongoDB Atlas (solo el campo de este estudiante)
+    const sessionId = evaluatingSession.id;
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [`ratings.${user.id}`]: feedbackObj })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      console.error('Error guardando encuesta:', err);
+      setIsSubmittingRating(false);
+      alert('No se pudo guardar tu encuesta en el servidor. Intenta nuevamente.');
+      return;
     }
+
+    setSessions(prev => prev.map(s => s.id === sessionId
+      ? { ...s, ratings: { ...(s.ratings || {}), [user.id]: feedbackObj } }
+      : s
+    ));
 
     setIsSubmittingRating(false);
     setRatingSuccessMsg('¡Muchas gracias! Tu encuesta de satisfacción de 12 preguntas ha sido registrada con éxito.');
@@ -286,30 +283,22 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   useEffect(() => {
     reloadData();
 
-    const handleStorage = () => {
-      reloadData();
-    };
-    window.addEventListener('storage', handleStorage);
-
     // Sincronización en tiempo real vía WebSockets
     const socket = getSocket();
     const handleSessionsUpdate = (payload: any) => {
       if (payload?.session && payload.action === 'update') {
         setSessions(prev => {
           const updated = prev.map(s => s.id === payload.session.id ? payload.session : s);
-          saveSessions(updated);
           return updated;
         });
       } else if (payload?.session && payload.action === 'create') {
         setSessions(prev => {
           const updated = [payload.session, ...prev.filter(s => s.id !== payload.session.id)];
-          saveSessions(updated);
           return updated;
         });
       } else if (payload?.sessionId && payload.action === 'delete') {
         setSessions(prev => {
           const updated = prev.filter(s => s.id !== payload.sessionId);
-          saveSessions(updated);
           return updated;
         });
       } else {
@@ -317,34 +306,38 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       }
     };
 
+    // Varios eventos seguidos (ej. un comunicado masivo) se agrupan en una sola recarga
+    let reloadTimer: ReturnType<typeof setTimeout> | undefined;
     const handleRealtimeUpdate = () => {
-      reloadData();
+      clearTimeout(reloadTimer);
+      reloadTimer = setTimeout(() => reloadData(), 250);
+    };
+
+    // Las notificaciones dirigidas a otra persona no requieren recargar este panel
+    const handleNotificationsUpdate = (payload: any) => {
+      const toEmail = payload?.notification?.toEmail;
+      if (toEmail && user.email && toEmail.toLowerCase() !== user.email.toLowerCase()) return;
+      handleRealtimeUpdate();
     };
 
     socket.on('sessions:changed', handleSessionsUpdate);
     socket.on('student_requests:changed', handleRealtimeUpdate);
-    socket.on('notifications:changed', handleRealtimeUpdate);
+    socket.on('notifications:changed', handleNotificationsUpdate);
     socket.on('users:changed', handleRealtimeUpdate);
     socket.on('availabilities:changed', handleRealtimeUpdate);
 
     return () => {
-      window.removeEventListener('storage', handleStorage);
+      clearTimeout(reloadTimer);
       socket.off('sessions:changed', handleSessionsUpdate);
       socket.off('student_requests:changed', handleRealtimeUpdate);
-      socket.off('notifications:changed', handleRealtimeUpdate);
+      socket.off('notifications:changed', handleNotificationsUpdate);
       socket.off('users:changed', handleRealtimeUpdate);
       socket.off('availabilities:changed', handleRealtimeUpdate);
     };
   }, [user.email, user.id, user.name, user.career]);
 
+  // Recarga todos los datos desde MongoDB Atlas (si una consulta falla se conserva el estado actual)
   const reloadData = async () => {
-    setSessions(getSavedSessions());
-    
-    // Cargar notificaciones locales
-    const localNotifs = getSavedNotifications().filter(n => n.toEmail && n.toEmail.toLowerCase() === (user.email || '').toLowerCase());
-    setNotifications(localNotifs);
-
-    // Sincronizar notificaciones y comunicados en tiempo real desde MongoDB Atlas
     try {
       if (user.email) {
         const notifRes = await fetch(`/api/notifications?email=${encodeURIComponent(user.email)}`);
@@ -353,62 +346,56 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
           if (Array.isArray(notifsFromApi)) {
             const sorted = notifsFromApi.sort((a: WebNotification, b: WebNotification) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
             setNotifications(sorted);
-            saveNotifications(sorted);
           }
         }
       }
     } catch (nErr) {
-      // fallback a notificaciones locales
+      console.error('Error cargando notificaciones:', nErr);
     }
-    
-    // Cargar usuarios actualizados desde MongoDB Atlas y cache
-    let currentUsers = getSavedUsers();
+
     try {
       const uRes = await fetch('/api/users');
       if (uRes.ok) {
         const usersFromApi = await uRes.json();
-        if (Array.isArray(usersFromApi)) {
-          currentUsers = usersFromApi;
-          saveUsers(usersFromApi);
+        if (Array.isArray(usersFromApi)) setAllUsers(usersFromApi);
+      }
+    } catch (e) {
+      console.error('Error cargando usuarios:', e);
+    }
+
+    try {
+      const avRes = await fetch('/api/availabilities');
+      if (avRes.ok) {
+        const avsFromApi = await avRes.json();
+        if (Array.isArray(avsFromApi)) {
+          const existing = avsFromApi.find((a: UserAvailability) => a.userId === user.id);
+          if (existing) setMyAvailability(existing);
         }
       }
     } catch (e) {
-      // fallback
+      console.error('Error cargando disponibilidad:', e);
     }
-    setAllUsers(currentUsers);
 
-    const availList = getSavedAvailabilities();
-    const existing = availList.find(a => a.userId === user.id);
-    if (existing) setMyAvailability(existing);
-
-    const allReqs = getSavedStudentRequests();
-    setMyRequests(allReqs.filter(r => r.studentId === user.id));
-
-    // Sincronizar solicitudes y sesiones en tiempo real desde MongoDB
     try {
       const rRes = await fetch('/api/student-requests');
       if (rRes.ok) {
         const reqsFromApi = await rRes.json();
         if (Array.isArray(reqsFromApi)) {
-          saveStudentRequests(reqsFromApi);
           setMyRequests(reqsFromApi.filter((r: StudentRequest) => r.studentId === user.id));
         }
       }
     } catch (e) {
-      // ignore
+      console.error('Error cargando solicitudes:', e);
     }
 
     try {
       const res = await fetch('/api/sessions');
       if (res.ok) {
         const sessionsFromApi = await res.json();
-        if (Array.isArray(sessionsFromApi)) {
-          setSessions(sessionsFromApi);
-          saveSessions(sessionsFromApi);
-        }
+        if (Array.isArray(sessionsFromApi)) setSessions(sessionsFromApi);
       }
     } catch (e) {
-      // ignore
+      console.error('Error cargando sesiones:', e);
     }
   };
 
@@ -417,16 +404,8 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
     const isProgramMatch = s.program === activeSegment;
     const isDateMatch = s.date === targetDate;
 
-    // Regla de Protección de Tutorías Personalizadas / Asesorías Individuales:
-    // Las sesiones personalizadas (1 a 1) o individuales solo son visibles para el estudiante asignado o si están libres para él
-    const isPersonalized = s.type === 'tutoria_personalizada' || s.type === 'psico_asesoria_individual' || s.maxSpots === 1;
-    if (isPersonalized) {
-      const isAssignedToThisStudent = s.studentIds.includes(user.id);
-      // Si ya tiene asignado a otro estudiante, o es una sesión 1 a 1 no dirigida a este estudiante, ocultarla
-      if (!isAssignedToThisStudent && s.studentIds.length > 0) {
-        return false;
-      }
-    }
+    // Las sesiones personalizadas (1 a 1) solo son visibles para el estudiante para quien fueron creadas
+    if (!canStudentAccessSession(s, user.id)) return false;
 
     return isProgramMatch && isDateMatch;
   });
@@ -438,14 +417,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         if (s.program !== activeSegment) return false;
         if (s.isCompleted || isSessionPast(s)) return false;
 
-        const isPersonalized = s.type === 'tutoria_personalizada' || s.type === 'psico_asesoria_individual' || s.maxSpots === 1;
-        if (isPersonalized) {
-          const isAssignedToThisStudent = s.studentIds.includes(user.id);
-          if (!isAssignedToThisStudent && s.studentIds.length > 0) {
-            return false;
-          }
-        }
-        return true;
+        return canStudentAccessSession(s, user.id);
       })
       .sort((a, b) => a.date.localeCompare(b.date) || a.timeSlot.localeCompare(b.timeSlot));
   }, [sessions, activeSegment, user.id]);
@@ -487,7 +459,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   );
 
   // Enroll student in an group session / workshop
-  const handleRegisterSlot = (session: Session) => {
+  const handleRegisterSlot = async (session: Session) => {
     // Check if already registered
     if (session.studentIds.includes(user.id)) {
       setBookingFeedback('Ya te encuentras registrado en este bloque horario.');
@@ -495,9 +467,8 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
     }
 
     // Validación estricta para sesiones personalizadas / individuales (1 a 1)
-    const isPersonalized = session.type === 'tutoria_personalizada' || session.type === 'psico_asesoria_individual' || session.maxSpots === 1;
-    if (isPersonalized && session.studentIds.length > 0 && !session.studentIds.includes(user.id)) {
-      setBookingFeedback('⚠️ Esta tutoría es de carácter personalizado y ya se encuentra asignada exclusivamente a otro estudiante.');
+    if (!canStudentAccessSession(session, user.id)) {
+      setBookingFeedback('⚠️ Esta tutoría es de carácter personalizado y se encuentra asignada exclusivamente a otro estudiante.');
       return;
     }
 
@@ -527,34 +498,29 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       return;
     }
 
-    const current = getSavedSessions();
-    let updatedTargetSession: Session | null = null;
-    const updated = current.map(s => {
-      if (s.id === session.id) {
-        updatedTargetSession = {
-          ...s,
-          studentIds: [...s.studentIds, user.id],
-          attendance: {
-            ...(s.attendance || {}),
-            [user.id]: 'pendiente' as const
-          }
-        };
-        return updatedTargetSession;
+    const bookedFields = {
+      studentIds: [...session.studentIds, user.id],
+      attendance: {
+        ...(session.attendance || {}),
+        [user.id]: 'pendiente' as const
       }
-      return s;
-    });
+    };
 
-    saveSessions(updated);
-    setSessions(updated);
-
-    // Sincronizar en MongoDB Atlas en paralelo
-    if (updatedTargetSession) {
-      fetch(`/api/sessions/${session.id}`, {
+    // Guardar la reserva en MongoDB Atlas
+    try {
+      const res = await fetch(`/api/sessions/${session.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedTargetSession)
-      }).catch(err => console.warn('Sync Mongo en background:', err));
+        body: JSON.stringify(bookedFields)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      console.error('Error guardando reserva:', err);
+      setBookingFeedback('⚠️ No se pudo guardar tu reserva en el servidor. Intenta nuevamente.');
+      return;
     }
+
+    setSessions(prev => prev.map(s => s.id === session.id ? { ...s, ...bookedFields } : s));
 
     // Notificar al alumno de forma minimalista protegiendo datos sensibles
     triggerNotification(
@@ -576,39 +542,31 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   // Withdraw / Cancel booking
   const handleCancelBooking = async (sessionId: string) => {
     if (confirm('¿Estás seguro que deseas cancelar tu reserva para esta tutoría/taller?')) {
-      const current = getSavedSessions();
-      let updatedSessionObj: Session | null = null;
-      const updated = current.map(s => {
-        if (s.id === sessionId) {
-          const newStudentIds = s.studentIds.filter(id => id !== user.id);
-          const att = { ...(s.attendance || {}) };
-          delete att[user.id];
-          
-          updatedSessionObj = {
-            ...s,
-            studentIds: newStudentIds,
-            attendance: att
-          };
-          return updatedSessionObj;
-        }
-        return s;
-      });
+      const targetToCancel = sessions.find(s => s.id === sessionId);
+      if (!targetToCancel) return;
 
-      saveSessions(updated);
-      setSessions(updated);
+      const attendance = { ...(targetToCancel.attendance || {}) };
+      delete attendance[user.id];
+      const cancelledFields = {
+        studentIds: targetToCancel.studentIds.filter(id => id !== user.id),
+        attendance
+      };
 
-      // Sincronizar actualización en MongoDB Atlas de inmediato
-      if (updatedSessionObj) {
-        try {
-          await fetch(`/api/sessions/${sessionId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updatedSessionObj)
-          });
-        } catch (err) {
-          console.warn('Sync cancel booking in Mongo:', err);
-        }
+      // Guardar la cancelación en MongoDB Atlas
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cancelledFields)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch (err) {
+        console.error('Error cancelando reserva:', err);
+        alert('No se pudo cancelar tu reserva en el servidor. Intenta nuevamente.');
+        return;
       }
+
+      setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, ...cancelledFields } : s));
 
       // Notify cancel confirmation
       const targetSession = sessions.find(sm => sm.id === sessionId);
@@ -625,18 +583,37 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
     }
   };
 
-  // Mark in-app emails as read
-  const handleMarkAllRead = () => {
-    const allNotifs = getSavedNotifications();
-    const updatedNotifs = allNotifs.map(n => {
-      if (n.toEmail === user.email) {
-        return { ...n, read: true };
+  // Identidad visual de cada programa, para que el cambio entre uno y otro sea evidente aunque no haya sesiones
+  const segmentInfo = activeSegment === 'psicoeducativo'
+    ? {
+        icon: BookOpen,
+        badge: 'Apoyo Psicoeducativo',
+        title: 'Talleres Psicoeducativos',
+        description: 'Talleres de hábitos de estudio, manejo de la ansiedad y asesorías con el equipo psicoeducativo.',
+        listTitle: 'Talleres disponibles',
+        emptyTitle: 'No hay talleres psicoeducativos',
+        emptyHint: 'Aún no hay talleres programados. Si necesitas apoyo, puedes pedir una asesoría individual desde "Inconvenientes".',
+        banner: 'bg-gradient-to-r from-teal-700 to-emerald-600 border-teal-700',
+        badgeCls: 'bg-white/20 text-white',
+        accentText: 'text-teal-700 dark:text-teal-300',
+        emptyCard: 'border-teal-200 dark:border-teal-800 bg-teal-50/40 dark:bg-teal-950/20',
+        emptyIcon: 'bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300',
       }
-      return n;
-    });
-    saveNotifications(updatedNotifs);
-    reloadData();
-  };
+    : {
+        icon: Award,
+        badge: 'Apoyo Académico',
+        title: 'Tutorías Colectivas',
+        description: 'Sesiones grupales por asignatura (Matemática, Programación, Derecho...) guiadas por un tutor par.',
+        listTitle: 'Tutorías disponibles',
+        emptyTitle: 'No hay tutorías colectivas',
+        emptyHint: 'Aún no hay tutorías programadas. Si necesitas apoyo, puedes pedir una tutoría personalizada desde "Inconvenientes".',
+        banner: 'bg-gradient-to-r from-[#092c4c] to-[#1a4a75] border-[#092c4c]',
+        badgeCls: 'bg-[#3a9ad9]/30 text-sky-100',
+        accentText: 'text-[#092c4c] dark:text-sky-300',
+        emptyCard: 'border-sky-200 dark:border-sky-900 bg-sky-50/40 dark:bg-sky-950/20',
+        emptyIcon: 'bg-sky-100 dark:bg-sky-950 text-[#092c4c] dark:text-sky-300',
+      };
+  const SegmentIcon = segmentInfo.icon;
 
   const presetDates = getDynamicPresetDates(5);
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -646,9 +623,9 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       {/* Top Header Navigation Bar */}
       <header className="bg-[#092c4c] dark:bg-slate-900 text-white shadow-md sticky top-0 z-40 border-b border-[#153a5c] dark:border-slate-800 select-none">
         <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 gap-3">
+          <div className="flex flex-wrap items-center justify-between min-h-16 gap-x-3 gap-y-2 py-2">
             {/* Logo e Identidad Institucional */}
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="order-1 flex items-center gap-3 shrink-0">
               <div className="bg-white p-1 rounded-lg flex items-center justify-center shadow-xs">
                 <img src="/logo-uft.png" alt="UFT" className="h-6 w-auto object-contain" />
               </div>
@@ -662,12 +639,13 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
               </div>
             </div>
 
-            {/* Navegación Superior Horizontal Principal */}
-            <nav id="alumno-desktop-nav-bar" className="hidden md:flex items-center gap-1.5 lg:gap-2 overflow-x-auto py-1 scrollbar-none">
+            {/* Navegación Superior Principal: siempre visible. En pantallas angostas baja a una fila propia
+                y los botones se reparten en varias líneas en vez de quedar ocultos. */}
+            <nav id="alumno-desktop-nav-bar" className="order-3 w-full flex flex-wrap items-center gap-1.5 lg:gap-2 2xl:order-2 2xl:w-auto 2xl:flex-1 2xl:min-w-0 2xl:justify-center">
               <button
                 type="button"
                 onClick={() => setActiveSegment('tutorias')}
-                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                   activeSegment === 'tutorias'
                     ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
                     : 'text-slate-200 hover:bg-white/10 hover:text-white'
@@ -680,7 +658,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
               <button
                 type="button"
                 onClick={() => setActiveSegment('psicoeducativo')}
-                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                   activeSegment === 'psicoeducativo'
                     ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
                     : 'text-slate-200 hover:bg-white/10 hover:text-white'
@@ -693,7 +671,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
               <button
                 type="button"
                 onClick={() => setActiveSegment('my_bookings')}
-                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap relative ${
+                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap relative ${
                   activeSegment === 'my_bookings'
                     ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
                     : 'text-slate-200 hover:bg-white/10 hover:text-white'
@@ -713,7 +691,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
               <button
                 type="button"
                 onClick={() => setActiveSegment('history')}
-                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                   activeSegment === 'history'
                     ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
                     : 'text-slate-200 hover:bg-white/10 hover:text-white'
@@ -726,7 +704,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
               <button
                 type="button"
                 onClick={() => setActiveSegment('inconvenientes')}
-                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                   activeSegment === 'inconvenientes'
                     ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
                     : 'text-slate-200 hover:bg-white/10 hover:text-white'
@@ -738,7 +716,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
             </nav>
 
             {/* Acciones Derecha (Bandeja, ThemeToggle, Perfil y Logout) */}
-            <div id="alumno-header-actions-group" className="flex items-center gap-2 shrink-0">
+            <div id="alumno-header-actions-group" className="order-2 flex items-center gap-2 shrink-0 2xl:order-3">
               <button
                 type="button"
                 onClick={() => setShowNotifInbox(prev => !prev)}
@@ -875,21 +853,6 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                       type="button"
                       onClick={() => {
                         setShowLogoutDropdown(false);
-                        handleOpenTutorial();
-                      }}
-                      className="w-full text-left px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-white transition flex items-center justify-between text-[11px] font-semibold cursor-pointer border border-amber-500/20"
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <span className="font-mono font-black text-amber-400">!</span>
-                        <span>Ver Tutorial del Portal</span>
-                      </span>
-                      <span className="text-[10px] text-amber-400 font-bold">Abrir &rarr;</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowLogoutDropdown(false);
                         onLogout();
                       }}
                       className="w-full bg-red-650 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
@@ -957,6 +920,26 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
             </div>
           )}
 
+          {/* Encabezado del programa activo (color, ícono y texto propios de cada uno) */}
+          {(activeSegment === 'tutorias' || activeSegment === 'psicoeducativo') && (
+            <div
+              key={activeSegment}
+              id="alumno-segment-banner"
+              className={`rounded-2xl border p-4 sm:p-5 text-white flex items-center gap-3.5 shadow-sm animate-fade-in ${segmentInfo.banner}`}
+            >
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center shrink-0">
+                <SegmentIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+              <div className="min-w-0">
+                <span className={`inline-block text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full ${segmentInfo.badgeCls}`}>
+                  {segmentInfo.badge}
+                </span>
+                <h2 className="text-base sm:text-lg font-extrabold leading-tight mt-1">{segmentInfo.title}</h2>
+                <p className="text-[11px] sm:text-xs text-white/85 mt-0.5">{segmentInfo.description}</p>
+              </div>
+            </div>
+          )}
+
           {/* Date Picker (Calendar selector widget shown above slot cards in reference gym mockup) */}
           {(activeSegment === 'tutorias' || activeSegment === 'psicoeducativo') && (
             <div id="alumno-date-picker-card" className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 p-3.5 sm:p-4 space-y-3 transition-colors">
@@ -997,7 +980,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                          s.date === d && 
                          !s.isCompleted && 
                          !isSessionPast(s) &&
-                         !(s.maxSpots === 1 && s.studentIds.length >= 1 && !s.studentIds.includes(user.id))
+                         canStudentAccessSession(s, user.id)
                   ).length;
 
                   return (
@@ -1054,8 +1037,9 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
             {(activeSegment === 'tutorias' || activeSegment === 'psicoeducativo') && (
             <div className="space-y-3">
               <div className="flex items-center justify-between pl-1.5 mt-2">
-                <h3 className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Módulos de Horario Disponibles ({targetDate})
+                <h3 className={`text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5 ${segmentInfo.accentText}`}>
+                  <SegmentIcon className="w-3.5 h-3.5" />
+                  {segmentInfo.listTitle} ({targetDate})
                 </h3>
                 {availableSchedules.length > 0 && (
                   <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
@@ -1072,14 +1056,16 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
               )}
 
               {availableSchedules.length === 0 ? (
-                <div className="bg-white dark:bg-slate-900 p-8 sm:p-10 rounded-2xl border border-slate-100 dark:border-slate-800 text-center space-y-3 transition-colors">
-                  <Calendar className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" />
-                  <p className="text-xs text-slate-600 dark:text-slate-300 font-bold">No hay cupos disponibles el {targetDate}</p>
+                <div key={activeSegment} className={`p-8 sm:p-10 rounded-2xl border border-dashed text-center space-y-3 transition-colors animate-fade-in ${segmentInfo.emptyCard}`}>
+                  <div className={`mx-auto w-12 h-12 rounded-2xl flex items-center justify-center ${segmentInfo.emptyIcon}`}>
+                    <SegmentIcon className="h-6 w-6" />
+                  </div>
+                  <p className="text-sm text-slate-700 dark:text-slate-200 font-bold">{segmentInfo.emptyTitle} el {targetDate}</p>
                   
                   {upcomingProgramDates.length > 0 ? (
                     <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                        ¡Hay sesiones y tutorías programadas en las siguientes fechas! Selecciona una para inscribirte:
+                        Hay {activeSegment === 'psicoeducativo' ? 'talleres programados' : 'tutorías programadas'} en las siguientes fechas. Selecciona una para inscribirte:
                       </p>
                       <div className="flex flex-wrap justify-center gap-2 pt-1">
                         {upcomingProgramDates.map(d => {
@@ -1090,7 +1076,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                                  s.date === d && 
                                  !s.isCompleted && 
                                  !isSessionPast(s) &&
-                                 !(s.maxSpots === 1 && s.studentIds.length >= 1 && !s.studentIds.includes(user.id))
+                                 canStudentAccessSession(s, user.id)
                           ).length;
                           return (
                             <button
@@ -1111,7 +1097,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                     </div>
                   ) : (
                     <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                      Pregunta a tu coordinador si hay tutorías personalizadas o de apoyo extraordinario para habilitar.
+                      {segmentInfo.emptyHint}
                     </p>
                   )}
                 </div>
@@ -1490,17 +1476,31 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                 </div>
 
                 {formFeedback && (
-                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border border-emerald-150 dark:border-emerald-800 rounded-xl text-xs font-semibold animate-fade-in flex items-center space-x-1.5">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <div className={`p-3 rounded-xl text-xs font-semibold animate-fade-in flex items-center space-x-1.5 border ${
+                    formFeedback.startsWith('No se pudo')
+                      ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 border-rose-200 dark:border-rose-800'
+                      : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border-emerald-150 dark:border-emerald-800'
+                  }`}>
+                    {formFeedback.startsWith('No se pudo')
+                      ? <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+                      : <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
                     <span>{formFeedback}</span>
                   </div>
                 )}
 
-                <form onSubmit={(e) => {
+                <form onSubmit={async (e) => {
                   e.preventDefault();
                   if (!reqMessage.trim()) return;
+                  const conflictSession = myActiveBookings.find(s => s.id === reqConflictSessionId);
+                  const conflictLabel = conflictSession
+                    ? `${conflictSession.title} (${conflictSession.date}, ${conflictSession.timeSlot})`
+                    : '';
+                  if (!reqPreferredTime) {
+                    setFormFeedback('No se pudo enviar: selecciona al menos un día y módulo en tus horarios propuestos.');
+                    setTimeout(() => setFormFeedback(null), 5000);
+                    return;
+                  }
                   
-                  const allReqs = getSavedStudentRequests();
                   const newReq: StudentRequest = {
                     id: 'req_' + Date.now(),
                     studentId: user.id,
@@ -1509,18 +1509,28 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                     program: reqProgram,
                     message: reqMessage,
                     preferredTime: reqPreferredTime,
+                    ...(conflictSession ? {
+                      conflictSessionId: conflictSession.id,
+                      conflictSessionLabel: conflictLabel
+                    } : {}),
                     status: 'pendiente',
                     createdAt: new Date().toISOString()
                   };
-                  const updatedReqs = [newReq, ...allReqs];
-                  saveStudentRequests(updatedReqs);
-                  
-                  // Sincronizar en MongoDB Atlas
-                  fetch('/api/student-requests', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(newReq)
-                  }).catch(err => console.warn('Sync student request en Mongo:', err));
+
+                  // Guardar en MongoDB Atlas antes de notificar
+                  try {
+                    const res = await fetch('/api/student-requests', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(newReq)
+                    });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                  } catch (err) {
+                    console.error('Error guardando solicitud:', err);
+                    setFormFeedback('No se pudo enviar tu aviso al servidor. Intenta nuevamente.');
+                    setTimeout(() => setFormFeedback(null), 5000);
+                    return;
+                  }
 
                   // 1. Notificar al Alumno confirmando la recepción
                   triggerNotification(
@@ -1531,8 +1541,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                   );
 
                   // 2. Notificar por correo a TODOS los Docentes Coordinadores registrados
-                  const allSavedUsers = getSavedUsers();
-                  const allDocentes = allSavedUsers.filter(u => u.role === 'docente' && u.email);
+                  const allDocentes = allUsers.filter(u => u && (u.role === 'docente' || (Array.isArray(u.roles) && u.roles.includes('docente'))) && u.email);
                   const progLabel = reqProgram === 'tutorias' ? 'Programa de Tutorías Académicas' : 'Programa de Apoyo Psicoeducativo';
                   const docenteSubject = `[Trayectoria UFT] Nueva Solicitud de Tope Horario / Inconveniente: ${user.name}`;
 
@@ -1571,6 +1580,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                                 <p style="margin: 6px 0; color: #475569; font-size: 13px;"><strong>Correo Alumno:</strong> ${user.email}</p>
                                 <p style="margin: 6px 0; color: #475569; font-size: 13px;"><strong>Programa Solicitado:</strong> ${progLabel}</p>
                                 <p style="margin: 6px 0; color: #475569; font-size: 13px;"><strong>Disponibilidad Propuesta por Alumno:</strong> <span style="color: #0284c7; font-weight: 700;">${reqPreferredTime}</span></p>
+                                ${conflictLabel ? `<p style="margin: 6px 0; color: #475569; font-size: 13px;"><strong>Reserva con inconveniente:</strong> <span style="color: #b45309; font-weight: 700;">${conflictLabel}</span> (se liberará su cupo al resolver)</p>` : ''}
                               </div>
 
                               <div style="background-color: #f1f5f9; border-left: 4px solid #3a9ad9; padding: 14px 16px; border-radius: 4px; margin-bottom: 25px;">
@@ -1596,7 +1606,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                       </div>
                     `;
 
-                    const docentePlain = `Estimados Docentes y Coordinadores,\n\nEl estudiante ${user.name} (${user.rut}, ${user.career}) ha presentado una solicitud de tope horario para el ${progLabel}.\n\nDisponibilidad propuesta: ${reqPreferredTime}\nMotivo: "${reqMessage}"\nCorreo estudiante: ${user.email}\n\nPueden gestionar esta solicitud desde el panel docente de Trayectoria UFT.`;
+                    const docentePlain = `Estimados Docentes y Coordinadores,\n\nEl estudiante ${user.name} (${user.rut}, ${user.career}) ha presentado una solicitud de tope horario para el ${progLabel}.\n\nDisponibilidad propuesta: ${reqPreferredTime}\n${conflictLabel ? `Reserva con inconveniente: ${conflictLabel} (se liberará su cupo al resolver)\n` : ''}Motivo: "${reqMessage}"\nCorreo estudiante: ${user.email}\n\nPueden gestionar esta solicitud desde el panel docente de Trayectoria UFT.`;
 
                     triggerNotification(
                       docente.email,
@@ -1608,7 +1618,8 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                   });
 
                   setReqMessage('');
-                  setReqPreferredTime('');
+                  setReqSlots({});
+                  setReqConflictSessionId('');
                   setFormFeedback(`¡Aviso enviado exitosamente! Se ha notificado por correo a todos los docentes coordinadores (${allDocentes.length} docentes) para gestionar tu solicitud.`);
                   reloadData();
                   setTimeout(() => setFormFeedback(null), 5000);
@@ -1634,6 +1645,47 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                   </div>
 
                   <div>
+                    <label className="block text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 mb-1">¿En cuál de tus reservas tienes el inconveniente?</label>
+                    {myActiveBookings.length === 0 ? (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 p-3 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
+                        No tienes reservas activas. Puedes enviar el aviso igualmente.
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {[{ id: '', title: 'Ninguna de mis reservas', date: '', timeSlot: '' }, ...myActiveBookings].map(s => {
+                          const isChosen = reqConflictSessionId === s.id;
+                          return (
+                            <button
+                              key={s.id || 'none'}
+                              type="button"
+                              onClick={() => setReqConflictSessionId(s.id)}
+                              aria-pressed={isChosen}
+                              className={`w-full text-left p-2.5 rounded-xl border text-xs transition-colors cursor-pointer flex items-center justify-between gap-2 ${
+                                isChosen
+                                  ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-400 text-slate-900 dark:text-amber-100'
+                                  : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-[#3a9ad9]'
+                              }`}
+                            >
+                              <span className="min-w-0">
+                                <span className="font-bold block truncate">{s.title}</span>
+                                {s.id && (
+                                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">{s.date} • {s.timeSlot}</span>
+                                )}
+                              </span>
+                              {isChosen && <CheckCircle2 className="h-4 w-4 text-amber-600 shrink-0" />}
+                            </button>
+                          );
+                        })}
+                        {reqConflictSessionId && (
+                          <p className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold">
+                            Cuando coordinación resuelva tu aviso, dejarás de estar inscrito en esta reserva.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
                     <label className="block text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 mb-1">Escribe tu Mensaje de Inconveniente</label>
                     <textarea
                       required
@@ -1646,14 +1698,94 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
                   <div>
                     <label className="block text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 mb-1">Tus Horarios Propuestos (Flexibilidad)</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ej: Miércoles módulo 15:00 - 16:30 o Viernes 09:00 - 10:30"
-                      value={reqPreferredTime}
-                      onChange={(e) => setReqPreferredTime(e.target.value)}
-                      className="w-full text-xs p-3 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-[#3a9ad9] focus:outline-none font-medium bg-slate-50/50 dark:bg-slate-800 dark:text-white"
-                    />
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">Elige un día y marca los módulos en que podrías asistir. Puedes marcar varios días.</p>
+
+                    {/* 1. Día */}
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                      {REQUEST_DAYS.map(day => {
+                        const count = (reqSlots[day] || []).length;
+                        const isActive = reqActiveDay === day;
+                        return (
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() => setReqActiveDay(day)}
+                            className={`relative py-2 px-2 rounded-xl border text-xs font-bold text-center transition-colors cursor-pointer ${
+                              isActive
+                                ? 'bg-[#092c4c] dark:bg-brand-celeste text-white dark:text-[#092c4c] border-[#092c4c] dark:border-brand-celeste'
+                                : count > 0
+                                ? 'bg-sky-50 dark:bg-sky-950/40 text-[#092c4c] dark:text-sky-200 border-[#3a9ad9]'
+                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+                            }`}
+                          >
+                            {day}
+                            {count > 0 && (
+                              <span className="absolute -top-1.5 -right-1.5 bg-[#3a9ad9] text-white rounded-full w-4.5 h-4.5 min-w-[18px] text-[10px] font-extrabold flex items-center justify-center">
+                                {count}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* 2. Módulos del día elegido */}
+                    <div className="mt-2 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/60">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block mb-2">Módulos del {reqActiveDay}</span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                        {TIME_SLOTS.map(slot => {
+                          const isChosen = (reqSlots[reqActiveDay] || []).includes(slot);
+                          return (
+                            <button
+                              key={slot}
+                              type="button"
+                              onClick={() => toggleReqSlot(reqActiveDay, slot)}
+                              aria-pressed={isChosen}
+                              className={`py-2.5 px-2 rounded-lg border text-xs font-mono font-bold text-center transition-colors cursor-pointer ${
+                                isChosen
+                                  ? 'bg-emerald-600 border-emerald-600 text-white'
+                                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-[#3a9ad9]'
+                              }`}
+                            >
+                              {isChosen ? '✓ ' : ''}{slot}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 3. Resumen de lo elegido */}
+                    {reqSelectedDays.length === 0 ? (
+                      <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-300 font-semibold">Aún no has seleccionado ningún horario.</p>
+                    ) : (
+                      <div className="mt-2 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Tu propuesta</span>
+                          <button
+                            type="button"
+                            onClick={() => setReqSlots({})}
+                            className="text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:text-rose-600 cursor-pointer"
+                          >
+                            Limpiar todo
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {reqSelectedDays.flatMap(day =>
+                            TIME_SLOTS.filter(slot => reqSlots[day].includes(slot)).map(slot => (
+                              <button
+                                key={`${day}-${slot}`}
+                                type="button"
+                                onClick={() => toggleReqSlot(day, slot)}
+                                title="Quitar este horario"
+                                className="px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-[11px] font-bold cursor-pointer hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700"
+                              >
+                                {day} <span className="font-mono">{slot}</span> ✕
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <button
@@ -1692,6 +1824,12 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
                           <p className="text-xs text-slate-700 dark:text-slate-200 italic font-medium">"{r.message}"</p>
                           <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold">Horario propuesto: <strong className="text-slate-600 dark:text-slate-300">{r.preferredTime}</strong></p>
+                          {r.conflictSessionLabel && (
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold">
+                              Reserva con inconveniente: <strong className="text-slate-600 dark:text-slate-300">{r.conflictSessionLabel}</strong>
+                              {r.status === 'resuelto' ? ' (cupo liberado)' : ' (se liberará al resolver)'}
+                            </p>
+                          )}
 
                           {r.status === 'resuelto' && linkedSession && (
                             <div className="mt-2.5 pt-2.5 border-t border-dashed border-emerald-200 dark:border-emerald-800 bg-emerald-50/25 dark:bg-emerald-950/30 p-3 rounded-lg border border-emerald-100 dark:border-emerald-800 space-y-1">
@@ -2072,14 +2210,18 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       </nav>
 
       {/* Modal de Escáner QR con Cámara para Celular */}
-      <MobileQRScannerModal
-        isOpen={isQRScannerOpen}
-        onClose={() => setIsQRScannerOpen(false)}
-        currentUser={user}
-        onAttendanceRegistered={() => {
-          reloadData();
-        }}
-      />
+      {isQRScannerOpen && (
+        <Suspense fallback={null}>
+          <MobileQRScannerModal
+            isOpen={isQRScannerOpen}
+            onClose={() => setIsQRScannerOpen(false)}
+            currentUser={user}
+            onAttendanceRegistered={() => {
+              reloadData();
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* Modal de Tutorial Interactivo Guiado */}
       <AlumnoTutorialModal

@@ -18,7 +18,7 @@ import {
   Check, 
   GraduationCap 
 } from 'lucide-react';
-import { getTodayDateStr, getRelativeDateStr, triggerNotification, saveSessions } from '../../data';
+import { getTodayDateStr, getRelativeDateStr, triggerNotification } from '../../data';
 import { sessionsApi } from '../../services/api';
 import { getSocket } from '../../services/socket';
 import { SessionQRModal } from '../common/SessionQRModal';
@@ -51,7 +51,6 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
       if (payload?.session && payload.action === 'update') {
         setSessions(prev => {
           const updated = prev.map(s => s.id === payload.session.id ? payload.session : s);
-          saveSessions(updated);
           return updated;
         });
         if (selectedQRModalSession && selectedQRModalSession.id === payload.session.id) {
@@ -60,13 +59,11 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
       } else if (payload?.session && payload.action === 'create') {
         setSessions(prev => {
           const updated = [payload.session, ...prev.filter(s => s.id !== payload.session.id)];
-          saveSessions(updated);
           return updated;
         });
       } else if (payload?.sessionId && payload.action === 'delete') {
         setSessions(prev => {
           const updated = prev.filter(s => s.id !== payload.sessionId);
-          saveSessions(updated);
           return updated;
         });
       } else {
@@ -151,7 +148,9 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
       setAttendanceFeedback(`Asistencia registrada para el estudiante.`);
       setTimeout(() => setAttendanceFeedback(null), 3000);
     } catch (err: any) {
-      console.warn('Guardado local de asistencia:', err);
+      console.error('Error al guardar asistencia:', err);
+      setAttendanceFeedback('Error al guardar la asistencia en el servidor.');
+      onReload();
     }
   };
 

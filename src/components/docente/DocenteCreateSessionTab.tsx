@@ -30,6 +30,7 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
   const [formLocation, setFormLocation] = useState('Sala 302 - Edificio Central');
   const [formMaxSpots, setFormMaxSpots] = useState(15);
   const [formTutorId, setFormTutorId] = useState('');
+  const [formStudentId, setFormStudentId] = useState('');
   const [formDocenteId, setFormDocenteId] = useState(user.id || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
@@ -37,6 +38,14 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
   const tutores = useMemo(() => {
     return allUsers.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor'))));
   }, [allUsers]);
+
+  const alumnos = useMemo(() => {
+    return allUsers
+      .filter(u => u && (u.role === 'alumno' || (Array.isArray(u.roles) && u.roles.includes('alumno'))))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [allUsers]);
+
+  const isPersonalizedForm = formType === 'tutoria_personalizada' || formType === 'psico_asesoria_individual';
 
   const docentes = useMemo(() => {
     return allUsers.filter(u => u && (u.role === 'docente' || (Array.isArray(u.roles) && u.roles.includes('docente'))));
@@ -109,10 +118,16 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
       return;
     }
 
+    // Una sesión personalizada siempre se crea para un estudiante específico: nunca queda abierta al resto
+    if (isPersonalizedForm && !formStudentId) {
+      setFeedback({ status: 'error', message: 'Por favor selecciona al estudiante para quien es esta sesión personalizada.' });
+      return;
+    }
+
     setIsSubmitting(true);
 
     const isTutoring = formProgram === 'tutorias';
-    const isPersonalizedType = formType === 'tutoria_personalizada' || formType === 'psico_asesoria_individual';
+    const isPersonalizedType = isPersonalizedForm;
     const calculatedMaxSpots = isPersonalizedType ? 1 : Number(formMaxSpots);
 
     const newSession: Session = {
@@ -125,10 +140,11 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
       timeSlot: formTimeSlot,
       docenteId: isTutoring ? user.id : (formDocenteId || user.id),
       tutorId: isTutoring ? (formTutorId || null) : null,
-      studentIds: [],
+      studentIds: isPersonalizedType ? [formStudentId] : [],
+      ...(isPersonalizedType ? { reservedForStudentId: formStudentId } : {}),
       maxSpots: calculatedMaxSpots,
       location: formLocation.trim(),
-      attendance: {}
+      attendance: isPersonalizedType ? { [formStudentId]: 'pendiente' } : {}
     };
 
     try {
@@ -143,6 +159,19 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
             tutor.name,
             `Nueva Sesión de Tutoría Asignada: "${newSession.title}"`,
             `Se ha programado a tu cargo la tutoría "${newSession.title}" para el día ${newSession.date} en horario ${newSession.timeSlot} (${newSession.location}). Ingresa a tu panel para registrar el cronograma temático.`
+          );
+        }
+      }
+
+      // Notificar al estudiante para quien se creó la sesión personalizada
+      if (isPersonalizedType) {
+        const student = allUsers.find(u => u.id === formStudentId);
+        if (student && student.email) {
+          triggerNotification(
+            student.email,
+            student.name,
+            `Sesión Personalizada Asignada: "${newSession.title}"`,
+            `La coordinación docente agendó para ti la sesión personalizada "${newSession.title}" el día ${newSession.date} en horario ${newSession.timeSlot} (${newSession.location}). Ingresa a la plataforma para revisar los detalles.`
           );
         }
       }
@@ -166,14 +195,15 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
       });
 
       setFormTitle('');
+      setFormStudentId('');
       setFormLocation('Sala 302 - Edificio Central');
       if (formProgram === 'tutorias') {
         setFormTutorId('');
       }
     } catch (err: any) {
       setFeedback({
-        status: 'success',
-        message: `Sesión creada localmente. (${err.message})`
+        status: 'error',
+        message: err.message || 'No se pudo crear la sesión en MongoDB Atlas.'
       });
     } finally {
       setIsSubmitting(false);
@@ -262,6 +292,27 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
               </select>
             </div>
           </div>
+
+          {isPersonalizedForm && (
+            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl">
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                Estudiante para quien es la sesión
+              </label>
+              <select
+                value={formStudentId}
+                onChange={(e) => setFormStudentId(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white"
+              >
+                <option value="">-- Seleccionar estudiante --</option>
+                {alumnos.map(a => (
+                  <option key={a.id} value={a.id}>{a.name} ({a.career || 'Estudiante'})</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-amber-800 mt-1.5">
+                Las sesiones personalizadas (1 a 1) solo las ve este estudiante; no aparecen para inscripción de otros alumnos.
+              </p>
+            </div>
+          )}
 
           <div id="docente-create-form-fields" className="space-y-4">
             <div>

@@ -1,19 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { User, Session, IssueReport, UserAvailability, StudentRequest, WebNotification } from '../types';
-import { 
-  getSavedSessions, 
-  saveSessions, 
-  getSavedReports, 
-  saveReports, 
-  getSavedAvailabilities, 
-  saveAvailabilities, 
-  getSavedStudentRequests, 
-  saveStudentRequests, 
-  getSavedUsers, 
-  saveUsers,
-  getSavedNotifications,
-  saveNotifications
-} from '../data';
 import { usersApi, sessionsApi, reportsApi, studentRequestsApi, availabilitiesApi, broadcastApi } from '../services/api';
 import { getSocket } from '../services/socket';
 import { DocenteSidebar, DocenteTabType } from './docente/DocenteSidebar';
@@ -25,7 +11,6 @@ import { DocenteTutorsTab } from './docente/DocenteTutorsTab';
 import { DocenteStudentsTab } from './docente/DocenteStudentsTab';
 import { DocenteAlertsTab } from './docente/DocenteAlertsTab';
 import { DocenteAnnouncementsTab } from './docente/DocenteAnnouncementsTab';
-import { DocenteAnalyticsTab } from './docente/DocenteAnalyticsTab';
 import { DocenteCommentsTab } from './docente/DocenteCommentsTab';
 import { DocenteTutorialModal } from './docente/DocenteTutorialModal';
 import { ThemeToggle } from './common/ThemeToggle';
@@ -40,6 +25,9 @@ interface DocenteDashboardProps {
   onUpdateUser?: (user: User) => void;
 }
 
+// La pestaña de métricas es la más pesada del panel: se descarga recién al abrirla
+const DocenteAnalyticsTab = lazy(() => import('./docente/DocenteAnalyticsTab').then(m => ({ default: m.DocenteAnalyticsTab })));
+
 export default function DocenteDashboard({ user: propUser, onLogout: propLogout, onUpdateUser: propUpdateUser }: DocenteDashboardProps = {}) {
   const auth = useAuth();
   const user = propUser || auth.currentUser;
@@ -49,15 +37,12 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
   if (!user) return null;
 
   // Database States
-  const [allUsers, setAllUsers] = useState<User[]>(getSavedUsers());
-  const [sessions, setSessions] = useState<Session[]>(getSavedSessions());
-  const [reports, setReports] = useState<IssueReport[]>(getSavedReports());
-  const [studentRequests, setStudentRequests] = useState<StudentRequest[]>(getSavedStudentRequests());
-  const [allAvailabilities, setAllAvailabilities] = useState<UserAvailability[]>(getSavedAvailabilities());
-  const [notifications, setNotifications] = useState<WebNotification[]>(() => {
-    const local = getSavedNotifications();
-    return user.email ? local.filter(n => n.toEmail?.toLowerCase() === user.email.toLowerCase()) : local;
-  });
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [reports, setReports] = useState<IssueReport[]>([]);
+  const [studentRequests, setStudentRequests] = useState<StudentRequest[]>([]);
+  const [allAvailabilities, setAllAvailabilities] = useState<UserAvailability[]>([]);
+  const [notifications, setNotifications] = useState<WebNotification[]>([]);
   const [showNotifInbox, setShowNotifInbox] = useState(false);
   
   // Navigation tabs with localStorage persistence across page reloads
@@ -119,36 +104,31 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
   const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
   const [broadcastFeedback, setBroadcastFeedback] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
 
-  // Recarga sincronizada desde MongoDB con fallback a almacenamiento local
+  // Recarga sincronizada desde MongoDB Atlas (si una consulta falla se conserva el estado actual)
   const loadData = async () => {
     try {
       const [uList, sList, rList, reqList, avList] = await Promise.all([
-        usersApi.getUsers().catch(() => getSavedUsers()),
-        sessionsApi.getSessions().catch(() => getSavedSessions()),
-        reportsApi.getReports().catch(() => getSavedReports()),
-        studentRequestsApi.getStudentRequests().catch(() => getSavedStudentRequests()),
-        availabilitiesApi.getAvailabilities().catch(() => getSavedAvailabilities()),
+        usersApi.getUsers().catch(() => null),
+        sessionsApi.getSessions().catch(() => null),
+        reportsApi.getReports().catch(() => null),
+        studentRequestsApi.getStudentRequests().catch(() => null),
+        availabilitiesApi.getAvailabilities().catch(() => null),
       ]);
 
       if (Array.isArray(uList)) {
         setAllUsers(uList);
-        saveUsers(uList);
       }
       if (Array.isArray(sList)) {
         setSessions(sList);
-        saveSessions(sList);
       }
       if (Array.isArray(rList)) {
         setReports(rList);
-        saveReports(rList);
       }
       if (Array.isArray(reqList)) {
         setStudentRequests(reqList);
-        saveStudentRequests(reqList);
       }
       if (Array.isArray(avList)) {
         setAllAvailabilities(avList);
-        saveAvailabilities(avList);
       }
 
       if (user.email) {
@@ -159,15 +139,14 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
             if (Array.isArray(notifsFromApi)) {
               const sorted = notifsFromApi.sort((a: WebNotification, b: WebNotification) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
               setNotifications(sorted);
-              saveNotifications(sorted);
             }
           }
         } catch (nErr) {
-          // fallback
+          console.error('Error cargando notificaciones:', nErr);
         }
       }
     } catch (e) {
-      console.warn('Cargando respaldo local de datos');
+      console.error('Error cargando datos desde MongoDB Atlas:', e);
     }
   };
 
@@ -180,19 +159,16 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
       if (payload?.session && payload.action === 'update') {
         setSessions(prev => {
           const updated = prev.map(s => s.id === payload.session.id ? payload.session : s);
-          saveSessions(updated);
           return updated;
         });
       } else if (payload?.session && payload.action === 'create') {
         setSessions(prev => {
           const updated = [payload.session, ...prev.filter(s => s.id !== payload.session.id)];
-          saveSessions(updated);
           return updated;
         });
       } else if (payload?.sessionId && payload.action === 'delete') {
         setSessions(prev => {
           const updated = prev.filter(s => s.id !== payload.sessionId);
-          saveSessions(updated);
           return updated;
         });
       } else {
@@ -200,8 +176,18 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
       }
     };
 
+    // Varios eventos seguidos (ej. un comunicado masivo) se agrupan en una sola recarga
+    let reloadTimer: ReturnType<typeof setTimeout> | undefined;
     const handleRealtimeUpdate = () => {
-      loadData();
+      clearTimeout(reloadTimer);
+      reloadTimer = setTimeout(() => loadData(), 250);
+    };
+
+    // Las notificaciones dirigidas a otra persona no requieren recargar este panel
+    const handleNotificationsUpdate = (payload: any) => {
+      const toEmail = payload?.notification?.toEmail;
+      if (toEmail && user.email && toEmail.toLowerCase() !== user.email.toLowerCase()) return;
+      handleRealtimeUpdate();
     };
 
     socket.on('sessions:changed', handleSessionsUpdate);
@@ -209,15 +195,16 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
     socket.on('reports:changed', handleRealtimeUpdate);
     socket.on('users:changed', handleRealtimeUpdate);
     socket.on('availabilities:changed', handleRealtimeUpdate);
-    socket.on('notifications:changed', handleRealtimeUpdate);
+    socket.on('notifications:changed', handleNotificationsUpdate);
 
     return () => {
+      clearTimeout(reloadTimer);
       socket.off('sessions:changed', handleSessionsUpdate);
       socket.off('student_requests:changed', handleRealtimeUpdate);
       socket.off('reports:changed', handleRealtimeUpdate);
       socket.off('users:changed', handleRealtimeUpdate);
       socket.off('availabilities:changed', handleRealtimeUpdate);
-      socket.off('notifications:changed', handleRealtimeUpdate);
+      socket.off('notifications:changed', handleNotificationsUpdate);
     };
   }, [user.email]);
 
@@ -279,7 +266,6 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
         pendingRequestsCount={pendingRequestsCount}
         pendingReportsCount={pendingReportsCount}
         onLogout={onLogout}
-        onOpenTutorial={() => setIsTutorialOpen(true)}
       />
 
       {/* Contenedor Principal con Cabecera Superior */}
@@ -388,6 +374,7 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
           <DocenteTutorsTab
             allUsers={allUsers}
             setAllUsers={setAllUsers}
+            allAvailabilities={allAvailabilities}
             onReload={loadData}
           />
         )}
@@ -407,6 +394,7 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
             sessions={sessions}
             setSessions={setSessions}
             allUsers={allUsers}
+            allAvailabilities={allAvailabilities}
             onReload={loadData}
           />
         )}
@@ -432,12 +420,14 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
         )}
 
         {activeTab === 'analytics' && (
-          <DocenteAnalyticsTab
-            sessions={sessions}
-            allUsers={allUsers}
-            studentRequests={studentRequests}
-            reports={reports}
-          />
+          <Suspense fallback={<p className="text-sm text-slate-500 p-6">Cargando métricas...</p>}>
+            <DocenteAnalyticsTab
+              sessions={sessions}
+              allUsers={allUsers}
+              studentRequests={studentRequests}
+              reports={reports}
+            />
+          </Suspense>
         )}
 
         {activeTab === 'comments' && (

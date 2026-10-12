@@ -151,6 +151,15 @@ export const reportsApi = {
     });
     return handleResponse<IssueReport>(res);
   },
+
+  updateReport: async (id: string, data: Partial<IssueReport>) => {
+    const res = await fetch(`/api/reports/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<{ success: boolean; updated: Partial<IssueReport> }>(res);
+  },
 };
 
 // --- SOLICITUDES DE ESTUDIANTES (TOPES DE HORARIO) ---

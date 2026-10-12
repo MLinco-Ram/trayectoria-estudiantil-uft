@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
-import { User, TutorType, Role } from '../../types';
+import { User, TutorType, Role, UserAvailability } from '../../types';
 import { BookOpen, UserPlus, Search, Edit3, Trash2, GraduationCap, CheckCircle2, AlertTriangle, Lock, Mail, ShieldCheck, Users, UserCheck, ArrowRight, Sparkles, Layers, X, UserCheck2 } from 'lucide-react';
-import { formatRut, getSavedUsers, saveUsers } from '../../data';
+import { formatRut } from '../../data';
 import { usersApi } from '../../services/api';
+import { TutorSchedulesCard } from './tutorAvailability';
 
 interface DocenteTutorsTabProps {
   allUsers: User[];
   setAllUsers: React.Dispatch<React.SetStateAction<User[]>>;
+  allAvailabilities?: UserAvailability[];
   onReload: () => void;
 }
 
 export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
   allUsers,
   setAllUsers,
+  allAvailabilities = [],
   onReload,
 }) => {
   const [tutorSearch, setTutorSearch] = useState('');
@@ -84,7 +87,6 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       await usersApi.updateUser(userToPromote.id, updatePayload);
       const updated = allUsers.map(u => u.id === userToPromote.id ? { ...u, ...updatePayload } : u);
       setAllUsers(updated);
-      saveUsers(updated);
 
       setTutorFeedback({
         status: 'success',
@@ -147,7 +149,6 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       await usersApi.createUser(newTutorUser);
       const updated = [...allUsers, newTutorUser];
       setAllUsers(updated);
-      saveUsers(updated);
 
       setTutorFeedback({
         status: 'success',
@@ -160,13 +161,9 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       setNewTutorPassword('123');
       setNewTutorType('tutor_par');
     } catch (err: any) {
-      const updated = [...allUsers, newTutorUser];
-      setAllUsers(updated);
-      saveUsers(updated);
-
       setTutorFeedback({
-        status: 'success',
-        message: `Tutor registrado localmente. (${err.message})`
+        status: 'error',
+        message: err.message || 'No se pudo registrar al tutor en MongoDB Atlas.'
       });
     } finally {
       setIsSubmittingTutor(false);
@@ -202,13 +199,9 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       await usersApi.updateUser(editingTutor.id, payload);
       const updated = allUsers.map(u => u.id === editingTutor.id ? { ...u, ...payload } : u);
       setAllUsers(updated);
-      saveUsers(updated);
       setEditingTutor(null);
-    } catch (err) {
-      const updated = allUsers.map(u => u.id === editingTutor.id ? { ...u, ...payload } : u);
-      setAllUsers(updated);
-      saveUsers(updated);
-      setEditingTutor(null);
+    } catch (err: any) {
+      alert(`No se pudieron guardar los cambios en MongoDB Atlas: ${err.message || 'error de conexión'}`);
     } finally {
       onReload();
     }
@@ -221,11 +214,8 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       await usersApi.deleteUser(tutor.id);
       const updated = allUsers.filter(u => u.id !== tutor.id);
       setAllUsers(updated);
-      saveUsers(updated);
-    } catch (err) {
-      const updated = allUsers.filter(u => u.id !== tutor.id);
-      setAllUsers(updated);
-      saveUsers(updated);
+    } catch (err: any) {
+      alert(`No se pudo eliminar al tutor "${tutor.name}" en MongoDB Atlas: ${err.message || 'error de conexión'}`);
     } finally {
       onReload();
     }
@@ -252,14 +242,10 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       await usersApi.updateUser(currentLeadTutor.id, payload);
       const updated = allUsers.map(u => u.id === currentLeadTutor.id ? { ...u, assignedTutorIds: selectedAssignedIds } : u);
       setAllUsers(updated);
-      saveUsers(updated);
       setAssignmentFeedback(`¡Tutores asignados exitosamente a ${currentLeadTutor.name}!`);
       setTimeout(() => setAssignmentFeedback(null), 4000);
     } catch (err: any) {
-      const updated = allUsers.map(u => u.id === currentLeadTutor.id ? { ...u, assignedTutorIds: selectedAssignedIds } : u);
-      setAllUsers(updated);
-      saveUsers(updated);
-      setAssignmentFeedback(`Asignaciones guardadas localmente. (${err.message})`);
+      setAssignmentFeedback(`No se pudieron guardar las asignaciones en MongoDB Atlas. (${err.message})`);
       setTimeout(() => setAssignmentFeedback(null), 4000);
     } finally {
       setIsSavingAssignments(false);
@@ -273,11 +259,8 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       await usersApi.updateUser(tutor.id, { tutorType: updatedType });
       const updated = allUsers.map(u => u.id === tutor.id ? { ...u, tutorType: updatedType } : u);
       setAllUsers(updated);
-      saveUsers(updated);
-    } catch (err) {
-      const updated = allUsers.map(u => u.id === tutor.id ? { ...u, tutorType: updatedType } : u);
-      setAllUsers(updated);
-      saveUsers(updated);
+    } catch (err: any) {
+      alert(`No se pudo cambiar el tipo de tutor en MongoDB Atlas: ${err.message || 'error de conexión'}`);
     } finally {
       onReload();
     }
@@ -584,6 +567,9 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
           )}
         </div>
       </div>
+
+      {/* Horarios semanales declarados por los tutores */}
+      <TutorSchedulesCard tutores={tutores} allAvailabilities={allAvailabilities} />
 
       {/* Nómina General de Tutores */}
       <div id="docente-tutors-directory" className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">

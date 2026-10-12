@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { User, Session, IssueReport, UserAvailability, SessionFeedback, WebNotification } from '../types';
-import { getSavedSessions, saveSessions, getSavedReports, saveReports, getSavedAvailabilities, saveAvailabilities, getSavedUsers, saveUsers, triggerNotification, TIME_SLOTS, getSavedNotifications, saveNotifications } from '../data';
+import { triggerNotification, TIME_SLOTS } from '../data';
 import { getSocket } from '../services/socket';
 import { 
   Calendar, 
@@ -67,11 +67,8 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [reports, setReports] = useState<IssueReport[]>([]);
-  const [allUsers, setAllUsers] = useState<User[]>(getSavedUsers());
-  const [notifications, setNotifications] = useState<WebNotification[]>(() => {
-    const local = getSavedNotifications();
-    return user.email ? local.filter(n => n.toEmail?.toLowerCase() === user.email.toLowerCase()) : local;
-  });
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [notifications, setNotifications] = useState<WebNotification[]>([]);
   const [showNotifInbox, setShowNotifInbox] = useState(false);
 
   // Usuario actualizado en tiempo real desde MongoDB y WebSockets
@@ -134,7 +131,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
   const [description, setDescription] = useState('');
   const [formFeedback, setFormFeedback] = useState<string | null>(null);
   const [myAvailability, setMyAvailability] = useState<UserAvailability | null>(null);
-  const [allAvailabilities, setAllAvailabilities] = useState<UserAvailability[]>(getSavedAvailabilities());
+  const [allAvailabilities, setAllAvailabilities] = useState<UserAvailability[]>([]);
   const [activeQRModalSession, setActiveQRModalSession] = useState<Session | null>(null);
   const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
   // Evita que una recarga en segundo plano (disparada por cambios en OTRA pestaña, ej. el panel del docente)
@@ -169,80 +166,69 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
   useEffect(() => {
     reloadData();
 
-    const handleStorage = () => {
-      reloadData();
-    };
-    window.addEventListener('storage', handleStorage);
-
     // Sincronización en tiempo real vía WebSockets
     const socket = getSocket();
+    // Varios eventos seguidos (ej. un comunicado masivo) se agrupan en una sola recarga
+    let reloadTimer: ReturnType<typeof setTimeout> | undefined;
     const handleRealtimeUpdate = () => {
-      reloadData();
+      clearTimeout(reloadTimer);
+      reloadTimer = setTimeout(() => reloadData(), 250);
+    };
+
+    // Las notificaciones dirigidas a otra persona no requieren recargar este panel
+    const handleNotificationsUpdate = (payload: any) => {
+      const toEmail = payload?.notification?.toEmail;
+      if (toEmail && user.email && toEmail.toLowerCase() !== user.email.toLowerCase()) return;
+      handleRealtimeUpdate();
     };
 
     socket.on('sessions:changed', handleRealtimeUpdate);
     socket.on('reports:changed', handleRealtimeUpdate);
     socket.on('users:changed', handleRealtimeUpdate);
     socket.on('availabilities:changed', handleRealtimeUpdate);
-    socket.on('notifications:changed', handleRealtimeUpdate);
+    socket.on('notifications:changed', handleNotificationsUpdate);
 
     return () => {
-      window.removeEventListener('storage', handleStorage);
+      clearTimeout(reloadTimer);
       socket.off('sessions:changed', handleRealtimeUpdate);
       socket.off('reports:changed', handleRealtimeUpdate);
       socket.off('users:changed', handleRealtimeUpdate);
       socket.off('availabilities:changed', handleRealtimeUpdate);
-      socket.off('notifications:changed', handleRealtimeUpdate);
+      socket.off('notifications:changed', handleNotificationsUpdate);
     };
   }, [user]);
 
+  // Recarga todos los datos desde MongoDB Atlas (si una consulta falla se conserva el estado actual)
   const reloadData = async () => {
-    setSessions(getSavedSessions());
-    setReports(getSavedReports());
-
-    // Cargar sesiones en tiempo real desde MongoDB Atlas
     try {
       const sRes = await fetch('/api/sessions');
       if (sRes.ok) {
         const sessionsFromApi = await sRes.json();
-        if (Array.isArray(sessionsFromApi)) {
-          setSessions(sessionsFromApi);
-          saveSessions(sessionsFromApi);
-        }
+        if (Array.isArray(sessionsFromApi)) setSessions(sessionsFromApi);
       }
     } catch (sErr) {
-      // fallback local
+      console.error('Error cargando sesiones:', sErr);
     }
 
-    // Cargar reportes en tiempo real desde MongoDB Atlas
     try {
       const repRes = await fetch('/api/reports');
       if (repRes.ok) {
         const reportsFromApi = await repRes.json();
-        if (Array.isArray(reportsFromApi)) {
-          setReports(reportsFromApi);
-          saveReports(reportsFromApi);
-        }
+        if (Array.isArray(reportsFromApi)) setReports(reportsFromApi);
       }
     } catch (rErr) {
-      // fallback local
+      console.error('Error cargando reportes:', rErr);
     }
 
-    // Cargar usuarios actualizados
-    let currentUsers = getSavedUsers();
     try {
       const uRes = await fetch('/api/users');
       if (uRes.ok) {
         const usersFromApi = await uRes.json();
-        if (Array.isArray(usersFromApi)) {
-          currentUsers = usersFromApi;
-          saveUsers(usersFromApi);
-        }
+        if (Array.isArray(usersFromApi)) setAllUsers(usersFromApi);
       }
     } catch (e) {
-      // fallback
+      console.error('Error cargando usuarios:', e);
     }
-    setAllUsers(currentUsers);
 
     // Cargar notificaciones para el tutor
     if (user.email) {
@@ -253,39 +239,30 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
           if (Array.isArray(notifsFromApi)) {
             const sorted = notifsFromApi.sort((a: WebNotification, b: WebNotification) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
             setNotifications(sorted);
-            saveNotifications(sorted);
           }
         }
       } catch (nErr) {
-        // fallback
+        console.error('Error cargando notificaciones:', nErr);
       }
     }
 
-    // Cargar disponibilidad desde MongoDB (tiene prioridad sobre localStorage)
-    let list = getSavedAvailabilities();
+    // Cargar disponibilidades desde MongoDB Atlas
+    let list: UserAvailability[];
     try {
       const avRes = await fetch('/api/availabilities');
-      if (avRes.ok) {
-        const avsFromApi = await avRes.json();
-        if (Array.isArray(avsFromApi) && avsFromApi.length > 0) {
-          const sanitizedAvs = avsFromApi.map((av: UserAvailability) => ({
-            ...av,
-            days: av.days.map(d => ({
-              ...d,
-              slots: (d.slots || []).filter(s => TIME_SLOTS.includes(s))
-            }))
-          }));
-          const mongoUserIds = new Set(sanitizedAvs.map((a: any) => a.userId));
-          const mergedAvs = [
-            ...sanitizedAvs,
-            ...list.filter(a => !mongoUserIds.has(a.userId))
-          ];
-          saveAvailabilities(mergedAvs);
-          list = mergedAvs;
-        }
-      }
+      if (!avRes.ok) return;
+      const avsFromApi = await avRes.json();
+      if (!Array.isArray(avsFromApi)) return;
+      list = avsFromApi.map((av: UserAvailability) => ({
+        ...av,
+        days: (av.days || []).map(d => ({
+          ...d,
+          slots: (d.slots || []).filter(s => TIME_SLOTS.includes(s))
+        }))
+      }));
     } catch (e) {
-      // fallback a localStorage
+      console.error('Error cargando disponibilidades:', e);
+      return;
     }
     setAllAvailabilities(list);
 
@@ -438,92 +415,25 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
 
   // Handle saving syllabus for a session
   const handleSaveSyllabus = async (sessionId: string) => {
-    const current = getSavedSessions();
-    let updatedTargetSession: Session | null = null;
-    const updated = current.map(s => {
-      if (s.id === sessionId) {
-        updatedTargetSession = {
-          ...s,
-          syllabus: syllabusText.trim()
-        };
-        return updatedTargetSession;
-      }
-      return s;
-    });
+    const syllabus = syllabusText.trim();
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ syllabus })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      console.error('Error guardando cronograma:', err);
+      setSyllabusFeedback('No se pudo guardar el cronograma en el servidor. Intenta nuevamente.');
+      setTimeout(() => setSyllabusFeedback(null), 4000);
+      return;
+    }
 
-    saveSessions(updated);
-    setSessions(updated);
+    setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, syllabus } : s));
     setEditingSyllabusSessionId(null);
     setSyllabusFeedback('¡Cronograma y plan de trabajo actualizado con éxito! Ahora es visible para los estudiantes y docentes.');
     setTimeout(() => setSyllabusFeedback(null), 4000);
-
-    if (updatedTargetSession) {
-      try {
-        await fetch(`/api/sessions/${sessionId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedTargetSession)
-        });
-      } catch (err) {
-        console.warn('Sync syllabus to backend:', err);
-      }
-    }
-  };
-
-  // Quick Attendance tracking inside Tutor view
-  const handleTutorAttendance = (sessionId: string, studentId: string, status: 'presente' | 'ausente') => {
-    const current = getSavedSessions();
-    let newStatus: 'presente' | 'ausente' | 'pendiente' = status;
-    let targetSessionObj: Session | null = null;
-
-    const updated: Session[] = current.map(s => {
-      if (s.id === sessionId) {
-        const currentAtt = s.attendance || {};
-        newStatus = (currentAtt[studentId] === status ? 'pendiente' : status) as 'presente' | 'ausente' | 'pendiente';
-        const updatedSess: Session = {
-          ...s,
-          attendance: {
-            ...currentAtt,
-            [studentId]: newStatus
-          },
-          isCompleted: true
-        };
-        targetSessionObj = updatedSess;
-        return updatedSess;
-      }
-      return s;
-    });
-
-    saveSessions(updated);
-    setSessions(updated);
-
-    if (targetSessionObj) {
-      // Sincronizar en backend / MongoDB
-      fetch(`/api/sessions/${sessionId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(targetSessionObj)
-      }).catch(err => console.warn('Error sync attendance a Mongo:', err));
-
-      const student = allUsers.find(u => u.id === studentId);
-      if (student && student.email) {
-        if (newStatus === 'presente') {
-          triggerNotification(
-            student.email,
-            student.name,
-            `Encuesta de Satisfacción: "${(targetSessionObj as Session).title}"`,
-            `Tu tutoría "${(targetSessionObj as Session).title}" del día ${(targetSessionObj as Session).date} ha finalizado. Por favor ingresa a la plataforma en tu Historial de Clases para responder la encuesta de satisfacción de 12 preguntas y evaluar tu experiencia.`
-          );
-        } else if (newStatus === 'ausente') {
-          triggerNotification(
-            student.email,
-            student.name,
-            `Aviso de Inasistencia: "${(targetSessionObj as Session).title}"`,
-            `Registramos tu inasistencia en la sesión de tutoría "${(targetSessionObj as Session).title}" del día ${(targetSessionObj as Session).date}. Ingresa a la plataforma para revisar los detalles.`
-          );
-        }
-      }
-    }
   };
 
   // Otros tutores disponibles para suplir / sustituir (excluyendo al tutor actual)
@@ -553,7 +463,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
   }, [sessions, selectedSessionId]);
 
   // Submit re-routing or re-scheduling ticket to coordinator
-  const handleSendReport = (e: React.FormEvent) => {
+  const handleSendReport = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormFeedback(null);
 
@@ -573,7 +483,6 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       return;
     }
 
-    const currentReports = getSavedReports();
     const suggestedTutorObj = suggestedTutorId ? otherTutores.find(t => t.id === suggestedTutorId) : undefined;
 
     const newReport: IssueReport = {
@@ -589,16 +498,20 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       createdAt: new Date().toISOString()
     };
 
-    const updated = [...currentReports, newReport];
-    saveReports(updated);
-    setReports(updated);
-
-    // Sincronizar en MongoDB Atlas
-    fetch('/api/reports', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newReport)
-    }).catch(err => console.warn('Sync report en Mongo:', err));
+    // Guardar en MongoDB Atlas antes de notificar
+    try {
+      const res = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newReport)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      console.error('Error guardando reporte:', err);
+      setFormFeedback('No se pudo enviar el inconveniente al servidor. Intenta nuevamente.');
+      return;
+    }
+    setReports(prev => [...prev.filter(r => r.id !== newReport.id), newReport]);
 
     // Obtener información de la sesión afectada
     const targetSession = sessions.find(s => s.id === selectedSessionId);
@@ -693,9 +606,9 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       {/* Top Header Navigation Bar */}
       <header className="bg-[#092c4c] dark:bg-slate-900 text-white shadow-md sticky top-0 z-40 border-b border-[#153a5c] dark:border-slate-800 select-none">
         <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 gap-3">
+          <div className="flex flex-wrap items-center justify-between min-h-16 gap-x-3 gap-y-2 py-2">
             {/* Logo e Identidad Institucional */}
-            <div id="tutor-header-brand" className="flex items-center gap-3 shrink-0">
+            <div id="tutor-header-brand" className="order-1 flex items-center gap-3 shrink-0">
               <div className="bg-white p-1 rounded-lg flex items-center justify-center shadow-xs">
                 <img src="/logo-uft.png" alt="UFT" className="h-6 w-auto object-contain" />
               </div>
@@ -715,12 +628,20 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
               </div>
             </div>
 
-            {/* Navegación Superior Horizontal Principal */}
-            <nav id="tutor-desktop-nav-bar" className="hidden md:flex items-center gap-1.5 lg:gap-2 overflow-x-auto py-1 scrollbar-none">
+            {/* Navegación Superior Principal: siempre visible. En pantallas angostas baja a una fila propia
+                y los botones se reparten en varias líneas en vez de quedar ocultos. */}
+            <nav
+              id="tutor-desktop-nav-bar"
+              className={`order-3 w-full flex flex-wrap items-center gap-1.5 lg:gap-2 ${
+                isLeadTutor
+                  ? '2xl:order-2 2xl:w-auto 2xl:flex-1 2xl:min-w-0 2xl:justify-center'
+                  : 'xl:order-2 xl:w-auto xl:flex-1 xl:min-w-0 xl:justify-center'
+              }`}
+            >
               <button
                 type="button"
                 onClick={() => { setActiveTab('my_schedule'); reloadData(); }}
-                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === 'my_schedule'
                     ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
                     : 'text-slate-200 hover:bg-white/10 hover:text-white'
@@ -733,7 +654,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
               <button
                 type="button"
                 onClick={() => { setActiveTab('attendance'); reloadData(); }}
-                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === 'attendance'
                     ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
                     : 'text-slate-200 hover:bg-white/10 hover:text-white'
@@ -746,7 +667,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
               <button
                 type="button"
                 onClick={() => { setActiveTab('my_availability'); reloadData(); }}
-                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === 'my_availability'
                     ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
                     : 'text-slate-200 hover:bg-white/10 hover:text-white'
@@ -759,7 +680,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
               <button
                 type="button"
                 onClick={() => { setActiveTab('report_issue'); reloadData(); }}
-                className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === 'report_issue'
                     ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
                     : 'text-slate-200 hover:bg-white/10 hover:text-white'
@@ -773,7 +694,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                 <button
                   type="button"
                   onClick={() => { setActiveTab('assigned_tutors'); reloadData(); }}
-                  className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                     activeTab === 'assigned_tutors'
                       ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-sm ring-1 ring-indigo-300 font-black'
                       : 'text-indigo-200 hover:bg-indigo-500/20 hover:text-white'
@@ -795,7 +716,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                 <button
                   type="button"
                   onClick={() => { setActiveTab('compliance_review'); reloadData(); }}
-                  className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                     activeTab === 'compliance_review'
                       ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-sm ring-1 ring-indigo-300 font-black'
                       : 'text-indigo-200 hover:bg-indigo-500/20 hover:text-white'
@@ -808,7 +729,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
             </nav>
 
             {/* Acciones Derecha (Bandeja, ThemeToggle, Perfil del Tutor & Logout) */}
-            <div id="tutor-header-actions-group" className="flex items-center gap-2 shrink-0">
+            <div id="tutor-header-actions-group" className={`order-2 flex items-center gap-2 shrink-0 ${isLeadTutor ? '2xl:order-3' : 'xl:order-3'}`}>
               <button
                 type="button"
                 onClick={() => setShowNotifInbox(true)}
@@ -934,21 +855,6 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                       type="button"
                       onClick={() => {
                         setShowLogoutDropdown(false);
-                        handleOpenTutorial();
-                      }}
-                      className="w-full text-left px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-white transition flex items-center justify-between text-[11px] font-semibold cursor-pointer border border-amber-500/20"
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <span className="font-mono font-black text-amber-400">!</span>
-                        <span>Ver Tutorial del Portal</span>
-                      </span>
-                      <span className="text-[10px] text-amber-400 font-bold">Abrir &rarr;</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowLogoutDropdown(false);
                         onLogout();
                       }}
                       className="w-full bg-red-650 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
@@ -963,51 +869,6 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
           </div>
         </div>
 
-        {/* Barra de Pestañas Móviles (Scroll horizontal para celulares) */}
-        <div id="tutor-mobile-tabs-bar" className="md:hidden border-t border-[#153a5c] dark:border-slate-800 px-3 py-2 flex items-center gap-1.5 overflow-x-auto scrollbar-none bg-[#07223b] dark:bg-slate-900/90">
-          <button
-            onClick={() => { setActiveTab('my_schedule'); reloadData(); }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap ${activeTab === 'my_schedule' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-white/10 text-white'}`}
-          >
-            Mis Tutorías
-          </button>
-          <button
-            onClick={() => { setActiveTab('attendance'); reloadData(); }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap ${activeTab === 'attendance' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-white/10 text-white'}`}
-          >
-            Pasar Lista
-          </button>
-          <button
-            onClick={() => { setActiveTab('my_availability'); reloadData(); }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap ${activeTab === 'my_availability' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-white/10 text-white'}`}
-          >
-            Cargar Horario
-          </button>
-          <button
-            onClick={() => { setActiveTab('report_issue'); reloadData(); }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap ${activeTab === 'report_issue' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-white/10 text-white'}`}
-          >
-            Inconvenientes
-          </button>
-          {isLeadTutor && (
-            <>
-              <button
-                onClick={() => { setActiveTab('assigned_tutors'); reloadData(); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap flex items-center gap-1 ${activeTab === 'assigned_tutors' ? 'bg-indigo-600 text-white' : 'bg-indigo-950 text-indigo-200 border border-indigo-700/50'}`}
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Tutores ({assignedTutors.length})</span>
-              </button>
-              <button
-                onClick={() => { setActiveTab('compliance_review'); reloadData(); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap flex items-center gap-1 ${activeTab === 'compliance_review' ? 'bg-indigo-600 text-white' : 'bg-indigo-950 text-indigo-200 border border-indigo-700/50'}`}
-              >
-                <ClipboardCheck className="w-3.5 h-3.5" />
-                <span>Cumplimiento</span>
-              </button>
-            </>
-          )}
-        </div>
       </header>
 
       {/* Main Workspace Column */}
@@ -1225,7 +1086,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
               </div>
 
               {formFeedback && (
-                <div className="p-4 bg-emerald-50 text-emerald-800 border border-emerald-100 rounded-xl text-xs font-semibold animate-fade-in flex items-center space-x-2">
+                <div className={`p-4 ${formFeedback.startsWith('No se pudo') ? 'bg-rose-50 text-rose-800 border border-rose-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-100'} rounded-xl text-xs font-semibold animate-fade-in flex items-center space-x-2`}>
                   <CheckCircle className="h-4 w-4 shrink-0 text-emerald-600" />
                   <span>{formFeedback}</span>
                 </div>
@@ -1544,7 +1405,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
               </div>
 
               {formFeedback && (
-                <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-100 rounded-xl text-xs font-semibold animate-fade-in flex items-center space-x-1.5">
+                <div className={`p-3 ${formFeedback.startsWith('No se pudo') ? 'bg-rose-50 text-rose-800 border border-rose-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-100'} rounded-xl text-xs font-semibold animate-fade-in flex items-center space-x-1.5`}>
                   <CheckCircle className="h-4 w-4 text-emerald-600" />
                   <span>{formFeedback}</span>
                 </div>
@@ -1658,32 +1519,30 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                 </button>
                 <button
                   onClick={async () => {
-                    const list = getSavedAvailabilities();
-                    const filtered = list.filter(a => !(a.userId === user.id && a.role === 'tutor'));
                     const updatedAvail = {
                       ...myAvailability,
                       updatedAt: new Date().toISOString()
                     };
-                    const nextList = [...filtered, updatedAvail];
-                    saveAvailabilities(nextList);
-                    setMyAvailability(updatedAvail);
 
-                    // Sincronizar en MongoDB Atlas
+                    // Guardar en MongoDB Atlas
                     try {
-                      await fetch('/api/availabilities', {
+                      const res = await fetch('/api/availabilities', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(updatedAvail)
                       });
+                      if (!res.ok) throw new Error(`HTTP ${res.status}`);
                     } catch (err) {
-                      console.warn('Error sincronizando disponibilidad en Mongo:', err);
+                      console.error('Error guardando disponibilidad en Mongo:', err);
+                      setFormFeedback('No se pudo guardar tu disponibilidad en el servidor. Tus cambios siguen en pantalla: intenta guardar nuevamente.');
+                      setTimeout(() => setFormFeedback(null), 6000);
+                      return;
                     }
 
-                    // Ya se guardó localmente y en Mongo: es seguro volver a aceptar recargas automáticas
-                    availabilityDirtyRef.current = false;
+                    setMyAvailability(updatedAvail);
 
-                    // Notificar cambios entre pestañas mediante evento storage
-                    window.dispatchEvent(new Event('storage'));
+                    // Ya se guardó en Mongo: es seguro volver a aceptar recargas automáticas
+                    availabilityDirtyRef.current = false;
 
                     setIsEditingSchedule(false);
                     setFormFeedback("¡Tu disponibilidad semanal (Lunes a Domingo) ha sido guardada y comunicada a los Docentes!");

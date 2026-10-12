@@ -11,6 +11,18 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          // Librerías estables en archivos propios: el navegador las conserva en caché entre despliegues
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-dom/client', 'react-router-dom'],
+            'vendor-realtime': ['socket.io-client'],
+            'vendor-icons': ['lucide-react'],
+          },
+        },
+      },
+    },
     server: {
       proxy: {
         '/api': {

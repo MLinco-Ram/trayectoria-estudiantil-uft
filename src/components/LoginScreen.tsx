@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { User, Role } from '../types';
-import { getSavedUsers, formatRut } from '../data';
+import { formatRut } from '../data';
 import { 
   LogIn, 
   UserPlus, 
@@ -167,26 +167,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
       checkMultiRoleOrAuth(data);
     } catch (err) {
-      if (cleanEntered === 'admin' && passwordInput === '1234') {
-        const adminUser: User = {
-          id: 'admin_root',
-          name: 'Administrador del Sistema',
-          rut: 'admin',
-          role: 'admin',
-          roles: ['admin'],
-          email: 'admin@uft.cl',
-          career: 'Administración y Soporte TI'
-        };
-        handleSuccessfulAuth(adminUser);
-        return;
-      }
-      const allUsers = getSavedUsers();
-      const matchedUser = allUsers.find(u => u.rut.replace(/[\.\-]/g, '').trim().toLowerCase() === cleanEntered.toLowerCase());
-      if (!matchedUser) {
-        setError('RUT no encontrado.');
-        return;
-      }
-      checkMultiRoleOrAuth(matchedUser);
+      setError('No se pudo conectar con el servidor. Intenta nuevamente en unos momentos.');
     }
   };
 
@@ -223,22 +204,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       return;
     }
 
-    let currentUsers = getSavedUsers();
-    try {
-      const res = await fetch('/api/users');
-      if (res.ok) {
-        currentUsers = await res.json();
-      }
-    } catch (err) {
-      console.warn('Usando respaldo local.');
-    }
-
-    const exists = currentUsers.some(u => u.rut.replace(/[\.\-]/g, '').trim().toLowerCase() === cleanRut.toLowerCase());
-    if (exists) {
-      setRegFeedback({ status: 'error', message: 'El RUT ya se encuentra registrado en el sistema.' });
-      return;
-    }
-
     const newUser: User = {
       id: `alumno_${Date.now()}`,
       name: regName.trim(),
@@ -255,21 +220,18 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newUser)
       });
-      if (res.ok) {
-        setRegFeedback({ status: 'success', message: '¡Cuenta creada con éxito! Iniciando sesión...' });
-        setTimeout(() => {
-          handleSuccessfulAuth(newUser);
-        }, 1200);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setRegFeedback({ status: 'error', message: data.error || 'No se pudo crear la cuenta.' });
         return;
       }
+      setRegFeedback({ status: 'success', message: '¡Cuenta creada con éxito! Iniciando sesión...' });
+      setTimeout(() => {
+        handleSuccessfulAuth(data);
+      }, 1200);
     } catch (err) {
-      console.warn('Fallback al guardar en Mongo:', err);
+      setRegFeedback({ status: 'error', message: 'No se pudo conectar con el servidor. Intenta nuevamente en unos momentos.' });
     }
-
-    setRegFeedback({ status: 'success', message: '¡Cuenta creada con éxito! Iniciando sesión...' });
-    setTimeout(() => {
-      handleSuccessfulAuth(newUser);
-    }, 1200);
   };
 
   return (
