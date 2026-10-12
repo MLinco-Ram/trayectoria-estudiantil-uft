@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Sparkles, 
   Award, 
@@ -12,6 +12,7 @@ import {
   Bell,
   Grid
 } from 'lucide-react';
+import { useTutorialSpotlight, TutorialSpotlight, getSpotlightTransition } from '../common/tutorialSpotlight';
 
 export interface AlumnoTutorialModalProps {
   isOpen: boolean;
@@ -39,18 +40,10 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
   onNavigateTab,
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [windowDimensions, setWindowDimensions] = useState({
-    width: typeof window !== 'undefined' ? window.innerWidth : 1200,
-    height: typeof window !== 'undefined' ? window.innerHeight : 800
-  });
-
   const popoverRef = useRef<HTMLDivElement>(null);
   const wasOpenRef = useRef(false);
-  const animationFrameRef = useRef<number | null>(null);
 
-  const isMobile = windowDimensions.width < 768;
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   const steps: StepItem[] = useMemo(() => {
     const commonFirstFour: StepItem[] = [
@@ -180,63 +173,19 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
 
   const activeStepData = steps[currentStep] || steps[0];
 
-  // Función continua para seguir suavemente el elemento durante la transición de scroll
-  const trackTargetElementSmoothly = useCallback((elem: HTMLElement, durationMs = 500) => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-
-    const startTime = performance.now();
-
-    const frame = (currentTime: number) => {
-      const elapsed = currentTime - startTime;
-      if (elem && document.body.contains(elem)) {
-        setTargetRect(elem.getBoundingClientRect());
-      }
-      if (elapsed < durationMs) {
-        animationFrameRef.current = requestAnimationFrame(frame);
-      }
-    };
-
-    animationFrameRef.current = requestAnimationFrame(frame);
-  }, []);
-
-  // Actualizar posición del elemento objetivo
-  const updateTargetPositionForStep = useCallback((stepIdx: number) => {
-    const stepObj = steps[stepIdx];
-    if (!stepObj) {
-      setTargetRect(null);
-      return;
-    }
-
-    const selector = stepObj.targetSelector;
-    let elem = document.querySelector(selector) as HTMLElement | null;
-
-    if (!elem && selector === '#alumno-desktop-nav-bar') {
-      elem = document.querySelector('#student-main-profile-card') as HTMLElement | null;
-    }
-
-    if (elem) {
-      const isHeaderElement = selector === '#alumno-desktop-nav-bar' || selector === '#alumno-header-actions-group';
-      
-      if (isHeaderElement) {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        const headerHeight = 80;
-        const rectTop = elem.getBoundingClientRect().top;
-        const targetScrollTop = window.pageYOffset + rectTop - headerHeight;
-
-        window.scrollTo({
-          top: Math.max(0, targetScrollTop),
-          behavior: 'smooth'
-        });
-      }
-
-      trackTargetElementSmoothly(elem, 600);
-    } else {
-      setTargetRect(null);
-    }
-  }, [steps, trackTargetElementSmoothly]);
+  // Foco sobre el elemento del paso: se mueve una sola vez, sincronizado con el scroll
+  const { targetRect, animate, viewport: windowDimensions } = useTutorialSpotlight({
+    isOpen,
+    stepKey: currentStep,
+    startDelayMs: activeStepData?.tab && onNavigateTab ? 80 : 0,
+    resolveTarget: () => {
+      const stepObj = steps[currentStep];
+      if (!stepObj) return null;
+      const selector = stepObj.targetSelector;
+      return (document.querySelector(selector) ||
+        (selector === '#alumno-desktop-nav-bar' ? document.querySelector('#student-main-profile-card') : null)) as HTMLElement | null;
+    },
+  });
 
   // Reset del paso SOLAMENTE cuando isOpen cambia de false a true
   useEffect(() => {
@@ -245,61 +194,17 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
       wasOpenRef.current = true;
     } else if (!isOpen) {
       wasOpenRef.current = false;
-      setTargetRect(null);
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
     }
   }, [isOpen]);
 
-  // Manejar cambio de paso y sincronización fluida con pestañas
+  // Al cambiar de paso, abrir la pestaña que ese paso explica
   useEffect(() => {
     if (!isOpen) return;
-
-    setIsTransitioning(true);
     const stepObj = steps[currentStep];
     if (stepObj?.tab && onNavigateTab) {
       onNavigateTab(stepObj.tab);
     }
-
-    const timer = setTimeout(() => {
-      updateTargetPositionForStep(currentStep);
-      setIsTransitioning(false);
-    }, 120);
-
-    return () => clearTimeout(timer);
-  }, [currentStep, isOpen, onNavigateTab, updateTargetPositionForStep, steps]);
-
-  // Manejo de resize y scroll para mantener alineado el spotlight
-  useEffect(() => {
-    const handleResize = () => {
-      setWindowDimensions({
-        width: window.innerWidth,
-        height: window.innerHeight
-      });
-      if (isOpen) {
-        updateTargetPositionForStep(currentStep);
-      }
-    };
-
-    const handleScroll = () => {
-      if (!isOpen) return;
-      const stepObj = steps[currentStep];
-      if (stepObj) {
-        const elem = document.querySelector(stepObj.targetSelector);
-        if (elem) {
-          setTargetRect(elem.getBoundingClientRect());
-        }
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, [isOpen, currentStep, updateTargetPositionForStep, steps]);
+  }, [currentStep, isOpen, onNavigateTab, steps]);
 
   // Teclado
   useEffect(() => {
@@ -358,8 +263,9 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
 
     return {
       position: 'fixed',
-      top: `${Math.round(top)}px`,
-      left: `${Math.round(left)}px`,
+      top: 0,
+      left: 0,
+      transform: `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`,
       width: `${popoverWidth}px`,
       maxWidth: 'calc(100vw - 32px)',
       zIndex: 10001
@@ -368,32 +274,16 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[10000] select-none pointer-events-auto transition-opacity duration-300">
-      {/* Fondo oscuro con foco/spotlight recortado y animación ultra-fluida */}
+      {/* Fondo oscuro con foco recortado sobre el elemento del paso */}
       {targetRect ? (
-        <div
-          className="fixed pointer-events-none rounded-2xl border-[3px] border-amber-400 dark:border-amber-300 ring-8 ring-amber-400/25 z-[10000]"
-          style={{
-            top: `${Math.max(0, targetRect.top - 8)}px`,
-            left: `${Math.max(0, targetRect.left - 8)}px`,
-            width: `${Math.min(windowDimensions.width, targetRect.width + 16)}px`,
-            height: `${targetRect.height + 16}px`,
-            boxShadow: '0 0 0 9999px rgba(3, 15, 29, 0.82), 0 0 30px rgba(245, 158, 11, 0.35)',
-            transition: 'top 450ms cubic-bezier(0.25, 1, 0.5, 1), left 450ms cubic-bezier(0.25, 1, 0.5, 1), width 450ms cubic-bezier(0.25, 1, 0.5, 1), height 450ms cubic-bezier(0.25, 1, 0.5, 1)'
-          }}
-        >
-          {/* Indicador de paso en esquina del spotlight */}
-          <span className="absolute -top-3 -right-3 flex h-6 w-6">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-6 w-6 bg-amber-500 text-[#092c4c] font-black text-[11px] items-center justify-center font-mono shadow-md border-2 border-white">
-              {currentStep + 1}
-            </span>
-          </span>
-        </div>
-      ) : (
-        <div 
-          className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs transition-opacity duration-400 z-[10000]" 
-          onClick={onClose}
+        <TutorialSpotlight
+          rect={targetRect}
+          animate={animate}
+          stepNumber={currentStep + 1}
+          viewportWidth={windowDimensions.width}
         />
+      ) : (
+        <div className="fixed inset-0 bg-slate-950/80 z-[10000]" onClick={onClose} />
       )}
 
       {/* Tarjeta Flotante Explicativa con Foco y Transición Suave */}
@@ -401,10 +291,10 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         ref={popoverRef}
         style={{
           ...getPopoverStyle(),
-          transition: 'top 450ms cubic-bezier(0.25, 1, 0.5, 1), left 450ms cubic-bezier(0.25, 1, 0.5, 1), opacity 300ms ease-out, transform 300ms ease-out'
+          transition: getSpotlightTransition(animate && !isMobile, ['transform'])
         }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-amber-400/60 dark:border-amber-400/50 overflow-hidden flex flex-col will-change-transform"
+        className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-amber-400/60 dark:border-amber-400/50 overflow-hidden flex flex-col will-change-transform"
       >
         {/* Cabecera del Paso con degradado */}
         <div className={`bg-gradient-to-r ${activeStepData.accentGradient} p-3.5 sm:p-4 text-white relative transition-colors duration-400`}>
@@ -458,9 +348,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         {/* Contenido explicativo del paso con micro-animación de entrada */}
         <div 
           key={currentStep}
-          className={`p-3.5 sm:p-4 space-y-2.5 text-slate-700 dark:text-slate-200 text-xs leading-relaxed max-h-[35vh] overflow-y-auto transition-all duration-300 ${
-            isTransitioning ? 'opacity-40 translate-y-1' : 'opacity-100 translate-y-0'
-          }`}
+          className="p-3.5 sm:p-4 space-y-2.5 text-slate-700 dark:text-slate-200 text-xs leading-relaxed max-h-[35vh] overflow-y-auto animate-step-in"
         >
           <p className="font-semibold text-slate-800 dark:text-slate-100 text-[11.5px] sm:text-xs">
             {activeStepData.description}

@@ -334,6 +334,7 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
             sessions={sessions}
             setSessions={setSessions}
             allUsers={allUsers}
+            allAvailabilities={allAvailabilities}
             onReload={loadData}
           />
         )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Sparkles, 
   Calendar, 
@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   HelpCircle
 } from 'lucide-react';
+import { useTutorialSpotlight, TutorialSpotlight, getSpotlightTransition } from '../common/tutorialSpotlight';
 import { DocenteTabType } from './DocenteSidebar';
 
 export interface DocenteTutorialModalProps {
@@ -50,18 +51,8 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
   userName = 'Docente',
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [windowDimensions, setWindowDimensions] = useState({
-    width: typeof window !== 'undefined' ? window.innerWidth : 1200,
-    height: typeof window !== 'undefined' ? window.innerHeight : 800
-  });
-
   const popoverRef = useRef<HTMLDivElement>(null);
   const wasOpenRef = useRef(false);
-  const animationFrameRef = useRef<number | null>(null);
-
-  const isMobile = windowDimensions.width < 768;
 
   // Pasos específicos de cada apartado (Mini-Tutoriales modulares)
   const stepsByTab: Record<DocenteTabType, StepItem[]> = useMemo(() => ({
@@ -403,121 +394,29 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
     return stepsByTab[activeTab] || stepsByTab.calendar;
   }, [stepsByTab, activeTab]);
 
-  // Actualizar dimensiones de ventana al redimensionar
-  useEffect(() => {
-    const handleResize = () => {
-      setWindowDimensions({
-        width: window.innerWidth,
-        height: window.innerHeight
-      });
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  // Foco sobre el elemento del paso: se mueve una sola vez, sincronizado con el scroll
+  const { targetRect, animate, viewport: windowDimensions } = useTutorialSpotlight({
+    isOpen,
+    stepKey: `${activeTab}:${currentStep}`,
+    resolveTarget: () => {
+      const stepObj = steps[currentStep];
+      return stepObj ? (document.querySelector(stepObj.targetSelector) as HTMLElement | null) : null;
+    },
+    resolveFallback: () => document.querySelector('main') as HTMLElement | null,
+  });
+  const isMobile = windowDimensions.width < 768;
 
-  // Animación suave de rastreo del elemento objetivo
-  const trackTargetElementSmoothly = useCallback((element: HTMLElement, durationMs = 600) => {
-    const startTime = performance.now();
-
-    const frame = (now: number) => {
-      const elapsed = now - startTime;
-      if (element && document.body.contains(element)) {
-        const rect = element.getBoundingClientRect();
-        setTargetRect(rect);
-      }
-      if (elapsed < durationMs) {
-        animationFrameRef.current = requestAnimationFrame(frame);
-      }
-    };
-
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-    animationFrameRef.current = requestAnimationFrame(frame);
-  }, []);
-
-  // Actualizar posición del elemento objetivo INMEDIATAMENTE
-  const updateTargetPositionForStep = useCallback((stepIdx: number) => {
-    const stepObj = steps[stepIdx];
-    if (!stepObj) {
-      setTargetRect(null);
-      return;
-    }
-
-    const selector = stepObj.targetSelector;
-    let attempts = 0;
-    const maxAttempts = 20;
-
-    const findAndTrack = () => {
-      let elem = document.querySelector(selector) as HTMLElement | null;
-
-      // Fallback dinámico si el selector no se encuentra de inmediato
-      if (!elem || elem.getBoundingClientRect().height === 0) {
-        elem = document.querySelector(selector) as HTMLElement | null;
-      }
-
-      if (elem && elem.getBoundingClientRect().height > 0) {
-        // Desplazar el elemento objetivo al centro del contenedor visible
-        try {
-          elem.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-            inline: 'nearest'
-          });
-        } catch {
-          // fallback
-        }
-
-        const rect = elem.getBoundingClientRect();
-        setTargetRect(rect);
-        trackTargetElementSmoothly(elem, 700);
-      } else if (attempts < maxAttempts) {
-        attempts++;
-        requestAnimationFrame(findAndTrack);
-      } else {
-        // Fallback al contenedor principal de la pestaña
-        const fallbackContainer = document.querySelector('main') as HTMLElement | null;
-        if (fallbackContainer) {
-          setTargetRect(fallbackContainer.getBoundingClientRect());
-        }
-      }
-    };
-
-    findAndTrack();
-  }, [steps, trackTargetElementSmoothly]);
-
-  // Ejecución INMEDIATA al abrir el tutorial o cambiar de apartado
+  // Volver al primer paso al abrir el tutorial o cambiar de apartado
   useEffect(() => {
     if (isOpen) {
       if (!wasOpenRef.current) {
-        setCurrentStep(0);
         wasOpenRef.current = true;
       }
-      // Detección instantánea en el tick de apertura
-      updateTargetPositionForStep(0);
+      setCurrentStep(0);
     } else {
       wasOpenRef.current = false;
-      setTargetRect(null);
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
     }
-  }, [isOpen, activeTab, updateTargetPositionForStep]);
-
-  // Manejar cambio de paso
-  useEffect(() => {
-    if (!isOpen) return;
-
-    setIsTransitioning(true);
-    updateTargetPositionForStep(currentStep);
-
-    const timer = setTimeout(() => {
-      updateTargetPositionForStep(currentStep);
-      setIsTransitioning(false);
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [currentStep, isOpen, updateTargetPositionForStep]);
+  }, [isOpen, activeTab]);
 
   // Manejador de teclado para siguiente, anterior y escape
   useEffect(() => {
@@ -582,8 +481,10 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
     let left = targetRect.left + (targetRect.width / 2) - (popoverWidth / 2);
     left = Math.max(12, Math.min(windowDimensions.width - popoverWidth - 12, left));
 
-    popoverStyle.top = `${top}px`;
-    popoverStyle.left = `${left}px`;
+    popoverStyle.top = 0;
+    popoverStyle.left = 0;
+    popoverStyle.transform = `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`;
+    popoverStyle.transition = getSpotlightTransition(animate, ['transform']);
   } else {
     popoverStyle.top = '50%';
     popoverStyle.left = '50%';
@@ -605,51 +506,20 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[9990] select-none pointer-events-auto">
-      {/* SVG Spotlight Cutout Backdrop */}
-      <svg
-        className="fixed inset-0 w-full h-full pointer-events-auto transition-opacity duration-300"
-        style={{ zIndex: 9991 }}
-        onClick={onClose}
-      >
-        <defs>
-          <mask id="docente-spotlight-mask">
-            <rect x="0" y="0" width="100%" height="100%" fill="white" />
-            {targetRect && (
-              <rect
-                x={targetRect.left - 6}
-                y={targetRect.top - 6}
-                width={targetRect.width + 12}
-                height={targetRect.height + 12}
-                rx="14"
-                ry="14"
-                fill="black"
-              />
-            )}
-          </mask>
-        </defs>
-        <rect
-          x="0"
-          y="0"
-          width="100%"
-          height="100%"
-          fill="rgba(2, 6, 23, 0.78)"
-          mask="url(#docente-spotlight-mask)"
+    <div className="fixed inset-0 z-[9990] select-none pointer-events-auto" onClick={onClose}>
+      {/* Fondo oscuro con foco recortado sobre el elemento del paso */}
+      {targetRect ? (
+        <TutorialSpotlight
+          rect={targetRect}
+          animate={animate}
+          stepNumber={currentStep + 1}
+          viewportWidth={windowDimensions.width}
+          accent="sky"
+          zIndex={9991}
+          padding={6}
         />
-      </svg>
-
-      {/* Glowing Spotlight Border */}
-      {targetRect && (
-        <div
-          className="fixed pointer-events-none transition-all duration-300 rounded-2xl ring-2 ring-[#3a9ad9] shadow-[0_0_28px_rgba(58,154,217,0.45)] animate-pulse"
-          style={{
-            zIndex: 9992,
-            top: targetRect.top - 6,
-            left: targetRect.left - 6,
-            width: targetRect.width + 12,
-            height: targetRect.height + 12,
-          }}
-        />
+      ) : (
+        <div className="fixed inset-0 bg-slate-950/80" style={{ zIndex: 9991 }} />
       )}
 
       {/* Floating Tutorial Popover Card */}
@@ -657,15 +527,13 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         ref={popoverRef}
         style={popoverStyle}
         onClick={(e) => e.stopPropagation()}
-        className={`bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 ${
-          isTransitioning ? 'opacity-90 scale-[0.99]' : 'opacity-100 scale-100'
-        }`}
+        className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden will-change-transform"
       >
         {/* Header con Gradiente UFT */}
         <div className={`bg-gradient-to-r ${currentStepData.accentGradient} p-4 text-white relative`}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-white/15 backdrop-blur-md text-sky-300 border border-white/20 shrink-0">
+              <div className="p-2 rounded-xl bg-white/15 text-sky-300 border border-white/20 shrink-0">
                 <StepIcon className="w-5 h-5" />
               </div>
               <div>
@@ -689,7 +557,7 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         </div>
 
         {/* Cuerpo del Popover */}
-        <div className="p-4 space-y-3.5 text-xs text-slate-600 dark:text-slate-300">
+        <div key={`${activeTab}:${currentStep}`} className="p-4 space-y-3.5 text-xs text-slate-600 dark:text-slate-300 animate-step-in">
           <p className="leading-relaxed font-medium text-slate-800 dark:text-slate-200">
             {currentStepData.description}
           </p>
