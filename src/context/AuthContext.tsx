@@ -52,6 +52,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentUser(updatedUser);
   };
 
+  // La sesión guarda una copia del usuario tomada al iniciar sesión. Se refresca desde MongoDB
+  // al abrir la app y cada vez que cambian los usuarios, para que carrera, roles y tipos de tutor
+  // no queden desactualizados en ningún navegador.
+  const sessionUserId = currentUser?.id;
+  useEffect(() => {
+    if (!sessionUserId) return;
+    let cancelled = false;
+
+    const refreshFromDb = async () => {
+      try {
+        const res = await fetch('/api/users');
+        if (!res.ok) return;
+        const users = await res.json();
+        if (cancelled || !Array.isArray(users)) return;
+        const fresh: User | undefined = users.find((u: User) => u && u.id === sessionUserId);
+        if (!fresh) return; // ej. cuenta especial de administrador, que no vive en la colección
+
+        setCurrentUser(prev => {
+          if (!prev || prev.id !== sessionUserId) return prev;
+          const roles: Role[] = Array.isArray(fresh.roles) && fresh.roles.length > 0 ? fresh.roles : [fresh.role];
+          const tutorTypes = Array.isArray(fresh.tutorTypes) && fresh.tutorTypes.length > 0
+            ? fresh.tutorTypes
+            : (fresh.tutorType ? [fresh.tutorType] : []);
+          // Se conserva el portal elegido en esta sesión mientras el usuario siga teniendo ese rol
+          const role = roles.includes(prev.role) ? prev.role : roles[0];
+          const tutorType = prev.tutorType && tutorTypes.includes(prev.tutorType) ? prev.tutorType : (tutorTypes[0] ?? fresh.tutorType);
+          const { password: _password, ...prevWithoutPassword } = prev;
+          const next: User = { ...prevWithoutPassword, ...fresh, role, roles, tutorType };
+          if (JSON.stringify(next) === JSON.stringify(prev)) return prev;
+          setSessionCookie(next);
+          return next;
+        });
+      } catch (e) {
+        // Sin conexión: se mantiene la sesión actual
+      }
+    };
+
+    refreshFromDb();
+
+    let unsubscribe = () => {};
+    import('../services/socket').then(({ getSocket }) => {
+      if (cancelled) return;
+      const socket = getSocket();
+      socket.on('users:changed', refreshFromDb);
+      unsubscribe = () => socket.off('users:changed', refreshFromDb);
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [sessionUserId]);
+
   return (
     <AuthContext.Provider
       value={{
