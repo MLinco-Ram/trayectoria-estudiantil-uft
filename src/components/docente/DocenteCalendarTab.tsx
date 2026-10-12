@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Session, User } from '../../types';
+import { Session, User, UserAvailability } from '../../types';
 import { 
   Calendar as CalendarIcon, 
   Clock, 
@@ -22,11 +22,13 @@ import {
 } from 'lucide-react';
 import { TIME_SLOTS } from '../../data';
 import { sessionsApi } from '../../services/api';
+import { TutorBlocksCalendar } from './tutorAvailability';
 
 interface DocenteCalendarTabProps {
   sessions: Session[];
   setSessions: React.Dispatch<React.SetStateAction<Session[]>>;
   allUsers: User[];
+  allAvailabilities?: UserAvailability[];
   onReload: () => void;
 }
 
@@ -34,6 +36,7 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
   sessions,
   setSessions,
   allUsers,
+  allAvailabilities = [],
   onReload,
 }) => {
   // Modos de vista: Cuadrícula Semanal interactiva, Calendario Mensual, Agenda por Lista o Vista Diaria
@@ -664,6 +667,9 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
           </div>
         )}
       </div>
+
+      {/* Calendario semanal con los bloques disponibles de cada tutor */}
+      <TutorBlocksCalendar tutores={tutores} allAvailabilities={allAvailabilities} />
 
       {/* ----------------- MODAL MODERNO DE DETALLE DE SESIÓN ----------------- */}
       {selectedSessionDetail && (

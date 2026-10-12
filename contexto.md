@@ -707,6 +707,7 @@ trayectoria-estudiantil-uft/
 - **Login Inteligente**: Permite el ingreso con `admin` / `1234` o RUT chileno de 9 dígitos.
 - **Barra superior de Tutor y Alumno siempre visible**: Los botones de navegación de `TutorDashboard` y `AlumnoDashboard` se muestran en cualquier ancho de pantalla. En pantallas anchas van en la misma fila del logo (`xl` para Tutor Par, `2xl` para Tutor de Tutores y Alumno); en pantallas más angostas bajan a una fila propia y se reparten en varias líneas (`flex-wrap`), sin scroll horizontal oculto. El Alumno conserva además la barra inferior móvil con el botón QR.
 - **Menú lateral del Docente (`DocenteSidebar.tsx`)**: La tarjeta de perfil muestra nombre, cargo y RUT. Si el usuario tiene más de un rol, incluye "Cambiar de portal", que se despliega dentro de la misma tarjeta (no flota sobre el menú). Hay un único botón "Cerrar Sesión" al pie y un único acceso al tutorial (botón "Tutorial" de la barra superior). En los portales de Tutor y Alumno el tutorial también tiene un único acceso: el botón de exclamación de la barra superior.
+- **Tutoriales guiados (foco animado)**: Los tres tutoriales (`DocenteTutorialModal`, `TutorTutorialModal`, `AlumnoTutorialModal`) comparten `src/components/common/tutorialSpotlight.tsx`. El hook `useTutorialSpotlight` calcula la posición final del elemento del paso (después del scroll), mueve el foco una sola vez con `transform` y anima el scroll con la misma duración y curva (420 ms), en vez de re-medir en cada cuadro. Si el usuario hace scroll o redimensiona, el foco sigue al elemento sin animación. El componente `TutorialSpotlight` dibuja el recorte y `animate-step-in` (`index.css`) la entrada del texto de cada paso.
 - **Cierre de Sesión Unificado**: Botón visible y permanente en la barra superior o pie de sidebar de cada panel, sin popups redundantes ni menús invasivos.
 
 ### B. Cifrado y Confidencialidad de Datos en Reposo
@@ -716,6 +717,7 @@ trayectoria-estudiantil-uft/
 
 ### C. Módulo Docente / Coordinador (`DocenteDashboard.tsx`)
 - **Barra lateral fija (`sticky top-0 h-screen`)**: Permite navegar entre las 10 pestañas (Calendario, Crear Sesión, Pasar Lista, Horarios Flexibles, Tutores, Estudiantes, Alertas, Comunicados, Analítica y Comentarios) sin que los botones de acción se oculten al hacer scroll.
+- **Calendario de Bloques de los Tutores** (`TutorBlocksCalendar` en `tutorAvailability.tsx`): al final de la pestaña Panel Docente, cuadrícula semanal (módulos `TIME_SLOTS` × días) con los tutores disponibles en cada bloque según su horario declarado, con color por tutor y filtro para ver uno solo.
 - **Analítica, Rankings y Exportación a Excel (`DocenteAnalyticsTab.tsx`)**:
   - **KPIs Globales**: Sesiones agendadas/completadas, Tasa de asistencia porcentual (`%`), Alumnos atendidos e inscripciones activas.
   - **Ranking de Mayor Asistencia**: Tabla dinámica que ordena y destaca las tutorías y talleres con mayor convocatoria y porcentaje de asistencia efectiva.

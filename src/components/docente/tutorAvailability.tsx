@@ -1,6 +1,7 @@
-import React from 'react';
-import { CalendarClock, Clock } from 'lucide-react';
+import React, { useState } from 'react';
+import { CalendarClock, CalendarDays, Clock } from 'lucide-react';
 import { Session, User, UserAvailability } from '../../types';
+import { TIME_SLOTS } from '../../data';
 
 export const WEEK_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
@@ -195,6 +196,148 @@ export const TutorSchedulesCard: React.FC<TutorSchedulesCardProps> = ({ tutores,
             </tbody>
           </table>
         </div>
+      )}
+    </div>
+  );
+};
+
+// Colores para distinguir a cada tutor dentro del calendario
+const TUTOR_COLORS = [
+  'bg-sky-100 text-sky-900 border-sky-300',
+  'bg-emerald-100 text-emerald-900 border-emerald-300',
+  'bg-amber-100 text-amber-900 border-amber-300',
+  'bg-violet-100 text-violet-900 border-violet-300',
+  'bg-rose-100 text-rose-900 border-rose-300',
+  'bg-teal-100 text-teal-900 border-teal-300',
+  'bg-orange-100 text-orange-900 border-orange-300',
+  'bg-indigo-100 text-indigo-900 border-indigo-300',
+];
+
+interface TutorBlocksCalendarProps {
+  tutores: User[];
+  allAvailabilities: UserAvailability[];
+}
+
+// Calendario semanal (días x módulos) con los bloques que cada tutor declaró disponibles
+export const TutorBlocksCalendar: React.FC<TutorBlocksCalendarProps> = ({ tutores, allAvailabilities }) => {
+  const [selectedTutorId, setSelectedTutorId] = useState<string>('all');
+
+  const tutorsWithSchedule = tutores
+    .map(t => ({ tutor: t, availability: findTutorAvailability(allAvailabilities, t.id) }))
+    .filter(r => (r.availability?.days || []).some(d => d.slots && d.slots.length > 0))
+    .sort((a, b) => a.tutor.name.localeCompare(b.tutor.name))
+    .map((r, idx) => ({ ...r, color: TUTOR_COLORS[idx % TUTOR_COLORS.length] }));
+  const withoutSchedule = tutores.length - tutorsWithSchedule.length;
+
+  const visible = selectedTutorId === 'all'
+    ? tutorsWithSchedule
+    : tutorsWithSchedule.filter(r => r.tutor.id === selectedTutorId);
+
+  // Sábado y Domingo solo se muestran si algún tutor declaró bloques esos días
+  const visibleDays = WEEK_DAYS.filter(
+    (day, idx) => idx < 5 || tutorsWithSchedule.some(r => getSlotsForDay(r.availability, day).length > 0)
+  );
+
+  return (
+    <div id="docente-calendar-tutor-blocks" className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-[#092c4c] px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-white">
+        <div className="flex items-center gap-2.5">
+          <CalendarDays className="w-5 h-5 text-[#3a9ad9] shrink-0" />
+          <div>
+            <h2 className="font-bold text-base">Calendario de Bloques de los Tutores</h2>
+            <p className="text-[11px] text-slate-300 mt-0.5">
+              Semana tipo con los módulos en que cada tutor declaró estar disponible.
+            </p>
+          </div>
+        </div>
+        <span className="px-2.5 py-1 rounded-full bg-white/15 text-[11px] font-bold whitespace-nowrap self-start sm:self-auto">
+          {tutorsWithSchedule.length} de {tutores.length} con horario
+        </span>
+      </div>
+
+      {tutorsWithSchedule.length === 0 ? (
+        <p className="p-6 text-xs text-slate-500">
+          Ningún tutor ha cargado su horario semanal todavía. Los bloques aparecerán aquí cuando los tutores usen "Cargar Horario" en su portal.
+        </p>
+      ) : (
+        <>
+          {/* Filtro y leyenda por tutor */}
+          <div className="px-4 sm:px-6 py-3 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setSelectedTutorId('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                selectedTutorId === 'all'
+                  ? 'bg-[#092c4c] text-white border-[#092c4c]'
+                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-100'
+              }`}
+            >
+              Todos los tutores
+            </button>
+            {tutorsWithSchedule.map(({ tutor, color }) => (
+              <button
+                key={tutor.id}
+                type="button"
+                onClick={() => setSelectedTutorId(selectedTutorId === tutor.id ? 'all' : tutor.id)}
+                aria-pressed={selectedTutorId === tutor.id}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${color} ${
+                  selectedTutorId === tutor.id ? 'ring-2 ring-[#092c4c]' : selectedTutorId !== 'all' ? 'opacity-50' : ''
+                }`}
+              >
+                {tutor.name}
+              </button>
+            ))}
+            {withoutSchedule > 0 && (
+              <span className="text-[11px] text-slate-500 ml-1">
+                {withoutSchedule} {withoutSchedule === 1 ? 'tutor aún sin horario cargado' : 'tutores aún sin horario cargado'}
+              </span>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] table-fixed text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                  <th className="px-3 py-2.5 font-bold text-left border-b border-slate-200 w-28">Módulo</th>
+                  {visibleDays.map(day => (
+                    <th key={day} className="px-2 py-2.5 font-bold text-left border-b border-l border-slate-200">{day}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {TIME_SLOTS.map(slot => (
+                  <tr key={slot} className="align-top">
+                    <td className="px-3 py-2.5 font-mono font-bold text-slate-700 border-b border-slate-100 whitespace-nowrap bg-slate-50/60">
+                      {slot}
+                    </td>
+                    {visibleDays.map(day => {
+                      const available = visible.filter(r => getSlotsForDay(r.availability, day).includes(slot));
+                      return (
+                        <td key={day} className="px-2 py-2 border-b border-l border-slate-100">
+                          {available.length > 0 ? (
+                            <div className="flex flex-col gap-1">
+                              {available.map(({ tutor, color }) => (
+                                <span
+                                  key={tutor.id}
+                                  title={`${tutor.name} • ${day} ${slot}`}
+                                  className={`px-2 py-1 rounded-md border text-[11px] font-semibold truncate ${color}`}
+                                >
+                                  {tutor.name}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-slate-300">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );
