@@ -49,6 +49,7 @@ export interface Session {
   id: string;
   program: ProgramType;
   type: SessionType;
+  reservedForStudentId?: string; // Sesión personalizada: único estudiante que puede verla e inscribirse
   title: string;
   subject?: string; // e.g. "Matemática", "Programación", "Derecho", "Manejo del Tiempo"
   date: string; // YYYY-MM-DD
@@ -75,6 +76,8 @@ export interface IssueReport {
   suggestedTutorName?: string;
   status: 'pendiente' | 'resuelto';
   createdAt: string;
+  resolvedAt?: string;
+  resolutionNote?: string; // Resumen de la decisión tomada por coordinación
 }
 
 export interface WebNotification {
@@ -107,6 +110,8 @@ export interface StudentRequest {
   program: ProgramType;
   message: string;
   preferredTime: string; // e.g. "Miércoles en la tarde (16:30)"
+  conflictSessionId?: string; // Reserva con tope: al resolver la solicitud el estudiante se desinscribe de ella
+  conflictSessionLabel?: string; // Texto de esa reserva al momento de enviar (título, fecha y bloque)
   status: 'pendiente' | 'resuelto';
   assignedSessionId?: string; // If resolved with a newly created session
   resolvedAt?: string;

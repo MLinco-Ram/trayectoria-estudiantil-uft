@@ -160,6 +160,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
       docenteId: 'docente_1',
       tutorId: flexTutorId || null,
       studentIds: [resolvingReq.studentId],
+      reservedForStudentId: resolvingReq.studentId,
       maxSpots: 1,
       location: flexLocation.trim(),
       attendance: {
@@ -171,7 +172,23 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
       // 1. Guardar nueva sesión en MongoDB Atlas
       await sessionsApi.createSession(newSession);
 
-      // 2. Marcar solicitud como resuelta en MongoDB Atlas
+      // 2. Liberar el cupo del alumno en la reserva que tenía tope
+      const conflictSession = resolvingReq.conflictSessionId
+        ? sessions.find(s => s.id === resolvingReq.conflictSessionId)
+        : undefined;
+      const mustUnenroll = !!conflictSession && (conflictSession.studentIds || []).includes(resolvingReq.studentId);
+      if (conflictSession && mustUnenroll) {
+        const attendance = { ...(conflictSession.attendance || {}) };
+        delete attendance[resolvingReq.studentId];
+        const releasedFields = {
+          studentIds: conflictSession.studentIds.filter(id => id !== resolvingReq.studentId),
+          attendance
+        };
+        await sessionsApi.updateSession(conflictSession.id, releasedFields);
+        setSessions(prev => prev.map(s => s.id === conflictSession.id ? { ...s, ...releasedFields } : s));
+      }
+
+      // 3. Marcar solicitud como resuelta en MongoDB Atlas
       await studentRequestsApi.updateStudentRequest(resolvingReq.id, {
         status: 'resuelto',
         assignedSessionId: newSessionId,
@@ -182,7 +199,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
       setSessions(prev => [newSession, ...prev]);
       setStudentRequests(prev => prev.map(r => r.id === resolvingReq.id ? { ...r, status: 'resuelto', assignedSessionId: newSessionId } : r));
 
-      // 3. Notificar por correo al alumno
+      // 4. Notificar por correo al alumno
       const studentUser = allUsers.find(u => u.id === resolvingReq.studentId);
       const tutorUser = allUsers.find(u => u.id === flexTutorId);
 
@@ -191,11 +208,11 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
           studentUser.email,
           studentUser.name,
           `Tu solicitud de horario flexible ha sido adjudicada: "${newSession.title}"`,
-          `La coordinación docente ha aprobado tu solicitud de horario flexible para la tutoría "${newSession.title}" del día ${newSession.date}. Ingresa a la plataforma para revisar los detalles.`
+          `La coordinación docente ha aprobado tu solicitud de horario flexible para la tutoría "${newSession.title}" del día ${newSession.date}.${mustUnenroll ? ` Tu inscripción en "${conflictSession!.title}" (${conflictSession!.date}, ${conflictSession!.timeSlot}) fue liberada.` : ''} Ingresa a la plataforma para revisar los detalles.`
         );
       }
 
-      // 4. Notificar por correo al tutor par asignado
+      // 5. Notificar por correo al tutor par asignado
       if (tutorUser && tutorUser.email) {
         triggerNotification(
           tutorUser.email,
@@ -239,17 +256,17 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         {/* Banner Superior */}
-        <div id="docente-flex-banner" className="bg-gradient-to-r from-[#092c4c] via-[#0e375e] to-[#1a4a75] text-white p-6 md:p-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-[#3a9ad9]/20 text-[#3a9ad9] rounded-2xl border border-[#3a9ad9]/30">
+        <div id="docente-flex-banner" className="bg-gradient-to-r from-[#092c4c] via-[#0e375e] to-[#1a4a75] text-white p-4 sm:p-6 md:p-8">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="p-2.5 bg-[#3a9ad9]/20 text-[#3a9ad9] rounded-2xl border border-[#3a9ad9]/30 shrink-0">
                 <Inbox className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                <h2 className="text-lg sm:text-xl font-extrabold tracking-tight text-white flex flex-wrap items-center gap-x-2 gap-y-1">
                   Bandeja de Coordinación Flexible & Inconvenientes
                   {pendingCount > 0 && (
-                    <span className="bg-amber-500 text-slate-900 text-xs font-black px-2.5 py-0.5 rounded-full uppercase">
+                    <span className="bg-amber-500 text-slate-900 text-xs font-black px-2.5 py-0.5 rounded-full uppercase whitespace-nowrap">
                       {pendingCount} Pendientes
                     </span>
                   )}
@@ -261,10 +278,10 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
             </div>
 
             {/* Pestañas de Filtro */}
-            <div className="flex items-center gap-1.5 bg-white/10 p-1.5 rounded-xl border border-white/15">
+            <div className="flex flex-wrap items-center gap-1.5 bg-white/10 p-1.5 rounded-xl border border-white/15 self-start xl:self-auto shrink-0">
               <button
                 onClick={() => setFilterStatus('pendiente')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
                   filterStatus === 'pendiente' 
                     ? 'bg-amber-500 text-slate-900 shadow-sm' 
                     : 'text-slate-200 hover:text-white'
@@ -274,7 +291,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
               </button>
               <button
                 onClick={() => setFilterStatus('resuelto')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
                   filterStatus === 'resuelto' 
                     ? 'bg-emerald-500 text-white shadow-sm' 
                     : 'text-slate-200 hover:text-white'
@@ -284,7 +301,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
               </button>
               <button
                 onClick={() => setFilterStatus('all')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
                   filterStatus === 'all' 
                     ? 'bg-white text-slate-900 shadow-sm' 
                     : 'text-slate-200 hover:text-white'
@@ -297,7 +314,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
         </div>
 
         {/* Lista de Solicitudes */}
-        <div id="docente-flex-requests-list" className="p-6 md:p-8 space-y-4">
+        <div id="docente-flex-requests-list" className="p-4 sm:p-6 md:p-8 space-y-4">
           {filteredRequests.length === 0 ? (
             <div className="py-16 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
               <Inbox className="w-12 h-12 mx-auto mb-3 text-slate-300" />
@@ -358,11 +375,23 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
                       </div>
                       <div>
                         <span className="text-[10px] uppercase font-bold text-slate-400 block">Disponibilidad Propuesta por el Alumno</span>
-                        <span className="text-[#092c4c] font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                        <span className="inline-block text-[#092c4c] font-bold bg-blue-50 px-2 py-1 rounded border border-blue-100 break-words leading-relaxed">
                           ⏰ {req.preferredTime || 'No especificada'}
                         </span>
                       </div>
                     </div>
+
+                    {req.conflictSessionLabel && (
+                      <div className="pt-2 border-t border-slate-200/60">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Reserva con Inconveniente</span>
+                        <span className="text-amber-800 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                          {req.conflictSessionLabel}
+                        </span>
+                        <span className="text-[11px] text-slate-500 ml-2">
+                          {isResolved ? 'El alumno fue desinscrito de esta sesión.' : 'Al adjudicar, el alumno dejará de estar inscrito en esta sesión.'}
+                        </span>
+                      </div>
+                    )}
 
                     <div className="pt-2 border-t border-slate-200/60">
                       <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Motivo del Inconveniente</span>
@@ -377,7 +406,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
                     <div className="mt-4 pt-3 border-t border-slate-100 flex justify-end">
                       <button
                         onClick={() => handleOpenResolveModal(req)}
-                        className="px-5 py-2.5 bg-[#092c4c] hover:bg-[#0c3c66] text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs cursor-pointer"
+                        className="w-full sm:w-auto justify-center px-5 py-2.5 bg-[#092c4c] hover:bg-[#0c3c66] text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs cursor-pointer"
                       >
                         <CalendarCheck className="w-4 h-4 text-[#3a9ad9]" />
                         <span>Adjudicar Sesión Flexible</span>
@@ -409,6 +438,11 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
                 <p className="text-xs text-slate-300 mt-0.5">
                   Horario sugerido por el alumno: <strong className="text-[#3a9ad9]">{resolvingReq.preferredTime}</strong>
                 </p>
+                {resolvingReq.conflictSessionLabel && (
+                  <p className="text-xs text-amber-300 mt-0.5">
+                    Al adjudicar se liberará su cupo en: <strong>{resolvingReq.conflictSessionLabel}</strong>
+                  </p>
+                )}
               </div>
               <button 
                 onClick={() => setResolvingReq(null)} 
@@ -419,7 +453,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
             </div>
 
             {/* Formulario */}
-            <form onSubmit={handleConfirmFlexSession} className="p-6 md:p-8 space-y-5 overflow-y-auto flex-1 text-xs">
+            <form onSubmit={handleConfirmFlexSession} className="p-4 sm:p-6 md:p-8 space-y-5 overflow-y-auto flex-1 text-xs">
               {feedback && (
                 <div className={`p-4 rounded-xl text-xs flex items-center gap-2 font-semibold ${
                   feedback.status === 'success' 
@@ -464,7 +498,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 mb-1.5">
                     <label className="block text-xs font-bold text-slate-700 uppercase">
                       Tutor Par Asignado
                     </label>
@@ -530,7 +564,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
               {/* Panel de Disponibilidad Semanal del Tutor Seleccionado */}
               {selectedTutorAvailability && (
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2.5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
                     <span className="text-[11px] font-bold text-slate-800 uppercase flex items-center gap-1.5">
                       <GraduationCap className="w-4 h-4 text-[#3a9ad9]" />
                       <span>Disponibilidad declarada por {selectedTutorAvailability.userName || 'el Tutor'}:</span>
@@ -647,7 +681,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
               </div>
 
               {/* Botones del Modal */}
-              <div className="pt-4 border-t border-slate-200 flex gap-3">
+              <div className="pt-4 border-t border-slate-200 flex flex-col-reverse sm:flex-row gap-3">
                 <button
                   type="button"
                   onClick={() => setResolvingReq(null)}

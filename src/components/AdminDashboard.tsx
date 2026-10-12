@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { User, Role, TutorType } from '../types';
-import { getSavedSmtpSettings, saveSmtpSettings, getSavedUsers, saveUsers } from '../data';
 import { usersApi, settingsApi } from '../services/api';
 import { getSocket } from '../services/socket';
 import { 
@@ -121,40 +120,21 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
     try {
       const data = await usersApi.getUsers();
       if (Array.isArray(data)) {
-        saveUsers(data);
         setAllUsers(data);
         setDocentes(data.filter(u => u && (u.role === 'docente' || (Array.isArray(u.roles) && u.roles.includes('docente')))));
         setTutores(data.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor')))));
         setAlumnos(data.filter(u => u && (u.role === 'alumno' || (Array.isArray(u.roles) && u.roles.includes('alumno')))));
-        setIsLoadingUsers(false);
-        return;
       }
     } catch (e) {
-      console.warn('Usando usuarios de respaldo local');
+      console.error('Error cargando usuarios desde MongoDB Atlas:', e);
+    } finally {
+      setIsLoadingUsers(false);
     }
-    const all = getSavedUsers() || [];
-    const safeAll = Array.isArray(all) ? all : [];
-    setAllUsers(safeAll);
-    setDocentes(safeAll.filter(u => u && (u.role === 'docente' || (Array.isArray(u.roles) && u.roles.includes('docente')))));
-    setTutores(safeAll.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor')))));
-    setAlumnos(safeAll.filter(u => u && (u.role === 'alumno' || (Array.isArray(u.roles) && u.roles.includes('alumno')))));
-    setIsLoadingUsers(false);
   };
 
   // Cargar configuración SMTP
   const loadSmtpSettings = async () => {
     setIsLoadingSmtp(true);
-    const cached = getSavedSmtpSettings();
-    if (cached) {
-      if (cached.host) setSmtpHost(cached.host);
-      if (cached.port) setSmtpPort(cached.port);
-      if (typeof cached.secure === 'boolean') setSmtpSecure(cached.secure);
-      if (cached.user) setSmtpUser(cached.user);
-      if (cached.fromName) setSmtpFromName(cached.fromName);
-      setHasStoredPassword(Boolean(cached.pass || cached.hasPassword));
-      setIsConfigured(Boolean(cached.user && (cached.pass || cached.hasPassword)));
-    }
-
     try {
       const data = await settingsApi.getSmtpSettings();
       if (data.host) setSmtpHost(data.host);
@@ -164,9 +144,8 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       if (data.fromName) setSmtpFromName(data.fromName);
       setHasStoredPassword(Boolean(data.hasPassword));
       setIsConfigured(Boolean(data.configured));
-      saveSmtpSettings(data);
     } catch (err) {
-      console.warn('Backend API no disponible para cargar SMTP, usando datos locales:', err);
+      console.error('Error cargando la configuración SMTP desde MongoDB Atlas:', err);
     } finally {
       setIsLoadingSmtp(false);
     }
@@ -228,9 +207,6 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
 
     try {
       await usersApi.createUser(newDocenteUser);
-      const all = getSavedUsers();
-      const updatedAll = [...all, newDocenteUser];
-      saveUsers(updatedAll);
       setDocentes(prev => [...prev, newDocenteUser]);
 
       setDocFeedback({
@@ -245,19 +221,10 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       setNewDocCareer('Jefa de Trayectoria Estudiantil');
     } catch (err: any) {
       console.error('Error creando docente:', err);
-      const all = getSavedUsers();
-      const updatedAll = [...all, newDocenteUser];
-      saveUsers(updatedAll);
-      setDocentes(prev => [...prev, newDocenteUser]);
-
       setDocFeedback({
-        status: 'success',
-        message: `Docente registrado localmente en la plataforma. (${err.message})`
+        status: 'error',
+        message: err.message || 'No se pudo crear el docente en MongoDB Atlas.'
       });
-      setNewDocName('');
-      setNewDocRut('');
-      setNewDocEmail('');
-      setNewDocPassword('123');
     } finally {
       setIsSubmittingDoc(false);
       setTimeout(() => {
@@ -328,9 +295,7 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
 
     try {
       await usersApi.updateUser(editingUser.id, updatePayload);
-      const all = getSavedUsers();
-      const updatedAll = all.map(u => u.id === editingUser.id ? { ...u, ...updatePayload } : u);
-      saveUsers(updatedAll);
+      const updatedAll = allUsers.map(u => u.id === editingUser.id ? { ...u, ...updatePayload } : u);
 
       setAllUsers(updatedAll);
       setDocentes(updatedAll.filter(u => u && (u.role === 'docente' || (Array.isArray(u.roles) && u.roles.includes('docente')))));
@@ -349,23 +314,10 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       }, 1500);
     } catch (err: any) {
       console.error('Error actualizando usuario:', err);
-      const all = getSavedUsers();
-      const updatedAll = all.map(u => u.id === editingUser.id ? { ...u, ...updatePayload } : u);
-      saveUsers(updatedAll);
-      setAllUsers(updatedAll);
-      setDocentes(updatedAll.filter(u => u && (u.role === 'docente' || (Array.isArray(u.roles) && u.roles.includes('docente')))));
-      setTutores(updatedAll.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor')))));
-      setAlumnos(updatedAll.filter(u => u && (u.role === 'alumno' || (Array.isArray(u.roles) && u.roles.includes('alumno')))));
-
       setEditFeedback({
-        status: 'success',
-        message: `Cambios guardados localmente. (${err.message})`
+        status: 'error',
+        message: err.message || 'No se pudieron guardar los cambios en MongoDB Atlas.'
       });
-      setTimeout(() => {
-        setEditingUser(null);
-        setEditFeedback(null);
-        loadUsers();
-      }, 1500);
     } finally {
       setIsUpdatingUser(false);
     }
@@ -377,21 +329,14 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
 
     try {
       await usersApi.deleteUser(targetUser.id);
-      const all = getSavedUsers();
-      const updatedAll = all.filter(u => u.id !== targetUser.id && u.rut !== targetUser.id);
-      saveUsers(updatedAll);
 
+      setAllUsers(prev => prev.filter(u => u.id !== targetUser.id && u.rut !== targetUser.id));
       setDocentes(prev => prev.filter(d => d.id !== targetUser.id && d.rut !== targetUser.id));
       setTutores(prev => prev.filter(t => t.id !== targetUser.id && t.rut !== targetUser.id));
       setAlumnos(prev => prev.filter(a => a.id !== targetUser.id && a.rut !== targetUser.id));
     } catch (err: any) {
       console.error('Error al eliminar usuario:', err);
-      const all = getSavedUsers();
-      const updatedAll = all.filter(u => u.id !== targetUser.id && u.rut !== targetUser.id);
-      saveUsers(updatedAll);
-      setDocentes(prev => prev.filter(d => d.id !== targetUser.id && d.rut !== targetUser.id));
-      setTutores(prev => prev.filter(t => t.id !== targetUser.id && t.rut !== targetUser.id));
-      setAlumnos(prev => prev.filter(a => a.id !== targetUser.id && a.rut !== targetUser.id));
+      window.alert(`No se pudo eliminar al usuario "${targetUser.name}" en MongoDB Atlas: ${err.message || 'error de conexión'}`);
     }
   };
 
@@ -408,8 +353,6 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       fromName: smtpFromName
     };
 
-    saveSmtpSettings(configPayload);
-
     try {
       await settingsApi.saveSmtpSettings(configPayload);
       setSaveStatus({
@@ -420,10 +363,9 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       loadSmtpSettings();
     } catch (err: any) {
       setSaveStatus({
-        status: 'success',
-        message: 'Configuración guardada localmente en la app.'
+        status: 'error',
+        message: err.message || 'No se pudo guardar la configuración SMTP en MongoDB Atlas.'
       });
-      setIsConfigured(Boolean(smtpUser && (smtpPass || hasStoredPassword)));
     }
 
     setTimeout(() => {

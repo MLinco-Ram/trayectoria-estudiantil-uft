@@ -3,17 +3,27 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth, getRoleHomePath } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ProtectedRoute } from './components/routes/ProtectedRoute';
 import LoginScreen from './components/LoginScreen';
-import ResetPasswordScreen from './components/ResetPasswordScreen';
-import DocenteDashboard from './components/DocenteDashboard';
-import TutorDashboard from './components/TutorDashboard';
-import AlumnoDashboard from './components/AlumnoDashboard';
-import AdminDashboard from './components/AdminDashboard';
+
+// Cada portal se descarga solo cuando el usuario entra a él (code splitting por ruta)
+const ResetPasswordScreen = lazy(() => import('./components/ResetPasswordScreen'));
+const DocenteDashboard = lazy(() => import('./components/DocenteDashboard'));
+const TutorDashboard = lazy(() => import('./components/TutorDashboard'));
+const AlumnoDashboard = lazy(() => import('./components/AlumnoDashboard'));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+
+function RouteFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-950">
+      <div className="w-8 h-8 rounded-full border-4 border-slate-200 border-t-[#3a9ad9] animate-spin" role="status" aria-label="Cargando" />
+    </div>
+  );
+}
 
 // Wrapper para pantalla de restablecimiento con soporte de parámetro URL (?reset_token=xyz)
 function ResetPasswordRouteWrapper() {
@@ -62,6 +72,7 @@ export default function App() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
+          <Suspense fallback={<RouteFallback />}>
           <Routes>
             {/* Rutas Públicas */}
             <Route path="/login" element={<LoginRouteWrapper />} />
@@ -108,6 +119,7 @@ export default function App() {
             <Route path="/" element={<HomeRedirect />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

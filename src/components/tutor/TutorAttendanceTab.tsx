@@ -17,7 +17,7 @@ import {
   ShieldCheck,
   Filter
 } from 'lucide-react';
-import { getTodayDateStr, getRelativeDateStr, triggerNotification, saveSessions } from '../../data';
+import { getTodayDateStr, getRelativeDateStr, triggerNotification } from '../../data';
 import { sessionsApi } from '../../services/api';
 
 interface TutorAttendanceTabProps {
@@ -119,7 +119,6 @@ export const TutorAttendanceTab: React.FC<TutorAttendanceTabProps> = ({
     const newAttendance = { ...(session.attendance || {}), [studentId]: newStatus };
     const updatedSessions = sessions.map(s => s.id === sessionId ? { ...s, attendance: newAttendance, isCompleted: true } : s);
     setSessions(updatedSessions);
-    saveSessions(updatedSessions);
 
     try {
       await sessionsApi.updateSession(sessionId, { attendance: newAttendance, isCompleted: true });
@@ -146,7 +145,9 @@ export const TutorAttendanceTab: React.FC<TutorAttendanceTabProps> = ({
       setAttendanceFeedback(`Asistencia actualizada para ${student?.name || 'el estudiante'}.`);
       setTimeout(() => setAttendanceFeedback(null), 3000);
     } catch (err: any) {
-      console.warn('Guardado local de asistencia:', err);
+      console.error('Error al guardar asistencia:', err);
+      setAttendanceFeedback('Error al guardar la asistencia en el servidor.');
+      onReload();
     }
   };
 
@@ -171,7 +172,6 @@ export const TutorAttendanceTab: React.FC<TutorAttendanceTabProps> = ({
 
     const updatedSessions = sessions.map(s => s.id === sessionId ? { ...s, studentIds: newStudentIds, attendance: newAttendance, isCompleted: true } : s);
     setSessions(updatedSessions);
-    saveSessions(updatedSessions);
 
     try {
       await sessionsApi.updateSession(sessionId, {
@@ -206,7 +206,6 @@ export const TutorAttendanceTab: React.FC<TutorAttendanceTabProps> = ({
 
     const updatedSessions = sessions.map(s => s.id === sessionId ? { ...s, studentIds: newStudentIds, attendance: newAttendance } : s);
     setSessions(updatedSessions);
-    saveSessions(updatedSessions);
 
     try {
       await sessionsApi.updateSession(sessionId, {

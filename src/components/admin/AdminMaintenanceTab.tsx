@@ -80,14 +80,7 @@ export const AdminMaintenanceTab: React.FC<AdminMaintenanceTabProps> = ({ onSucc
 
     try {
       const res = await systemApi.resetAcademicData(selectedCollections);
-      
-      // Limpiar también caches locales del navegador
-      if (selectedItems.users) localStorage.removeItem('uft_te_users');
-      if (selectedItems.sessions) localStorage.removeItem('uft_te_sessions');
-      if (selectedItems.student_requests) localStorage.removeItem('uft_te_student_requests');
-      if (selectedItems.reports) localStorage.removeItem('uft_te_reports');
-      if (selectedItems.notifications) localStorage.removeItem('uft_te_notifications');
-      if (selectedItems.availabilities) localStorage.removeItem('uft_te_availabilities');
+
 
       setResult({
         status: 'success',

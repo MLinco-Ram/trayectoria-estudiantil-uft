@@ -23,3 +23,22 @@ export const createReport = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+export const updateReport = async (req, res) => {
+  const db = req.db;
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    delete updateData._id;
+    const result = await db.collection('reports').updateOne({ id }, { $set: updateData });
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Reporte no encontrado' });
+    }
+
+    emitEvent('reports:changed', { action: 'update', reportId: id, updateData });
+
+    res.json({ success: true, updated: updateData });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

@@ -30,7 +30,7 @@ import {
   CheckCheck,
   CalendarCheck
 } from 'lucide-react';
-import ExcelJS from 'exceljs';
+import type ExcelJS from 'exceljs';
 import { TIME_SLOTS } from '../../data';
 
 type TimeRangeFilter = 'dia' | 'semana' | 'mes' | 'trimestre' | 'semestre' | 'anio' | 'todo';
@@ -525,7 +525,9 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
     try {
       const dateStr = new Date().toISOString().slice(0, 10);
       const generatedAt = new Date().toLocaleString('es-CL');
-      const workbook = new ExcelJS.Workbook();
+      // ExcelJS pesa cerca de 1 MB: se descarga recién al exportar
+      const { default: ExcelJSLib } = await import('exceljs');
+      const workbook = new ExcelJSLib.Workbook();
       workbook.creator = 'Trayectoria Estudiantil UFT';
       workbook.created = new Date();
 

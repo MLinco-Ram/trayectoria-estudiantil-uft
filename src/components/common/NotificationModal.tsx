@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { WebNotification } from '../../types';
 import { Bell, X, CheckCheck, Mail } from 'lucide-react';
-import { saveNotifications } from '../../data';
 
 interface NotificationModalProps {
   isOpen: boolean;
@@ -33,7 +32,6 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   const handleMarkAllAsRead = async () => {
     const marked = notifications.map(n => ({ ...n, read: true }));
     setNotifications(marked);
-    saveNotifications(marked);
     try {
       if (userEmail) {
         await fetch('/api/notifications/read-all', {
@@ -51,7 +49,6 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
     if (!notif.read) {
       const updated = notifications.map(n => n.id === notif.id ? { ...n, read: true } : n);
       setNotifications(updated);
-      saveNotifications(updated);
       try {
         await fetch(`/api/notifications/${notif.id}/read`, { method: 'PUT' });
       } catch (e) {

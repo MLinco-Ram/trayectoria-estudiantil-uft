@@ -14,8 +14,10 @@ import {
   MessageSquare,
   ShieldCheck,
   User as UserIcon,
-  Mail,
-  GraduationCap
+  GraduationCap,
+  ArrowLeftRight,
+  ArrowRight,
+  ChevronDown
 } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
@@ -40,7 +42,6 @@ interface DocenteSidebarProps {
   pendingRequestsCount: number;
   pendingReportsCount: number;
   onLogout: () => void;
-  onOpenTutorial?: () => void;
 }
 
 export const DocenteSidebar: React.FC<DocenteSidebarProps> = ({
@@ -50,11 +51,30 @@ export const DocenteSidebar: React.FC<DocenteSidebarProps> = ({
   pendingRequestsCount,
   pendingReportsCount,
   onLogout,
-  onOpenTutorial,
 }) => {
   const navigate = useNavigate();
   const auth = useAuth();
-  const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
+  const [showPortalSwitcher, setShowPortalSwitcher] = useState(false);
+
+  // Otros portales a los que este usuario puede cambiarse (según sus roles)
+  const portalOptions: { key: string; label: string; icon: React.ElementType; target: User; path: string }[] = [];
+  (Array.isArray(user.roles) ? user.roles : []).filter(r => r !== 'docente').forEach(r => {
+    if (r === 'tutor') {
+      const tutorTypes = Array.isArray(user.tutorTypes) && user.tutorTypes.length > 0
+        ? user.tutorTypes
+        : [user.tutorType || 'tutor_par'];
+      if (tutorTypes.includes('tutor_par')) {
+        portalOptions.push({ key: 'tutor_par', label: 'Portal Tutor Par', icon: BookOpen, target: { ...user, role: 'tutor', tutorType: 'tutor_par' }, path: '/tutor' });
+      }
+      if (tutorTypes.includes('tutor_de_tutores')) {
+        portalOptions.push({ key: 'tutor_de_tutores', label: 'Portal Tutor de Tutores', icon: ShieldCheck, target: { ...user, role: 'tutor', tutorType: 'tutor_de_tutores' }, path: '/tutor' });
+      }
+    } else if (r === 'alumno') {
+      portalOptions.push({ key: 'alumno', label: 'Portal Estudiante', icon: GraduationCap, target: { ...user, role: 'alumno' }, path: getRoleHomePath('alumno') });
+    } else if (r === 'admin') {
+      portalOptions.push({ key: 'admin', label: 'Panel Administrador', icon: ShieldCheck, target: { ...user, role: 'admin' }, path: getRoleHomePath('admin') });
+    }
+  });
 
   const menuItems = [
     { id: 'calendar' as DocenteTabType, label: 'Panel Docente', icon: CalendarIcon },
@@ -85,133 +105,62 @@ export const DocenteSidebar: React.FC<DocenteSidebarProps> = ({
     <aside className="hidden md:flex w-72 bg-black text-white flex-col shrink-0 justify-between relative overflow-hidden rounded-r-[2.5rem] sticky top-0 h-screen z-10 select-none">
       <div className="flex flex-col flex-1 overflow-y-auto relative z-10">
         {/* Tarjeta de Perfil del Docente */}
-        <div className="p-5 mx-4 mt-5 mb-4 bg-white rounded-2xl shadow-md space-y-2.5 relative shrink-0">
-          <div className="flex items-center justify-between">
-            <div
-              className="flex items-center gap-1.5 text-brand-celeste font-bold text-sm cursor-pointer w-fit"
-              onClick={() => setShowLogoutDropdown(!showLogoutDropdown)}
-              title="Click para ver opciones de sesión"
-            >
-              <UserIcon className="h-4 w-4" />
-              <span>Perfil docente</span>
-            </div>
-
-            {onOpenTutorial && (
-              <button
-                type="button"
-                onClick={onOpenTutorial}
-                className="w-5 h-5 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-black text-[11px] flex items-center justify-center shadow-xs transition-transform hover:scale-110 cursor-pointer"
-                title="Repetir mini-tutorial guiado de este apartado"
-              >
-                !
-              </button>
-            )}
+        <div className="p-5 mx-4 mt-5 mb-4 bg-white rounded-2xl shadow-md shrink-0">
+          <div className="flex items-center gap-1.5 text-brand-celeste font-bold text-sm">
+            <UserIcon className="h-4 w-4" />
+            <span>Perfil docente</span>
           </div>
-          <div className="font-extrabold text-brand-navy text-sm leading-snug">{user.name}</div>
-          <div className="flex items-center gap-1.5 text-slate-500 text-xs">
+
+          <div className="mt-2.5 font-extrabold text-brand-navy text-sm leading-snug">{user.name}</div>
+          <div className="mt-1.5 flex items-center gap-1.5 text-slate-500 text-xs">
             <GraduationCap className="h-3.5 w-3.5 text-brand-celeste shrink-0" />
             <span className="truncate">{user.career || 'Coordinación Docente UFT'}</span>
           </div>
+          {user.rut && (
+            <div className="mt-1 text-[11px] text-slate-400 font-mono">RUT: {user.rut}</div>
+          )}
 
-          {showLogoutDropdown && (
-            <div className="bg-[#0a0a0a] border border-white/10 rounded-lg p-2.5 space-y-2 animate-fade-in text-xs absolute left-0 right-0 z-50 shadow-lg top-[100%] mt-1">
-              <div className="pb-1.5 border-b border-white/10 text-[11px] text-slate-300">
-                <p className="font-bold text-white truncate">{user.name}</p>
-                <p className="text-[10px] text-brand-celeste truncate">{user.career || 'Docente Coordinador'}</p>
-                <p className="text-[9px] text-slate-400 font-mono mt-0.5">RUT: {user.rut}</p>
-              </div>
-
-              {Array.isArray(user.roles) && user.roles.length > 1 && (
-                <div className="pb-1.5 border-b border-white/10 space-y-1">
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Cambiar de Portal</p>
-                  <div className="space-y-1">
-                    {user.roles.filter(r => r !== 'docente').map(r => {
-                      if (r === 'tutor') {
-                        const userTutorTypes = Array.isArray(user.tutorTypes) && user.tutorTypes.length > 0
-                          ? user.tutorTypes
-                          : [user.tutorType || 'tutor_par'];
-                        const hasBoth = userTutorTypes.includes('tutor_par') && userTutorTypes.includes('tutor_de_tutores');
-
-                        if (hasBoth) {
-                          return (
-                            <React.Fragment key="tutor_subroles">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowLogoutDropdown(false);
-                                  auth.login({ ...user, role: 'tutor', tutorType: 'tutor_par' });
-                                  navigate('/tutor');
-                                }}
-                                className="w-full text-left px-2 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-white transition flex items-center justify-between text-[10px] font-semibold cursor-pointer border border-emerald-500/20"
-                              >
-                                <span>🧑‍🏫 Portal Tutor Par</span>
-                                <span className="text-[9px] text-emerald-400 font-bold">&rarr;</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowLogoutDropdown(false);
-                                  auth.login({ ...user, role: 'tutor', tutorType: 'tutor_de_tutores' });
-                                  navigate('/tutor');
-                                }}
-                                className="w-full text-left px-2 py-1 rounded bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white transition flex items-center justify-between text-[10px] font-semibold cursor-pointer border border-indigo-500/20"
-                              >
-                                <span>🛡️ Tutor de Tutores</span>
-                                <span className="text-[9px] text-indigo-400 font-bold">&rarr;</span>
-                              </button>
-                            </React.Fragment>
-                          );
-                        }
-
-                        const isLead = userTutorTypes.includes('tutor_de_tutores') || user.tutorType === 'tutor_de_tutores';
-                        return (
-                          <button
-                            key="tutor"
-                            type="button"
-                            onClick={() => {
-                              setShowLogoutDropdown(false);
-                              auth.login({ ...user, role: 'tutor', tutorType: isLead ? 'tutor_de_tutores' : 'tutor_par' });
-                              navigate('/tutor');
-                            }}
-                            className="w-full text-left px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white transition flex items-center justify-between text-[10px] font-semibold cursor-pointer"
-                          >
-                            <span>{isLead ? '🛡️ Portal Tutor de Tutores' : '🧑‍🏫 Portal Tutor Par'}</span>
-                            <span className="text-[9px] text-brand-celeste font-bold">&rarr;</span>
-                          </button>
-                        );
-                      }
-
-                      return (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => {
-                            setShowLogoutDropdown(false);
-                            auth.login({ ...user, role: r });
-                            navigate(getRoleHomePath(r));
-                          }}
-                          className="w-full text-left px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white transition flex items-center justify-between text-[10px] font-semibold cursor-pointer"
-                        >
-                          <span>{r === 'alumno' ? '🎓 Portal Estudiante' : '🛡️ Panel Administrador'}</span>
-                          <span className="text-[9px] text-brand-celeste font-bold">&rarr;</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
+          {/* Cambio de portal: solo para usuarios con más de un rol. Se despliega dentro de la tarjeta, sin tapar el menú */}
+          {portalOptions.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-slate-200">
               <button
                 type="button"
-                onClick={() => {
-                  setShowLogoutDropdown(false);
-                  onLogout();
-                }}
-                className="w-full bg-red-650 hover:bg-red-700 text-white font-bold py-1.5 px-3 rounded text-[11px] transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                onClick={() => setShowPortalSwitcher(!showPortalSwitcher)}
+                aria-expanded={showPortalSwitcher}
+                className="w-full flex items-center justify-between gap-2 text-xs font-bold text-brand-navy hover:text-brand-celeste transition-colors cursor-pointer"
               >
-                <LogOut className="h-3 w-3" />
-                <span>Cerrar Sesión</span>
+                <span className="flex items-center gap-1.5">
+                  <ArrowLeftRight className="h-3.5 w-3.5 text-brand-celeste" />
+                  Cambiar de portal
+                </span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showPortalSwitcher ? 'rotate-180' : ''}`} />
               </button>
+
+              {showPortalSwitcher && (
+                <div className="mt-2 space-y-1.5 animate-fade-in">
+                  {portalOptions.map(option => {
+                    const OptionIcon = option.icon;
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => {
+                          setShowPortalSwitcher(false);
+                          auth.login(option.target);
+                          navigate(option.path);
+                        }}
+                        className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-brand-celeste hover:border-brand-celeste hover:text-white text-brand-navy text-xs font-semibold transition-colors cursor-pointer group"
+                      >
+                        <span className="flex items-center gap-2 min-w-0">
+                          <OptionIcon className="h-3.5 w-3.5 shrink-0 text-brand-celeste group-hover:text-white" />
+                          <span className="truncate">{option.label}</span>
+                        </span>
+                        <ArrowRight className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>

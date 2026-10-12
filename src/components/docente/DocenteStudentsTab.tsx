@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../../types';
 import { Users, UserPlus, Search, Edit3, Trash2, GraduationCap, Mail } from 'lucide-react';
-import { formatRut, saveUsers } from '../../data';
+import { formatRut } from '../../data';
 import { usersApi } from '../../services/api';
 
 interface DocenteStudentsTabProps {
@@ -63,9 +63,7 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
 
     try {
       await usersApi.createUser(newStudent);
-      const updated = [...allUsers, newStudent];
-      setAllUsers(updated);
-      saveUsers(updated);
+      setAllUsers([...allUsers, newStudent]);
 
       setStudentFeedback({
         status: 'success',
@@ -77,13 +75,9 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
       setNewStudentEmail('');
       setNewStudentPassword('123');
     } catch (err: any) {
-      const updated = [...allUsers, newStudent];
-      setAllUsers(updated);
-      saveUsers(updated);
-
       setStudentFeedback({
-        status: 'success',
-        message: `Estudiante registrado localmente. (${err.message})`
+        status: 'error',
+        message: err.message || 'No se pudo registrar al estudiante en MongoDB Atlas.'
       });
     } finally {
       setIsSubmittingStudent(false);
@@ -107,15 +101,10 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
 
     try {
       await usersApi.updateUser(editingStudent.id, payload);
-      const updated = allUsers.map(u => u.id === editingStudent.id ? { ...u, ...payload } : u);
-      setAllUsers(updated);
-      saveUsers(updated);
+      setAllUsers(allUsers.map(u => u.id === editingStudent.id ? { ...u, ...payload } : u));
       setEditingStudent(null);
-    } catch (err) {
-      const updated = allUsers.map(u => u.id === editingStudent.id ? { ...u, ...payload } : u);
-      setAllUsers(updated);
-      saveUsers(updated);
-      setEditingStudent(null);
+    } catch (err: any) {
+      window.alert(`No se pudieron guardar los cambios en MongoDB Atlas: ${err.message || 'error de conexión'}`);
     } finally {
       onReload();
     }
@@ -126,13 +115,9 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
 
     try {
       await usersApi.deleteUser(student.id);
-      const updated = allUsers.filter(u => u.id !== student.id);
-      setAllUsers(updated);
-      saveUsers(updated);
-    } catch (err) {
-      const updated = allUsers.filter(u => u.id !== student.id);
-      setAllUsers(updated);
-      saveUsers(updated);
+      setAllUsers(allUsers.filter(u => u.id !== student.id));
+    } catch (err: any) {
+      window.alert(`No se pudo eliminar a "${student.name}" en MongoDB Atlas: ${err.message || 'error de conexión'}`);
     } finally {
       onReload();
     }

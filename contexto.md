@@ -473,7 +473,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     subgraph ClientNode["Nodo Cliente (Dispositivo de Usuario)"]
-        Browser["Navegador Web (Chrome, Edge, Safari, Firefox)\n- React 19 SPA Bundle\n- Auth Cookies (7 días)\n- LocalStorage Cache\n- HTML5 QR Scanner / Camera"]
+        Browser["Navegador Web (Chrome, Edge, Safari, Firefox)\n- React 19 SPA Bundle\n- Auth Cookies (7 días)\n- HTML5 QR Scanner / Camera"]
     end
 
     subgraph ApplicationHost["Servidor de Aplicación (Host Node.js / Linux VPS)"]
@@ -544,7 +544,15 @@ flowchart TD
 - **Estilos**: Tailwind CSS v4 (`@tailwindcss/vite`) con paleta institucional UFT (`#092c4c`, `#3a9ad9`).
 - **Iconografía & Animación**: `lucide-react`, `motion` (Framer Motion).
 - **Capa de Servicios**: Clientes API tipados en `src/services/api.ts`.
-- **Persistencia de Sesión**: Cookies de navegador (`uft_session_user`, 7 días, SameSite=Lax, path=/) sincronizadas con `localStorage` y administradas mediante `AuthContext`.
+- **Rendimiento de Carga**:
+  - **Code splitting por ruta** (`React.lazy` + `Suspense` en `App.tsx`): cada portal (`/docente`, `/tutor`, `/alumno`, `/admin`) y la pantalla de restablecer contraseña se descargan solo al entrar. El login no carga código de los paneles.
+  - **Librerías pesadas bajo demanda**: `exceljs` se importa dinámicamente al exportar, `html5-qrcode` al abrir el escáner QR del alumno, y `DocenteAnalyticsTab` al abrir Métricas.
+  - **Vendor chunks** (`vite.config.ts` → `manualChunks`): `vendor-react`, `vendor-realtime`, `vendor-icons`, para que el navegador los conserve en caché entre despliegues.
+  - **Fuentes**: Google Fonts se enlaza desde `index.html` con `preconnect` (no vía `@import` en CSS, que bloqueaba el primer pintado).
+  - **Tiempo real**: las recargas disparadas por WebSockets se agrupan (250 ms) y los eventos `notifications:changed` dirigidos a otro usuario se ignoran.
+  - **Firefox**: se desactiva `backdrop-filter` en capas de modal a pantalla completa (`@supports (-moz-appearance: none)` en `index.css`); se respeta `prefers-reduced-motion`.
+- **Persistencia de Sesión**: Cookie de navegador (`uft_session_user`, 7 días, SameSite=Lax, path=/) administrada mediante `AuthContext`.
+- **Sin base de datos local**: Todos los datos de negocio (usuarios, sesiones, reportes, solicitudes, disponibilidades, notificaciones, SMTP) se leen y escriben únicamente en MongoDB Atlas vía `/api`. No existe caché ni respaldo en `localStorage`: si una escritura falla, la interfaz muestra el error en lugar de simular el guardado. `localStorage` se usa solo para preferencias de interfaz (pestaña activa, tema, tutorial visto).
 
 ### Backend & Seguridad
 - **Runtime & Servidor**: Node.js con Express 4 modularizado por capas (Controladores, Servicios, Rutas y Middlewares).
@@ -617,7 +625,7 @@ trayectoria-estudiantil-uft/
 │   ├── main.tsx                 # Entrada principal React DOM
 │   ├── App.tsx                  # Enrutador BrowserRouter con rutas protegidas por rol
 │   ├── types.ts                 # Tipado TypeScript unificado
-│   ├── data.ts                  # Helpers de fechas dinámicas, formateo de RUT y respaldos
+│   ├── data.ts                  # Constantes, helpers de fechas, formateo de RUT y despacho de notificaciones
 │   ├── index.css                # Estilos globales y tokens
 │   ├── context/                 # Estado Global de Autenticación
 │   │   └── AuthContext.tsx      # Provider con cookies, logout y useAuth()
@@ -647,6 +655,7 @@ trayectoria-estudiantil-uft/
 │           ├── DocenteAttendanceTab.tsx
 │           ├── DocenteFlexScheduleTab.tsx
 │           ├── DocenteTutorsTab.tsx
+│           ├── tutorAvailability.tsx # Helpers de disponibilidad/topes de tutores y listado de horarios
 │           ├── DocenteStudentsTab.tsx
 │           ├── DocenteAlertsTab.tsx
 │           ├── DocenteAnnouncementsTab.tsx
@@ -674,14 +683,14 @@ trayectoria-estudiantil-uft/
    - `id`, `name`, `rut`, `role` (`'docente' | 'tutor' | 'alumno' | 'admin'`), `email`, `career`, `password`.
    - En base de datos se almacena además `rutHash` (índice ciego HMAC-SHA256) y el RUT cifrado con AES-256-GCM.
 2. **`Session`**:
-   - `id`, `program` (`'tutorias' | 'psicoeducativo'`), `type`, `title`, `subject`, `date`, `timeSlot`, `docenteId`, `tutorId`, `studentIds`, `maxSpots`, `location`, `attendance`, `ratings`, `isCompleted`.
+   - `id`, `program` (`'tutorias' | 'psicoeducativo'`), `type`, `reservedForStudentId` (opcional, sesiones personalizadas), `title`, `subject`, `date`, `timeSlot`, `docenteId`, `tutorId`, `studentIds`, `maxSpots`, `location`, `attendance`, `ratings`, `isCompleted`.
 3. **`StudentRequest`**:
    - Solicitudes por topes horarios o incompatibilidad enviadas por estudiantes.
    - `id`, `studentId`, `studentName`, `studentCareer`, `program`, `message`, `preferredTime`, `status`, `assignedSessionId`, `createdAt`.
 4. **`UserAvailability`**:
    - Matriz de disponibilidad horaria semanal por bloques para tutores y alumnos.
 5. **`IssueReport`**:
-   - Alertas o solicitudes de reasignación creadas por tutores (topes de horario, cambio de tutor).
+   - Alertas o solicitudes de reasignación creadas por tutores (topes de horario, cambio de tutor). Al resolverse guardan `resolvedAt` y `resolutionNote`.
 6. **`WebNotification`**:
    - Notificaciones y comprobantes despachados a los correos de los usuarios.
 7. **`SmtpSettings`**:
@@ -696,6 +705,8 @@ trayectoria-estudiantil-uft/
 - **Persistencia de Pestaña Activa**: Al recargar la página (`F5`), el sistema recuerda automáticamente la pestaña o vista en la que se encontraba el usuario (Métricas, Pasar Lista, Disponibilidad, Calendario, etc.) mediante `localStorage`.
 - **Guardas de Acceso (`ProtectedRoute`)**: Redirigen a `/login` si no hay sesión activa, o a la ruta correspondiente al rol si se intenta acceder a una sección ajena.
 - **Login Inteligente**: Permite el ingreso con `admin` / `1234` o RUT chileno de 9 dígitos.
+- **Barra superior de Tutor y Alumno siempre visible**: Los botones de navegación de `TutorDashboard` y `AlumnoDashboard` se muestran en cualquier ancho de pantalla. En pantallas anchas van en la misma fila del logo (`xl` para Tutor Par, `2xl` para Tutor de Tutores y Alumno); en pantallas más angostas bajan a una fila propia y se reparten en varias líneas (`flex-wrap`), sin scroll horizontal oculto. El Alumno conserva además la barra inferior móvil con el botón QR.
+- **Menú lateral del Docente (`DocenteSidebar.tsx`)**: La tarjeta de perfil muestra nombre, cargo y RUT. Si el usuario tiene más de un rol, incluye "Cambiar de portal", que se despliega dentro de la misma tarjeta (no flota sobre el menú). Hay un único botón "Cerrar Sesión" al pie y un único acceso al tutorial (botón "Tutorial" de la barra superior). En los portales de Tutor y Alumno el tutorial también tiene un único acceso: el botón de exclamación de la barra superior.
 - **Cierre de Sesión Unificado**: Botón visible y permanente en la barra superior o pie de sidebar de cada panel, sin popups redundantes ni menús invasivos.
 
 ### B. Cifrado y Confidencialidad de Datos en Reposo
@@ -729,6 +740,11 @@ trayectoria-estudiantil-uft/
 - **Sistema Transaccional de Correos SMTP**:
   - 11 flujos de notificación auditados y validados.
   - Incrustación inline CID del logotipo oficial (`logo-uft.png`) para visualización inmediata sin bloqueos en clientes de correo.
+- **Alertas y Casos (`DocenteAlertsTab.tsx`)**:
+  - Cada alerta pendiente permite resolver cambiando el **tutor a cargo**, la **fecha** y/o el **bloque horario** de la sesión (el horario propuesto por el tutor se precarga en los casos de "Cambio de Horario"), o **cerrarla sin cambios**.
+  - **Verificación de disponibilidad real**: para la fecha y bloque elegidos, cada tutor candidato se etiqueta como Disponible, Otros bloques ese día, Sin horario o **Tope con otra sesión** (misma fecha y bloque, sesión no completada), y se muestra el horario semanal declarado del tutor que quedaría a cargo. Si no está disponible o tiene tope, se exige una segunda confirmación ("Confirmar de todos modos").
+  - **Filtro por estado**: Pendientes / Resueltos / Todos. Las alertas resueltas se muestran en modo lectura con la fecha y el detalle de la resolución.
+  - La resolución se persiste en MongoDB (`PUT /api/reports/:id`) y notifica al sustituto, al tutor original y, si cambia el horario, a los alumnos inscritos.
 - **Coordinación Flexible**: Visualización y adjudicación directa de solicitudes de horario con despacho automático de correos institucionales al alumno y al tutor asignado.
 
 ### D. Módulo de Tutores y Subtipo Tutor de Tutores (`TutorDashboard.tsx`)
@@ -765,17 +781,20 @@ trayectoria-estudiantil-uft/
   - Opción de registrar y editar tutores clasificándolos como **Tutor Par** o **Tutor de Tutores**.
   - **Detección Automática de Alumnos Existentes**: Al ingresar un RUT en el registro de tutores, el sistema detecta si el usuario ya existe como estudiante y despliega una alerta con opción de promoverlo a tutor con un solo clic, habilitando su perfil multi-rol (`roles: ['alumno', 'tutor']`).
   - **Gestión Multi-rol de Tutores**: La nómina de tutores muestra las etiquetas de todos los roles habilitados e insignia `Multi-rol`, y la modal de edición permite marcar o desmarcar roles (`alumno`, `tutor`, `docente`, `admin`).
+  - Tarjeta **"Horarios Declarados por los Tutores"** (`TutorSchedulesCard` en `tutorAvailability.tsx`): tabla con todos los tutores y los bloques semanales que cargaron en su portal, marcando a quienes aún no tienen horario.
   - Sección interactiva **"Asignar Tutores a Cargo"** para que los docentes coordinadores elijan un Tutor de Tutores y le asignen tutores pares mediante selección múltiple.
 
 ### E. Módulo Alumno (`AlumnoDashboard.tsx`)
 - **Explorador y Reserva**: Inscripción inmediata en tutorías colectivas y talleres psicoeducativos con validación de anticipación (mínimo 2 horas antes) y **límite institucional estricto de máximo 5 reservas activas semanales** (regla que únicamente puede ser omitida cuando un docente/coordinador asigna al estudiante a una tutoría personalizada).
+- **Exclusividad de Tutorías Personalizadas (1 a 1)**: Una sesión `tutoria_personalizada` / `psico_asesoria_individual` (o con `maxSpots === 1`) solo la ve y puede inscribirse el estudiante para quien fue creada (`reservedForStudentId`) o quien ya figura en `studentIds`; nunca queda abierta al resto, aunque el estudiante cancele su reserva. La regla vive en `canStudentAccessSession` (`src/data.ts`) y el servidor la repite en el registro de asistencia por QR (403). Al crear una sesión personalizada en "Registrar Horarios" es obligatorio elegir al estudiante; las adjudicadas desde Horario Flexible quedan reservadas al solicitante.
+- **Identidad visual por programa**: Las vistas de Tutorías Colectivas y Talleres Psicoeducativos comparten estructura pero cada una tiene encabezado, color e ícono propios (`segmentInfo` en `AlumnoDashboard.tsx`: azul marino para tutorías, verde azulado para talleres), y títulos y estado vacío con texto específico, para que el cambio se note aunque no haya sesiones.
 - **Archivado Automático de Tutorías**: Las sesiones cuya fecha/horario ya concluyó se archivan automáticamente impidiendo nuevas inscripciones y pasando directamente al historial del estudiante.
 - **Mis Reservas Activas**: Listado de sesiones agendadas vigentes con datos del tutor y temario visible (máximo 5 por semana).
 - **Historial de Clases y Asistencias**:
   - Registro histórico de tutorías completadas y archivadas con control de asistencia individual.
   - **Encuesta de Satisfacción y Hábitos de Estudio**: Cuestionario oficial de 12 ítems sobre hábitos y método de estudio (Planificación, Exámenes, Búsqueda de ayuda, Asistencia, Postergación, Automotivación, etc.) con escala Likert de 5 opciones (1. Siempre, 2. Casi siempre, 3. A veces, 4. Pocas veces, 5. Nunca) y comentarios adicionales.
 - **Bandeja de Mensajes y Comunicados**: Modal flotante institucional con filtros de tiempo ("Última Semana" / "Histórico Completo") y marcado interactivo de leídos.
-- **Avisar Inconveniente**: Formulario para solicitar horario flexible con notificación automática a los docentes coordinadores.
+- **Avisar Inconveniente**: Formulario para solicitar horario flexible con notificación automática a los docentes coordinadores. Los horarios propuestos se eligen con un selector de día (Lunes a Sábado) y módulos (`TIME_SLOTS`), con varios días y módulos a la vez; se guardan como texto en `preferredTime` (ej. `Lunes: 8:30 - 9:40, 9:50 - 11:00 | Miércoles: 12:30 - 13:40`). El estudiante puede indicar además en cuál de sus reservas activas tiene el inconveniente (`conflictSessionId` / `conflictSessionLabel` en `StudentRequest`): cuando el docente adjudica la sesión flexible en Horario Flexible, el alumno queda desinscrito de esa reserva (se quita de `studentIds` y `attendance`).
 
 ### F. Módulo Administrador (`AdminDashboard.tsx`)
 - **Nómina y Gestión de Docentes, Tutores y Estudiantes**: Alta, edición modal y baja de usuarios en MongoDB Atlas con filtros seguros contra valores nulos.
@@ -812,6 +831,7 @@ trayectoria-estudiantil-uft/
 | `PUT` | `/api/student-requests/:id` | Actualización de estado de solicitud a resuelta |
 | `GET` / `POST` | `/api/availabilities` | Consulta y guardado de disponibilidad horaria semanal |
 | `GET` / `POST` | `/api/reports` | Gestión de alertas e incidencias reportadas por tutores |
+| `PUT` | `/api/reports/:id` | Cierre de una alerta (estado `resuelto`, `resolvedAt`, `resolutionNote`) |
 | `GET` / `POST` | `/api/notifications` | Consulta y guardado de notificaciones institucionales |
 | `PUT` | `/api/notifications/:id/read` | Marcar notificación individual como leída |
 | `PUT` | `/api/notifications/read-all` | Marcar todas las notificaciones como leídas |
