@@ -551,7 +551,7 @@ flowchart TD
   - **Fuentes**: Google Fonts se enlaza desde `index.html` con `preconnect` (no vía `@import` en CSS, que bloqueaba el primer pintado).
   - **Tiempo real**: las recargas disparadas por WebSockets se agrupan (250 ms) y los eventos `notifications:changed` dirigidos a otro usuario se ignoran.
   - **Firefox**: se desactiva `backdrop-filter` en capas de modal a pantalla completa (`@supports (-moz-appearance: none)` en `index.css`); se respeta `prefers-reduced-motion`.
-- **Persistencia de Sesión**: Cookie de navegador (`uft_session_user`, 7 días, SameSite=Lax, path=/) administrada mediante `AuthContext`.
+- **Persistencia de Sesión**: Cookie de navegador (`uft_session_user`, 7 días, SameSite=Lax, path=/) administrada mediante `AuthContext`. La cookie guarda una copia del usuario tomada al iniciar sesión; `AuthContext` la refresca desde MongoDB (`/api/users`) al abrir la app y ante cada evento `users:changed`, conservando el portal elegido (`role` / `tutorType`) mientras el usuario mantenga ese rol.
 - **Sin base de datos local**: Todos los datos de negocio (usuarios, sesiones, reportes, solicitudes, disponibilidades, notificaciones, SMTP) se leen y escriben únicamente en MongoDB Atlas vía `/api`. No existe caché ni respaldo en `localStorage`: si una escritura falla, la interfaz muestra el error en lugar de simular el guardado. `localStorage` se usa solo para preferencias de interfaz (pestaña activa, tema, tutorial visto).
 
 ### Backend & Seguridad
