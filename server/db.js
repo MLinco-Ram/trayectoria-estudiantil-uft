@@ -16,6 +16,8 @@ const uri = process.env.MONGODB_URI || '';
 
 let cachedClient = null;
 let cachedDb = null;
+let connecting = null;
+let clientUsed = false;
 
 export const client = uri ? new MongoClient(uri) : null;
 
@@ -30,18 +32,30 @@ export async function connectDB() {
     throw new Error(errMsg);
   }
 
-  try {
-    if (!cachedClient) {
-      cachedClient = client || new MongoClient(uri);
-      await cachedClient.connect();
-      console.log("¡Conectado exitosamente a MongoDB Atlas!");
-    }
-    cachedDb = cachedClient.db('trayectoria_uft');
-    return cachedDb;
-  } catch (error) {
-    console.error("Error al conectar a MongoDB Atlas:", error);
-    throw error;
+  // Conexión en curso compartida: peticiones simultáneas no abren varios clientes
+  if (!connecting) {
+    connecting = (async () => {
+      // Tras un connect() fallido el cliente queda cerrado ("Topology is closed"): se usa uno nuevo
+      const mongoClient = !cachedClient && client && !clientUsed ? client : new MongoClient(uri);
+      clientUsed = true;
+      try {
+        await mongoClient.connect();
+        cachedClient = mongoClient;
+        cachedDb = mongoClient.db('trayectoria_uft');
+        console.log("¡Conectado exitosamente a MongoDB Atlas!");
+        return cachedDb;
+      } catch (error) {
+        cachedClient = null;
+        cachedDb = null;
+        await mongoClient.close().catch(() => {});
+        console.error("Error al conectar a MongoDB Atlas:", error);
+        throw error;
+      } finally {
+        connecting = null;
+      }
+    })();
   }
+  return connecting;
 }
 
 export function getDb() {
