@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { createTransporter } from '../services/email.service.js';
 import { hashRut, decryptField, sanitizeUserOutput, normalizeRut } from '../services/crypto.service.js';
+import { setSessionCookie, clearSessionCookie } from '../services/session.service.js';
 
 export const login = async (req, res) => {
   const { rut, password } = req.body;
@@ -31,6 +32,14 @@ export const login = async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({ error: "Contraseña incorrecta." });
     }
+
+    // Las sesiones se identifican por el campo id; se asigna uno a cuentas antiguas que no lo tengan
+    if (!user.id) {
+      user.id = `user_${user._id.toString()}`;
+      await db.collection('users').updateOne({ _id: user._id }, { $set: { id: user.id } });
+    }
+
+    setSessionCookie(res, user.id);
 
     // Retornar usuario con RUT descifrado para el cliente autorizado
     res.json(sanitizeUserOutput(user));
@@ -229,4 +238,14 @@ export const resetPassword = async (req, res) => {
     console.error("[Reset-Password-Error]:", err);
     res.status(500).json({ error: "Error al actualizar la contraseña.", details: err.message });
   }
+};
+
+export const logout = (req, res) => {
+  clearSessionCookie(res);
+  res.json({ success: true });
+};
+
+// Devuelve el usuario de la sesión actual (requiere requireAuth)
+export const me = (req, res) => {
+  res.json(sanitizeUserOutput(req.user));
 };

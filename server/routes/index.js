@@ -11,11 +11,22 @@ import broadcastRoutes from './broadcast.routes.js';
 import cronRoutes from './cron.routes.js';
 import emailRoutes from './email.routes.js';
 import systemRoutes from './system.routes.js';
+import { requireAuth, requireRole } from '../middlewares/auth.js';
+import { registerStudent } from '../controllers/users.controller.js';
+import { loginLimiter } from '../middlewares/rateLimiters.js';
 
 const apiRouter = Router();
 
+// Rutas públicas: login, recuperación de contraseña y registro de alumnos
+apiRouter.use('/', authRoutes);
+apiRouter.post('/register', loginLimiter, registerStudent);
+
+// Todo lo que sigue exige una sesión válida
+apiRouter.use(requireAuth);
+const adminOnly = requireRole('admin');
+
 // Endpoint de verificación de salud y conexión a MongoDB
-apiRouter.get('/health', async (req, res) => {
+apiRouter.get('/health', adminOnly, async (req, res) => {
   try {
     const db = req.db;
     const collections = await db.listCollections().toArray();
@@ -36,16 +47,15 @@ apiRouter.get('/health', async (req, res) => {
 apiRouter.get('/check-db', (req, res) => res.redirect('/api/health'));
 
 // Montar submódulos de rutas
-apiRouter.use('/', authRoutes);
 apiRouter.use('/users', usersRoutes);
 apiRouter.use('/sessions', sessionsRoutes);
 apiRouter.use('/availabilities', availabilitiesRoutes);
 apiRouter.use('/reports', reportsRoutes);
 apiRouter.use('/student-requests', studentRequestsRoutes);
 apiRouter.use('/notifications', notificationsRoutes);
-apiRouter.use('/settings', settingsRoutes);
-apiRouter.use('/broadcast-message', broadcastRoutes);
-apiRouter.use('/system', systemRoutes);
+apiRouter.use('/settings', adminOnly, settingsRoutes);
+apiRouter.use('/broadcast-message', requireRole('admin', 'docente'), broadcastRoutes);
+apiRouter.use('/system', adminOnly, systemRoutes);
 apiRouter.use('/', cronRoutes);
 apiRouter.use('/', emailRoutes);
 
