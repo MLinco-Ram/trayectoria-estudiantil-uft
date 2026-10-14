@@ -495,13 +495,13 @@ flowchart TD
             SecondaryDB[("Nodos Secundarios (Replica Sync)")]
             PrimaryDB --- SecondaryDB
         end
-        Collections["Colecciones Cifradas:\n- users (RUTs encriptados + rutHash)\n- sessions (syllabus + ratings)\n- student_requests, reports, notifications, availabilities, settings"]
+        Collections["Colecciones Cifradas:\n- users (RUTs encriptados + rutHash)\n- sessions (syllabus + ratings)\n- student_requests, reports, notifications, availabilities, settings\n- rate_limits (contadores de login con TTL)"]
         ReplicaSet --- Collections
     end
 
     subgraph ExternalServices["Servicios Externos Institucionales"]
         GoogleSMTP["Servidor SMTP Institucional (Google / UFT)\nPuerto 465 (TLS Implícito / SSL)"]
-        DNSResolvers["Resolutores DNS Globales\nGoogle Public DNS (8.8.8.8) / Cloudflare (1.1.1.1)"]
+        DNSResolvers["DNS del sistema\n(SRV de Atlas; si falla SRV/TXT se usa URI mongodb:// estándar)"]
     end
 
     Browser -->|"HTTPS / WSS (Puerto 3000)"| ViteDev
@@ -557,7 +557,9 @@ flowchart TD
 
 ### Backend & Seguridad
 - **Runtime & Servidor**: Node.js con Express 4 modularizado por capas (Controladores, Servicios, Rutas y Middlewares).
-- **Base de Datos**: MongoDB Atlas (driver oficial `mongodb` v7.x con pool de conexiones y cache `cachedDb`).
+- **Base de Datos**: MongoDB Atlas (driver oficial `mongodb` v7.x con pool de conexiones y cache `cachedDb`). Cluster en AWS `SA_EAST_1` (São Paulo).
+  - **Conexión (`server/db.js`)**: `connectDB()` comparte una sola conexión en curso entre peticiones simultáneas. Si `connect()` falla se descarta ese cliente (evita "Topology is closed") y el siguiente intento crea uno nuevo. Usa el DNS del sistema; si la consulta `querySrv`/`queryTxt` de una URI `mongodb+srv://` falla (routers que no responden TXT o bloquean DNS públicos), resuelve los hosts por SRV y reintenta con una URI estándar `mongodb://` (`tls=true`, `authSource=admin`). Al conectar crea el índice `users.rutHash`.
+- **Despliegue**: Vercel (`vercel.json`): `/api/*` → `api/index.js` (exporta la app Express como función serverless), resto → SPA. Funciones en la región `gru1` (São Paulo), la misma que Atlas, para minimizar la latencia de cada consulta. Variables obligatorias definidas en Vercel (Production y Preview) como Secret. Limitaciones en serverless: Socket.io no mantiene conexiones y el cron con `setInterval` no se ejecuta.
 - **Seguridad Criptográfica & Datos Sensibles**:
   - **Cifrado en Reposo (Field-Level Encryption)**: RUTs cifrados en MongoDB Atlas con **AES-256-GCM** (`enc:<iv>:<tag>:<cipher>`) usando clave simétrica de 256 bits (`DATA_ENCRYPTION_KEY`).
   - **Blind Index Determinístico**: Búsquedas instantáneas $O(1)$ en MongoDB mediante **HMAC-SHA256** (`rutHash`).
@@ -584,7 +586,8 @@ flowchart TD
 
 ```plaintext
 trayectoria-estudiantil-uft/
-├── .env / .env.example          # Variables de entorno (MONGODB_URI, DATA_ENCRYPTION_KEY, HMAC_SECRET, SMTP)
+├── .env / .env.example          # Variables de entorno (MONGODB_URI, SESSION_SECRET, DATA_ENCRYPTION_KEY, HMAC_SECRET, SMTP)
+├── vercel.json                  # Rewrites /api y SPA, región de funciones gru1
 ├── package.json                 # Dependencias y scripts de ejecución
 ├── tsconfig.json                # Configuración de TypeScript
 ├── vite.config.ts               # Configuración de Vite y proxy backend (/api -> localhost:3001)
@@ -592,11 +595,18 @@ trayectoria-estudiantil-uft/
 │   ├── db.js                    # Conexión con MongoClient, pool y helpers getDb / getOrConnectDB
 │   ├── seed.js                  # Sembrado inicial de datos en MongoDB Atlas
 │   ├── server.js                # Punto de entrada Express modular (< 60 líneas)
-│   ├── middlewares/             # Middlewares (Rate limiters, verificación de DB)
+│   ├── config/
+│   │   └── env.js               # Variables obligatorias (requireEnv / checkRequiredEnv)
+│   ├── utils/
+│   │   └── errors.js            # sendServerError: 500 genérico en producción
+│   ├── middlewares/             # Middlewares (Rate limiters, verificación de DB, autenticación)
+│   │   ├── auth.js              # requireAuth / requireRole
 │   │   ├── rateLimiters.js
+│   │   ├── mongoRateLimitStore.js # Contador de rate limit compartido en la colección rate_limits
 │   │   └── checkDb.js
 │   ├── services/                # Servicios del Dominio
 │   │   ├── crypto.service.js    # Cifrado AES-256-GCM, HMAC-SHA256 Blind Index y sanitización
+│   │   ├── session.service.js   # Cookie de sesión firmada (HMAC-SHA256)
 │   │   ├── email.service.js     # Configuración SMTP y despacho de correos
 │   │   └── cron.service.js      # Tareas programadas y recordatorios automáticos
 │   ├── controllers/             # Controladores de Negocio
