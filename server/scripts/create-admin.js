@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import readline from 'readline';
 import { connectDB, client } from '../db.js';
 import { encryptField, hashRut } from '../services/crypto.service.js';

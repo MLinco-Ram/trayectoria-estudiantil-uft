@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { requireEnv } from '../config/env.js';
 
 // Clave simétrica de 256 bits (32 bytes) y secreto HMAC
 const ALGORITHM = 'aes-256-gcm';
@@ -6,12 +7,11 @@ const IV_LENGTH = 12; // Recomendado para AES-GCM
 const ENCRYPTED_PREFIX = 'enc:';
 
 function getEncryptionKey() {
-  const keyHex = process.env.DATA_ENCRYPTION_KEY || 'e4a7b9c1d2e3f405162738495a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b';
-  return Buffer.from(keyHex, 'hex');
+  return Buffer.from(requireEnv('DATA_ENCRYPTION_KEY'), 'hex');
 }
 
 function getHmacSecret() {
-  return process.env.HMAC_SECRET || '7f8e9d0a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d5e6f708192a3b4c5d';
+  return requireEnv('HMAC_SECRET');
 }
 
 /**

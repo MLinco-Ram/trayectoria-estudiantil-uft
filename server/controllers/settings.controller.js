@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { getEffectiveSmtpConfig } from '../services/email.service.js';
+import { sendServerError } from '../utils/errors.js';
 
 export const getSmtpSettings = async (req, res) => {
   const db = req.db;
@@ -25,7 +26,7 @@ export const getSmtpSettings = async (req, res) => {
       configured: Boolean(process.env.SMTP_USER && process.env.SMTP_PASS)
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 
@@ -60,7 +61,7 @@ export const saveSmtpSettings = async (req, res) => {
 
     res.json({ success: true, message: "Configuración SMTP guardada exitosamente en la base de datos." });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 

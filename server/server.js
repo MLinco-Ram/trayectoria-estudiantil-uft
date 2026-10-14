@@ -2,13 +2,18 @@ import http from 'http';
 import express from 'express';
 import helmet from 'helmet';
 import { connectDB } from './db.js';
+import { checkRequiredEnv } from './config/env.js';
 import { generalLimiter } from './middlewares/rateLimiters.js';
 import { checkDb } from './middlewares/checkDb.js';
 import apiRouter from './routes/index.js';
 import { startCronJobs } from './services/cron.service.js';
 import { initSocket } from './services/socket.service.js';
 
+checkRequiredEnv();
+
 const app = express();
+// Vercel (y el proxy de Vite) reenvían la petición: la IP real del cliente viene en X-Forwarded-For
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 
 // Inicializar Socket.io sobre el servidor HTTP

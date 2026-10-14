@@ -1,4 +1,5 @@
 import rateLimit from 'express-rate-limit';
+import { MongoRateLimitStore } from './mongoRateLimitStore.js';
 
 // Rate Limiter General para la API (120 peticiones por minuto por IP)
 export const generalLimiter = rateLimit({
@@ -15,6 +16,9 @@ export const loginLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  // Contador compartido entre instancias; si Mongo falla se deja pasar en vez de bloquear el login
+  store: new MongoRateLimitStore('login'),
+  passOnStoreError: true,
   message: { error: "Demasiados intentos fallidos de inicio de sesión. Por seguridad, espera 5 minutos antes de reintentar." }
 });
 
@@ -24,5 +28,7 @@ export const forgotPasswordLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  store: new MongoRateLimitStore('forgot-password'),
+  passOnStoreError: true,
   message: { error: "Demasiadas solicitudes de restablecimiento de contraseña. Por favor, espera 15 minutos." }
 });

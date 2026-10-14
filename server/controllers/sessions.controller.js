@@ -1,4 +1,5 @@
 import { emitEvent } from '../services/socket.service.js';
+import { sendServerError } from '../utils/errors.js';
 
 export const getSessions = async (req, res) => {
   const db = req.db;
@@ -6,7 +7,7 @@ export const getSessions = async (req, res) => {
     const sessions = await db.collection('sessions').find({}).toArray();
     res.json(sessions);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 
@@ -21,7 +22,7 @@ export const createSession = async (req, res) => {
     
     res.status(201).json(newSession);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 
@@ -40,7 +41,7 @@ export const updateSession = async (req, res) => {
     
     res.json({ success: true, updated: updateData });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 
@@ -55,7 +56,7 @@ export const deleteSession = async (req, res) => {
     
     res.json({ success: true, message: `Sesión ${id} eliminada.` });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 
@@ -107,7 +108,7 @@ export const registerQRAttendance = async (req, res) => {
         : '¡Asistencia registrada con éxito!' 
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 

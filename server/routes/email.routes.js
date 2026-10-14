@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { sendEmail } from '../services/email.service.js';
+import { sendServerError } from '../utils/errors.js';
 
 const router = Router();
 
@@ -14,8 +15,7 @@ router.post('/send-email', async (req, res) => {
     const result = await sendEmail({ to, toName, subject, text, html, fromName });
     res.json(result);
   } catch (err) {
-    console.error("[Mail] Error al enviar correo SMTP:", err);
-    res.status(500).json({ error: "Fallo al enviar correo mediante el servidor SMTP", details: err.message });
+    sendServerError(res, err, "Fallo al enviar correo mediante el servidor SMTP");
   }
 });
 

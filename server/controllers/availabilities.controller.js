@@ -1,4 +1,5 @@
 import { emitEvent } from '../services/socket.service.js';
+import { sendServerError } from '../utils/errors.js';
 
 export const getAvailabilities = async (req, res) => {
   const db = req.db;
@@ -6,7 +7,7 @@ export const getAvailabilities = async (req, res) => {
     const data = await db.collection('availabilities').find({}).toArray();
     res.json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 
@@ -25,6 +26,6 @@ export const saveAvailability = async (req, res) => {
 
     res.json({ success: true, availability });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };

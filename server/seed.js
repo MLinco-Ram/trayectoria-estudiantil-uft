@@ -1,7 +1,8 @@
 import { connectDB, client } from './db.js';
 import { MOCK_USERS, INITIAL_SESSIONS, DEFAULT_AVAILABILITIES, DEFAULT_STUDENT_REQUESTS } from '../src/data.ts';
 
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
+import { hashRut, normalizeRut } from './services/crypto.service.js';
 
 async function seedDatabase() {
   try {
@@ -11,6 +12,7 @@ async function seedDatabase() {
     // Colección de Usuarios con contraseñas encriptadas
     const hashedUsers = MOCK_USERS.map(u => ({
       ...u,
+      ...(u.rut ? { rutHash: hashRut(normalizeRut(u.rut)) } : {}),
       password: u.password ? bcrypt.hashSync(u.password, 10) : bcrypt.hashSync('123', 10)
     }));
 

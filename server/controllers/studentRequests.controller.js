@@ -1,4 +1,5 @@
 import { emitEvent } from '../services/socket.service.js';
+import { sendServerError } from '../utils/errors.js';
 
 export const getStudentRequests = async (req, res) => {
   const db = req.db;
@@ -6,7 +7,7 @@ export const getStudentRequests = async (req, res) => {
     const requests = await db.collection('student_requests').find({}).toArray();
     res.json(requests);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 
@@ -21,7 +22,7 @@ export const createStudentRequest = async (req, res) => {
 
     res.status(201).json(request);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 
@@ -42,6 +43,6 @@ export const updateStudentRequest = async (req, res) => {
 
     res.json({ success: true, updated: updateData });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
