@@ -125,29 +125,12 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       return;
     }
 
-    // Soporte prioritario para cuenta especial de Administrador
+    // La cuenta de administrador se valida en el servidor como cualquier otro usuario
     const cleanEntered = rutInput.replace(/[\.\-]/g, '').trim().toLowerCase();
-    if (cleanEntered === 'admin' || cleanEntered === 'administrador') {
-      if (passwordInput.trim() === '1234') {
-        const adminUser: User = {
-          id: 'admin_root',
-          name: 'Administrador del Sistema',
-          rut: 'admin',
-          role: 'admin',
-          roles: ['admin'],
-          email: 'admin@uft.cl',
-          career: 'Administración y Soporte TI'
-        };
-        handleSuccessfulAuth(adminUser);
-        return;
-      } else {
-        setError('Contraseña de administrador incorrecta (clave por defecto: 1234).');
-        return;
-      }
-    }
+    const isAdminLogin = cleanEntered === 'admin';
 
     // Validar largo de RUT (debe tener exactamente 9 dígitos/caracteres ignorando puntos y guión)
-    if (cleanEntered.length !== 9) {
+    if (!isAdminLogin && cleanEntered.length !== 9) {
       setError('El RUT debe tener exactamente 9 caracteres (ej: 123456789 o 12.345.678-9).');
       return;
     }
@@ -163,6 +146,17 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       if (!res.ok) {
         setError(data.error || 'Credenciales incorrectas.');
         return;
+      }
+
+      // Avisar al gestor de contraseñas del navegador que el inicio de sesión fue exitoso
+      // (Bitwarden y similares detectan además el envío del formulario con username/current-password)
+      if (typeof window !== 'undefined' && 'PasswordCredential' in window) {
+        try {
+          const credential = new (window as any).PasswordCredential({ id: rutInput.trim(), password: passwordInput, name: data.name });
+          await navigator.credentials.store(credential);
+        } catch {
+          // Algunos navegadores rechazan el guardado; no afecta el inicio de sesión
+        }
       }
 
       checkMultiRoleOrAuth(data);
@@ -295,7 +289,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           <div className="pt-1">
             {!isRegisterMode ? (
               /* LOGIN FORM */
-              <form onSubmit={handleLogin} className="space-y-4">
+              <form onSubmit={handleLogin} method="post" action="/api/login" autoComplete="on" className="space-y-4">
                 
                 {/* Input RUT con recuadro redondeado */}
                 <div className="flex items-center bg-[#007ba7] dark:bg-[#083556] rounded-full p-1.5 border-2 border-slate-900 dark:border-slate-700 shadow-md">
@@ -304,8 +298,12 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   </div>
                   <input
                     type="text"
-                    name="rut"
-                    id="rut"
+                    name="username"
+                    id="username"
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    aria-label="RUT o usuario"
                     className="flex-1 bg-transparent px-4 text-sm font-bold text-white placeholder-white/75 focus:outline-none font-mono"
                     placeholder="11.111.111-1"
                     value={rutInput}
@@ -321,8 +319,10 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     </div>
                     <input
                       type={showPassword ? 'text' : 'password'}
-                      name="pass"
-                      id="pass"
+                      name="password"
+                      id="password"
+                      autoComplete="current-password"
+                      aria-label="Contraseña"
                       className="flex-1 bg-transparent px-4 text-sm font-bold text-white placeholder-white/75 focus:outline-none"
                       placeholder="••••••••••••"
                       value={passwordInput}

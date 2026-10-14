@@ -9,18 +9,6 @@ export const login = async (req, res) => {
   try {
     const cleanEnteredRut = normalizeRut(rut);
     
-    // Soporte especial para cuenta de Administrador (rut: admin, clave: 1234)
-    if (cleanEnteredRut === 'admin' && password === '1234') {
-      return res.json({
-        id: 'admin_root',
-        name: 'Administrador del Sistema',
-        rut: 'admin',
-        role: 'admin',
-        email: 'admin@uft.cl',
-        career: 'Administración y Soporte TI'
-      });
-    }
-
     const rutBlindIndex = hashRut(cleanEnteredRut);
     
     // Búsqueda eficiente en MongoDB Atlas usando Blind Index (rutHash)

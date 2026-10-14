@@ -9,6 +9,7 @@
     "client": "vite --port=3000 --host=0.0.0.0",
     "dev": "tsx watch server/server.js & vite --port=3000 --host=0.0.0.0",
     "seed": "tsx server/seed.js",
+    "create-admin": "tsx server/scripts/create-admin.js",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
