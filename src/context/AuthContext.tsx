@@ -45,6 +45,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     removeSessionCookie();
     setCurrentUser(null);
+    // Invalida la cookie httpOnly de sesión del servidor
+    fetch('/api/logout', { method: 'POST' }).catch(() => {});
   };
 
   const updateUser = (updatedUser: User) => {
@@ -52,7 +54,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentUser(updatedUser);
   };
 
-  // La sesión guarda una copia del usuario tomada al iniciar sesión. Se refresca desde MongoDB
+  // La autenticación real es la cookie httpOnly `uft_session` firmada por el servidor; esta cookie
+  // solo guarda una copia del usuario para la interfaz. Se refresca desde MongoDB (/api/me)
   // al abrir la app y cada vez que cambian los usuarios, para que carrera, roles y tipos de tutor
   // no queden desactualizados en ningún navegador.
   const sessionUserId = currentUser?.id;
@@ -62,12 +65,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const refreshFromDb = async () => {
       try {
-        const res = await fetch('/api/users');
+        const res = await fetch('/api/me');
+        if (res.status === 401) {
+          // La sesión del servidor expiró, se cerró o la cuenta ya no existe
+          if (!cancelled) {
+            removeSessionCookie();
+            setCurrentUser(null);
+          }
+          return;
+        }
         if (!res.ok) return;
-        const users = await res.json();
-        if (cancelled || !Array.isArray(users)) return;
-        const fresh: User | undefined = users.find((u: User) => u && u.id === sessionUserId);
-        if (!fresh) return; // ej. cuenta especial de administrador, que no vive en la colección
+        const fresh: User = await res.json();
+        if (cancelled || !fresh || fresh.id !== sessionUserId) return;
 
         setCurrentUser(prev => {
           if (!prev || prev.id !== sessionUserId) return prev;

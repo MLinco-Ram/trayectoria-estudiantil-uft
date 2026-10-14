@@ -209,7 +209,8 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     };
 
     try {
-      const res = await fetch('/api/users', {
+      // Registro público: el servidor solo crea cuentas de alumno e inicia la sesión
+      const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newUser)

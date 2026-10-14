@@ -2,11 +2,14 @@ import { Router } from 'express';
 import nodemailer from 'nodemailer';
 import { checkAndSendTutorDailyReminders } from '../services/cron.service.js';
 import { getEffectiveSmtpConfig } from '../services/email.service.js';
+import { requireRole } from '../middlewares/auth.js';
 
 const router = Router();
+// Disparadores manuales y de prueba del panel de administración
+const adminOnly = requireRole('admin');
 
 // Endpoint para gatillar o probar el recordatorio de 1 día antes a los tutores
-router.post('/cron/remind-tutors', async (req, res) => {
+router.post('/cron/remind-tutors', adminOnly, async (req, res) => {
   const { targetTutorEmail } = req.body || {};
   const db = req.db;
   
@@ -111,7 +114,7 @@ router.post('/cron/remind-tutors', async (req, res) => {
 });
 
 // Endpoint de prueba para enviar la alerta de inconveniente de alumno a los docentes
-router.post('/test/student-inconvenience-alert', async (req, res) => {
+router.post('/test/student-inconvenience-alert', adminOnly, async (req, res) => {
   const { targetEmail, studentName, career, preferredTime, message } = req.body || {};
   const db = req.db;
 
