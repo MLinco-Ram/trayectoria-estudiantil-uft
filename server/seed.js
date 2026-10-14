@@ -15,7 +15,8 @@ async function seedDatabase() {
     }));
 
     const usersCol = db.collection('users');
-    await usersCol.deleteMany({});
+    // Conservar la cuenta de administrador creada con npm run create-admin
+    await usersCol.deleteMany({ role: { $ne: 'admin' }, roles: { $ne: 'admin' } });
     await usersCol.insertMany(hashedUsers);
     console.log(`✓ Insertados ${hashedUsers.length} usuarios con contraseñas encriptadas en MongoDB Atlas.`);
 

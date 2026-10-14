@@ -673,7 +673,7 @@ trayectoria-estudiantil-uft/
 | **Docente** | Viviana Carrasco | `11.111.111-1` | `123` | Coordinación docente, aprobación de horarios y alertas. |
 | **Tutor Par** | Carlos Valenzuela | `18.456.789-K` | `123` | Gestión de tutorías asignadas y toma de asistencia. |
 | **Alumno** | Mayra Linco | `20.123.456-7` | `123` | Inscripción en talleres, historial y avisos de tope. |
-| **Admin** | Administrador TI | `admin` | `1234` | Panel central de administración TI, gestión de usuarios y SMTP. |
+| **Admin** | Administrador TI | `admin` | *(definida con `npm run create-admin`, no se documenta)* | Panel central de administración TI, gestión de usuarios y SMTP. |
 
 ---
 
@@ -704,7 +704,9 @@ trayectoria-estudiantil-uft/
 - **URLs Dedicadas**: Cada rol posee su propia ruta protegida: `/docente`, `/alumno`, `/tutor` y `/admin`.
 - **Persistencia de Pestaña Activa**: Al recargar la página (`F5`), el sistema recuerda automáticamente la pestaña o vista en la que se encontraba el usuario (Métricas, Pasar Lista, Disponibilidad, Calendario, etc.) mediante `localStorage`.
 - **Guardas de Acceso (`ProtectedRoute`)**: Redirigen a `/login` si no hay sesión activa, o a la ruta correspondiente al rol si se intenta acceder a una sección ajena.
-- **Login Inteligente**: Permite el ingreso con `admin` / `1234` o RUT chileno de 9 dígitos.
+- **Login Inteligente**: Permite el ingreso con el usuario `admin` o RUT chileno de 9 dígitos. Todas las credenciales, incluida la del administrador, se validan en el servidor contra MongoDB (bcrypt); no hay contraseñas en el código.
+- **Cuenta de Administrador**: Se crea o cambia su contraseña con `npm run create-admin` (`server/scripts/create-admin.js`), que la pide por consola (o lee `ADMIN_PASSWORD`), exige al menos 12 caracteres y la guarda hasheada (bcrypt, costo 12) en `users` con `id: 'admin_root'` y RUT cifrado + `rutHash`. `npm run seed` conserva a los administradores.
+- **Compatibilidad con gestores de contraseñas**: El formulario de login usa `name="username"` / `autoComplete="username"` y `name="password"` / `autoComplete="current-password"`, para que Bitwarden, 1Password y los navegadores lo reconozcan y ofrezcan guardar las credenciales. Tras un login exitoso además se llama a `navigator.credentials.store(PasswordCredential)` cuando el navegador lo soporta.
 - **Barra superior de Tutor y Alumno siempre visible**: Los botones de navegación de `TutorDashboard` y `AlumnoDashboard` se muestran en cualquier ancho de pantalla. En pantallas anchas van en la misma fila del logo (`xl` para Tutor Par, `2xl` para Tutor de Tutores y Alumno); en pantallas más angostas bajan a una fila propia y se reparten en varias líneas (`flex-wrap`), sin scroll horizontal oculto. El Alumno conserva además la barra inferior móvil con el botón QR.
 - **Menú lateral del Docente (`DocenteSidebar.tsx`)**: La tarjeta de perfil muestra nombre, cargo y RUT. Si el usuario tiene más de un rol, incluye "Cambiar de portal", que se despliega dentro de la misma tarjeta (no flota sobre el menú). Hay un único botón "Cerrar Sesión" al pie y un único acceso al tutorial (botón "Tutorial" de la barra superior). En los portales de Tutor y Alumno el tutorial también tiene un único acceso: el botón de exclamación de la barra superior.
 - **Tutoriales guiados (foco animado)**: Los tres tutoriales (`DocenteTutorialModal`, `TutorTutorialModal`, `AlumnoTutorialModal`) comparten `src/components/common/tutorialSpotlight.tsx`. El hook `useTutorialSpotlight` calcula la posición final del elemento del paso (después del scroll), mueve el foco una sola vez con `transform` y anima el scroll con la misma duración y curva (420 ms), en vez de re-medir en cada cuadro. Si el usuario hace scroll o redimensiona, el foco sigue al elemento sin animación. El componente `TutorialSpotlight` dibuja el recorte y `animate-step-in` (`index.css`) la entrada del texto de cada paso.
