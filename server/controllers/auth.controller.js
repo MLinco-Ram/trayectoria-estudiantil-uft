@@ -1,8 +1,11 @@
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { createTransporter } from '../services/email.service.js';
 import { hashRut, decryptField, sanitizeUserOutput, normalizeRut } from '../services/crypto.service.js';
 import { setSessionCookie, clearSessionCookie } from '../services/session.service.js';
+import { sendServerError } from '../utils/errors.js';
+
+const INVALID_CREDENTIALS = 'RUT o contraseña incorrectos.';
 
 export const login = async (req, res) => {
   const { rut, password } = req.body;
@@ -15,22 +18,20 @@ export const login = async (req, res) => {
     // Búsqueda eficiente en MongoDB Atlas usando Blind Index (rutHash)
     let user = await db.collection('users').findOne({ rutHash: rutBlindIndex });
     
-    // Fallback de compatibilidad retroactiva si aún no tenía hash
-    if (!user) {
-      const users = await db.collection('users').find({}).toArray();
-      user = users.find(u => {
-        const decrypted = decryptField(u.rut);
-        return normalizeRut(decrypted) === cleanEnteredRut;
-      });
-    }
-    
-    if (!user) {
-      return res.status(401).json({ error: "RUT no encontrado." });
+    // Compatibilidad con cuentas antiguas sin rutHash (p. ej. las del seed): solo se revisan esas,
+    // y al encontrarla se le guarda el rutHash para que la próxima vez use el índice
+    if (!user && cleanEnteredRut) {
+      const legacyUsers = await db.collection('users').find({ rutHash: { $exists: false } }).toArray();
+      user = legacyUsers.find(u => normalizeRut(decryptField(u.rut)) === cleanEnteredRut);
+      if (user) {
+        await db.collection('users').updateOne({ _id: user._id }, { $set: { rutHash: rutBlindIndex } });
+      }
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ error: "Contraseña incorrecta." });
+    // Mismo mensaje para RUT inexistente y contraseña incorrecta: no revela qué RUT están registrados
+    const isMatch = user?.password ? await bcrypt.compare(password || '', user.password) : false;
+    if (!user || !isMatch) {
+      return res.status(401).json({ error: INVALID_CREDENTIALS });
     }
 
     // Las sesiones se identifican por el campo id; se asigna uno a cuentas antiguas que no lo tengan
@@ -44,7 +45,7 @@ export const login = async (req, res) => {
     // Retornar usuario con RUT descifrado para el cliente autorizado
     res.json(sanitizeUserOutput(user));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 
@@ -170,7 +171,7 @@ export const forgotPassword = async (req, res) => {
     });
   } catch (err) {
     console.error("[Forgot-Password-Error]:", err);
-    res.status(500).json({ error: "Error al procesar la solicitud de recuperación.", details: err.message });
+    sendServerError(res, err, "Error al procesar la solicitud de recuperación.");
   }
 };
 
@@ -236,7 +237,7 @@ export const resetPassword = async (req, res) => {
     });
   } catch (err) {
     console.error("[Reset-Password-Error]:", err);
-    res.status(500).json({ error: "Error al actualizar la contraseña.", details: err.message });
+    sendServerError(res, err, "Error al actualizar la contraseña.");
   }
 };
 

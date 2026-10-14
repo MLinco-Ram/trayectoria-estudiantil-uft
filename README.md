@@ -81,7 +81,7 @@ La plataforma conecta en tiempo real a estudiantes, tutores pares, coordinadores
 
 - **Cifrado en Reposo (Field-Level Encryption)**: Los números de RUT se cifran en MongoDB Atlas mediante **AES-256-GCM** (`enc:<iv>:<tag>:<cipher>`).
 - **Blind Index Determinístico**: Búsquedas instantáneas $O(1)$ sin descifrar mediante **HMAC-SHA256** (`rutHash`).
-- **Hashing de Contraseñas**: Contraseñas resguardadas con `bcryptjs`.
+- **Hashing de Contraseñas**: Contraseñas resguardadas con `bcrypt` (nativo).
 - **Protección HTTP**: Cabeceras seguras con `helmet` y limitación de tasa con `express-rate-limit`.
 
 ---

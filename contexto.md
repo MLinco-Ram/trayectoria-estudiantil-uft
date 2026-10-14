@@ -561,8 +561,11 @@ flowchart TD
 - **Seguridad Criptográfica & Datos Sensibles**:
   - **Cifrado en Reposo (Field-Level Encryption)**: RUTs cifrados en MongoDB Atlas con **AES-256-GCM** (`enc:<iv>:<tag>:<cipher>`) usando clave simétrica de 256 bits (`DATA_ENCRYPTION_KEY`).
   - **Blind Index Determinístico**: Búsquedas instantáneas $O(1)$ en MongoDB mediante **HMAC-SHA256** (`rutHash`).
-  - **Hashing de Contraseñas**: `bcryptjs` con salt rounds para contraseñas de usuarios.
-  - **Protección HTTP**: `helmet` y `express-rate-limit` (120 req/min general; máximo 10 intentos en 5 min en `/api/login`).
+  - **Hashing de Contraseñas**: `bcrypt` (módulo nativo, compatible con los hashes previos de `bcryptjs`) con salt rounds para contraseñas de usuarios.
+  - **Protección HTTP**: `helmet` y `express-rate-limit` (120 req/min general; máximo 10 intentos en 5 min en `/api/login`). `app.set('trust proxy', 1)` para leer la IP real tras Vercel/Vite. Los límites de login/registro y de recuperación de contraseña guardan su contador en la colección `rate_limits` de MongoDB (`server/middlewares/mongoRateLimitStore.js`, TTL sobre `expiresAt`) para que valgan entre instancias serverless; si Mongo falla dejan pasar la petición (`passOnStoreError`). El límite general sigue en memoria.
+  - **Variables de entorno obligatorias** (`server/config/env.js`): `MONGODB_URI`, `SESSION_SECRET`, `DATA_ENCRYPTION_KEY` (64 hex) y `HMAC_SECRET`. No hay valores de respaldo en el código: si faltan, el arranque lo registra y las operaciones de cifrado/sesión fallan con un error explícito.
+  - **Login**: busca por `rutHash` (índice creado al conectar). Las cuentas antiguas sin `rutHash` se buscan solo entre esas y se les guarda el hash al entrar. RUT inexistente y contraseña incorrecta responden el mismo mensaje (`RUT o contraseña incorrectos.`).
+  - **Errores 500** (`server/utils/errors.js`, `sendServerError`): el detalle se registra en el log; en producción la respuesta es un mensaje genérico (en desarrollo incluye `details`). Las rutas de diagnóstico solo para admin (SMTP, cron, sistema, health) siguen devolviendo `details`.
 - **Servicio de Correos**: `nodemailer` para envíos reales vía Google SMTP / Gmail institucional configurables desde el panel de administración.
 - **Ejecución TypeScript/ESM**: `tsx` para scripts y servidor Node.
 - **Entorno de Desarrollo & CLI**: Antigravity CLI (`agy`) habilitado globalmente y accesos directos configurados en el Escritorio.

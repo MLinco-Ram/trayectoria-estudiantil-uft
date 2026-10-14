@@ -1,8 +1,9 @@
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import { encryptField, hashRut, sanitizeUserOutput } from '../services/crypto.service.js';
 import { emitEvent } from '../services/socket.service.js';
 import { setSessionCookie } from '../services/session.service.js';
 import { getUserRoles } from '../middlewares/auth.js';
+import { sendServerError } from '../utils/errors.js';
 
 const ALUMNO_EMAIL_DOMAINS = ['@uft.cl', '@mail.uft.cl', '@uft.edu'];
 
@@ -30,7 +31,7 @@ export const getUsers = async (req, res) => {
     const safeUsers = users.map(u => sanitizeUserOutput(u));
     res.json(safeUsers);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 
@@ -78,7 +79,7 @@ export const createUser = async (req, res) => {
     if (result.error) return res.status(400).json({ error: result.error });
     res.status(201).json(result.user);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 
@@ -112,7 +113,7 @@ export const registerStudent = async (req, res) => {
     setSessionCookie(res, result.user.id);
     res.status(201).json(result.user);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 
@@ -174,7 +175,7 @@ export const updateUser = async (req, res) => {
 
     res.json({ success: true, user: safeResult });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 
@@ -197,7 +198,7 @@ export const deleteUser = async (req, res) => {
 
     res.json({ success: true, message: `Usuario ${id} eliminado exitosamente de MongoDB Atlas.` });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 

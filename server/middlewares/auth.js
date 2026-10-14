@@ -1,4 +1,5 @@
 import { readSessionCookie, verifySessionToken } from '../services/session.service.js';
+import { sendServerError } from '../utils/errors.js';
 
 export function getUserRoles(user) {
   if (!user) return [];
@@ -8,12 +9,12 @@ export function getUserRoles(user) {
 // Exige una sesión válida. Carga el usuario desde MongoDB para que roles revocados
 // o cuentas eliminadas pierdan el acceso de inmediato.
 export const requireAuth = async (req, res, next) => {
-  const session = verifySessionToken(readSessionCookie(req));
-  if (!session) {
-    return res.status(401).json({ error: 'Sesión no válida o expirada. Inicia sesión nuevamente.' });
-  }
-
   try {
+    const session = verifySessionToken(readSessionCookie(req));
+    if (!session) {
+      return res.status(401).json({ error: 'Sesión no válida o expirada. Inicia sesión nuevamente.' });
+    }
+
     const user = await req.db.collection('users').findOne({ id: session.uid });
     if (!user) {
       return res.status(401).json({ error: 'La cuenta ya no existe. Inicia sesión nuevamente.' });
@@ -22,7 +23,7 @@ export const requireAuth = async (req, res, next) => {
     req.userRoles = getUserRoles(user);
     next();
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 

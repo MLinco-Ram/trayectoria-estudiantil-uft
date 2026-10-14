@@ -1,4 +1,5 @@
 import { emitEvent } from '../services/socket.service.js';
+import { sendServerError } from '../utils/errors.js';
 
 export const getNotifications = async (req, res) => {
   const { email } = req.query;
@@ -11,7 +12,7 @@ export const getNotifications = async (req, res) => {
     const notifs = await db.collection('notifications').find(query).sort({ timestamp: -1 }).toArray();
     res.json(notifs);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 
@@ -37,7 +38,7 @@ export const createNotification = async (req, res) => {
 
     res.status(201).json(newNotif);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 
@@ -54,7 +55,7 @@ export const markAsRead = async (req, res) => {
 
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };
 
@@ -75,6 +76,6 @@ export const markAllAsRead = async (req, res) => {
 
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err);
   }
 };

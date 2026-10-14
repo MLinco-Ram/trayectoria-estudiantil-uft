@@ -1,21 +1,13 @@
 import crypto from 'crypto';
+import { requireEnv } from '../config/env.js';
 
 // Sesiones firmadas con HMAC-SHA256 en una cookie httpOnly (el navegador no puede leerla ni editarla).
 // El token solo guarda el id del usuario; roles y datos se leen de MongoDB en cada petición.
 export const SESSION_COOKIE = 'uft_session';
 const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
-let warnedFallbackSecret = false;
-
 function getSessionSecret() {
-  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
-  if (!warnedFallbackSecret) {
-    console.warn('⚠️ SESSION_SECRET no está configurada; se deriva de HMAC_SECRET. Configúrala en .env y en Vercel.');
-    warnedFallbackSecret = true;
-  }
-  const base = process.env.HMAC_SECRET || process.env.DATA_ENCRYPTION_KEY || '';
-  if (!base) throw new Error('Falta SESSION_SECRET en las variables de entorno.');
-  return crypto.createHash('sha256').update(`uft-session:${base}`).digest('hex');
+  return requireEnv('SESSION_SECRET');
 }
 
 function sign(value) {
