@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { StudentRequest, Session, User, UserAvailability } from '../../types';
+import { StudentRequest, Room, Session, User, UserAvailability } from '../../types';
 import { 
   Inbox, 
   CheckCircle2, 
@@ -16,7 +16,7 @@ import {
   Check,
   CalendarCheck
 } from 'lucide-react';
-import { triggerNotification, getTodayDateStr, TIME_SLOTS, SUBJECTS } from '../../data';
+import { triggerNotification, getTodayDateStr, TIME_SLOTS, SUBJECTS, findRoomConflict } from '../../data';
 import { sessionsApi, studentRequestsApi } from '../../services/api';
 
 interface DocenteFlexScheduleTabProps {
@@ -26,6 +26,7 @@ interface DocenteFlexScheduleTabProps {
   allAvailabilities?: UserAvailability[];
   sessions: Session[];
   setSessions: React.Dispatch<React.SetStateAction<Session[]>>;
+  rooms: Room[];
   onReload: () => void;
 }
 
@@ -36,6 +37,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
   allAvailabilities = [],
   sessions,
   setSessions,
+  rooms,
   onReload,
 }) => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'pendiente' | 'resuelto'>('pendiente');
@@ -46,7 +48,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
   const [flexSubject, setFlexSubject] = useState('Matemática');
   const [flexDate, setFlexDate] = useState(getTodayDateStr());
   const [flexTimeSlot, setFlexTimeSlot] = useState(TIME_SLOTS[0]);
-  const [flexLocation, setFlexLocation] = useState('Cubículo de Tutorías 3A');
+  const [flexLocation, setFlexLocation] = useState('');
   const [flexTutorId, setFlexTutorId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
@@ -115,7 +117,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
     const today = getTodayDateStr();
     setFlexDate(today);
     setFlexTimeSlot(TIME_SLOTS[0]);
-    setFlexLocation('Cubículo de Tutorías 3A');
+    setFlexLocation('');
     setFeedback(null);
 
     // Seleccionar tutor que tenga disponibilidad
@@ -142,6 +144,17 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
 
     if (!flexTimeSlot) {
       setFeedback({ status: 'error', message: 'Por favor selecciona un bloque de horario estandarizado.' });
+      return;
+    }
+
+    if (!flexLocation) {
+      setFeedback({ status: 'error', message: 'Selecciona una sala. Si no aparece, regístrala en "Salas".' });
+      return;
+    }
+
+    const roomConflict = findRoomConflict(sessions, flexLocation, flexDate, flexTimeSlot);
+    if (roomConflict) {
+      setFeedback({ status: 'error', message: `La sala ${flexLocation} ya está ocupada el ${flexDate} (${roomConflict.timeSlot}) por "${roomConflict.title}".` });
       return;
     }
 
@@ -668,16 +681,24 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
               {/* Ubicación / Sala */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                  Ubicación / Sala / Box de Tutoría
+                  Sala
                 </label>
-                <input
-                  type="text"
+                <select
                   value={flexLocation}
                   onChange={(e) => setFlexLocation(e.target.value)}
-                  placeholder="Ej: Cubículo de Tutorías 3A / Sala 204"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white"
                   required
-                />
+                >
+                  <option value="">{rooms.length === 0 ? 'No hay salas registradas (ver "Salas")' : 'Selecciona una sala'}</option>
+                  {rooms.map(r => {
+                    const busy = !!findRoomConflict(sessions, r.code, flexDate, flexTimeSlot);
+                    return (
+                      <option key={r.id} value={r.code} disabled={busy}>
+                        {r.code}{r.description ? ` (${r.description})` : ''}{busy ? ' — ocupada en este horario' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
 
               {/* Botones del Modal */}

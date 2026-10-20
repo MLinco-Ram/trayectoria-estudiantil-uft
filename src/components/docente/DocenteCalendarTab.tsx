@@ -775,7 +775,7 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
                 className="px-4 py-2 rounded-xl text-rose-600 hover:bg-rose-50 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
               >
                 <Trash2 className="w-4 h-4" />
-                <span>Cancelar Tutoría</span>
+                <span>Cancelar</span>
               </button>
 
               <button

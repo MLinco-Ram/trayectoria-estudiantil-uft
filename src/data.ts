@@ -155,12 +155,22 @@ export function isPersonalizedSession(session: Pick<Session, 'type' | 'maxSpots'
 }
 
 /**
- * Una sesión personalizada solo puede verla e inscribirse el estudiante para quien fue creada
- * (o quien ya figura inscrito). Nunca queda abierta al resto, aunque esté sin inscritos.
+ * Una sesión personalizada creada para un estudiante solo puede verla e inscribirse ese estudiante.
+ * Si se creó sin estudiante (cupo 1 a 1 libre), la ve cualquiera hasta que alguien la tome;
+ * desde entonces queda reservada para quien se inscribió.
  */
-export function canStudentAccessSession(session: Session, studentId: string): boolean {
+export function canStudentAccessSession(session: Session, studentId: string, allSessions: Session[] = []): boolean {
   if (!isPersonalizedSession(session)) return true;
-  return (session.studentIds || []).includes(studentId) || session.reservedForStudentId === studentId;
+  const studentIds = session.studentIds || [];
+  if (studentIds.includes(studentId) || session.reservedForStudentId === studentId) return true;
+  if (session.reservedForStudentId || studentIds.length > 0) return false;
+  // De un grupo de horarios ofrecidos el estudiante toma uno solo: tras inscribirse, los demás dejan de verse
+  return !hasBookedOfferGroup(session, studentId, allSessions);
+}
+
+export function hasBookedOfferGroup(session: Session, studentId: string, allSessions: Session[]): boolean {
+  if (!session.offerGroupId) return false;
+  return allSessions.some(s => s.id !== session.id && s.offerGroupId === session.offerGroupId && (s.studentIds || []).includes(studentId));
 }
 
 // ==========================================
@@ -269,3 +279,22 @@ export function formatRut(rut: string): string {
   }
   return `${formatted}-${dv}`;
 }
+
+// "8:30 - 9:40" -> [510, 580] en minutos; null si no tiene ese formato
+const parseSlotRange = (timeSlot: string): [number, number] | null => {
+  const m = timeSlot.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  return [Number(m[1]) * 60 + Number(m[2]), Number(m[3]) * 60 + Number(m[4])];
+};
+
+// Una sala no puede tener dos sesiones activas que se crucen en la misma fecha (bloques u hora exacta)
+export const findRoomConflict = (sessions: Session[], location: string, date: string, timeSlot: string): Session | undefined => {
+  const room = location.trim();
+  const range = parseSlotRange(timeSlot);
+  return sessions.find(s => {
+    if (!s || s.isCompleted || s.date !== date || (s.location || '').trim() !== room) return false;
+    const other = parseSlotRange(s.timeSlot);
+    if (!range || !other) return s.timeSlot === timeSlot;
+    return range[0] < other[1] && other[0] < range[1];
+  });
+};

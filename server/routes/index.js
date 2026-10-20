@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authRoutes from './auth.routes.js';
 import usersRoutes from './users.routes.js';
 import sessionsRoutes from './sessions.routes.js';
+import roomsRoutes from './rooms.routes.js';
 import availabilitiesRoutes from './availabilities.routes.js';
 import reportsRoutes from './reports.routes.js';
 import studentRequestsRoutes from './studentRequests.routes.js';
@@ -49,6 +50,7 @@ apiRouter.get('/check-db', (req, res) => res.redirect('/api/health'));
 // Montar submódulos de rutas
 apiRouter.use('/users', usersRoutes);
 apiRouter.use('/sessions', sessionsRoutes);
+apiRouter.use('/rooms', roomsRoutes);
 apiRouter.use('/availabilities', availabilitiesRoutes);
 apiRouter.use('/reports', reportsRoutes);
 apiRouter.use('/student-requests', studentRequestsRoutes);

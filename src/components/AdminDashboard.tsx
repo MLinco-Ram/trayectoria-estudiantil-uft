@@ -11,7 +11,10 @@ import {
   BookOpen, 
   Sliders, 
   Database, 
-  ExternalLink 
+  ExternalLink,
+  GraduationCap,
+  ArrowLeftRight,
+  ChevronDown
 } from 'lucide-react';
 import { AdminDocentesTab } from './admin/AdminDocentesTab';
 import { AdminTutoresTab } from './admin/AdminTutoresTab';
@@ -21,7 +24,8 @@ import { AdminMaintenanceTab } from './admin/AdminMaintenanceTab';
 import { EditUserModal } from './admin/EditUserModal';
 import { ThemeToggle } from './common/ThemeToggle';
 
-import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { useAuth, getRoleHomePath } from '../context/AuthContext';
 
 interface AdminDashboardProps {
   user?: User;
@@ -32,6 +36,8 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
   const auth = useAuth();
   const user = propUser || auth.currentUser;
   const onLogout = propLogout || auth.logout;
+  const navigate = useNavigate();
+  const [showPortalSwitcher, setShowPortalSwitcher] = useState(false);
 
   if (!user) {
     return (
@@ -470,6 +476,26 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
     }
   };
 
+  // Otros portales a los que este usuario puede cambiarse (según sus roles)
+  const portalOptions: { key: string; label: string; icon: React.ElementType; target: User; path: string }[] = [];
+  (Array.isArray(user.roles) ? user.roles : []).filter(r => r !== 'admin').forEach(r => {
+    if (r === 'tutor') {
+      const tutorTypes = Array.isArray(user.tutorTypes) && user.tutorTypes.length > 0
+        ? user.tutorTypes
+        : [user.tutorType || 'tutor_par'];
+      if (tutorTypes.includes('tutor_par')) {
+        portalOptions.push({ key: 'tutor_par', label: 'Portal Tutor Par', icon: BookOpen, target: { ...user, role: 'tutor', tutorType: 'tutor_par' }, path: '/tutor' });
+      }
+      if (tutorTypes.includes('tutor_de_tutores')) {
+        portalOptions.push({ key: 'tutor_de_tutores', label: 'Portal Tutor de Tutores', icon: ShieldCheck, target: { ...user, role: 'tutor', tutorType: 'tutor_de_tutores' }, path: '/tutor' });
+      }
+    } else if (r === 'alumno') {
+      portalOptions.push({ key: 'alumno', label: 'Portal Estudiante', icon: GraduationCap, target: { ...user, role: 'alumno' }, path: getRoleHomePath('alumno') });
+    } else if (r === 'docente') {
+      portalOptions.push({ key: 'docente', label: 'Portal Docente', icon: Users, target: { ...user, role: 'docente' }, path: getRoleHomePath('docente') });
+    }
+  });
+
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans flex flex-col transition-colors duration-200" id="admin-dashboard-wrapper">
       {/* Header Institucional */}
@@ -500,6 +526,42 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
               <span className="text-sm font-semibold">{user.name}</span>
               <span className="text-xs text-[#3a9ad9] font-mono">admin_root</span>
             </div>
+            {portalOptions.length > 0 && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowPortalSwitcher(!showPortalSwitcher)}
+                  aria-expanded={showPortalSwitcher}
+                  className="flex items-center gap-2 bg-[#3a9ad9]/20 text-white hover:bg-[#3a9ad9] px-3.5 py-2 rounded-xl text-xs font-semibold transition border border-[#3a9ad9]/40"
+                >
+                  <ArrowLeftRight className="w-4 h-4" />
+                  <span className="hidden sm:inline">Cambiar de portal</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showPortalSwitcher ? 'rotate-180' : ''}`} />
+                </button>
+                {showPortalSwitcher && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 p-1.5 space-y-1 z-50">
+                    {portalOptions.map(option => {
+                      const OptionIcon = option.icon;
+                      return (
+                        <button
+                          key={option.key}
+                          type="button"
+                          onClick={() => {
+                            setShowPortalSwitcher(false);
+                            auth.login(option.target);
+                            navigate(option.path);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-brand-navy text-xs font-semibold hover:bg-[#3a9ad9] hover:text-white transition-colors"
+                        >
+                          <OptionIcon className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{option.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
             <ThemeToggle className="bg-[#061e34] text-amber-300 border-slate-700 hover:bg-[#0c2a47]" />
             <button
               onClick={onLogout}

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { User, Session, IssueReport, UserAvailability, StudentRequest, WebNotification } from '../types';
-import { usersApi, sessionsApi, reportsApi, studentRequestsApi, availabilitiesApi, broadcastApi } from '../services/api';
+import { User, Session, IssueReport, UserAvailability, StudentRequest, WebNotification, BroadcastScope, Room } from '../types';
+import { usersApi, sessionsApi, reportsApi, studentRequestsApi, availabilitiesApi, broadcastApi, roomsApi } from '../services/api';
 import { getSocket } from '../services/socket';
 import { DocenteSidebar, DocenteTabType } from './docente/DocenteSidebar';
 import { DocenteCalendarTab } from './docente/DocenteCalendarTab';
 import { DocenteCreateSessionTab } from './docente/DocenteCreateSessionTab';
 import { DocenteAttendanceTab } from './docente/DocenteAttendanceTab';
+import { DocenteRoomsTab } from './docente/DocenteRoomsTab';
 import { DocenteFlexScheduleTab } from './docente/DocenteFlexScheduleTab';
 import { DocenteTutorsTab } from './docente/DocenteTutorsTab';
 import { DocenteStudentsTab } from './docente/DocenteStudentsTab';
@@ -42,6 +43,7 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
   const [reports, setReports] = useState<IssueReport[]>([]);
   const [studentRequests, setStudentRequests] = useState<StudentRequest[]>([]);
   const [allAvailabilities, setAllAvailabilities] = useState<UserAvailability[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [notifications, setNotifications] = useState<WebNotification[]>([]);
   const [showNotifInbox, setShowNotifInbox] = useState(false);
   
@@ -80,6 +82,7 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
   const TAB_LABELS: Record<DocenteTabType, string> = {
     calendar: 'Panel Docente',
     create: 'Registrar Horarios',
+    rooms: 'Salas',
     attendance: 'Pasar Lista',
     flex_schedule: 'Horario Flexible',
     tutors: 'Gestión Tutores',
@@ -96,8 +99,9 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
   const [commentSearch, setCommentSearch] = useState('');
 
   // Broadcast States
-  const [broadcastScope, setBroadcastScope] = useState<'all_community' | 'all_students' | 'all_tutors' | 'specific_session'>('all_community');
+  const [broadcastScope, setBroadcastScope] = useState<BroadcastScope>('all_community');
   const [broadcastSessionId, setBroadcastSessionId] = useState('');
+  const [broadcastUserId, setBroadcastUserId] = useState('');
   const [broadcastSubject, setBroadcastSubject] = useState('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [broadcastPriority, setBroadcastPriority] = useState<'normal' | 'alta' | 'urgente'>('normal');
@@ -107,12 +111,13 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
   // Recarga sincronizada desde MongoDB Atlas (si una consulta falla se conserva el estado actual)
   const loadData = async () => {
     try {
-      const [uList, sList, rList, reqList, avList] = await Promise.all([
+      const [uList, sList, rList, reqList, avList, roomList] = await Promise.all([
         usersApi.getUsers().catch(() => null),
         sessionsApi.getSessions().catch(() => null),
         reportsApi.getReports().catch(() => null),
         studentRequestsApi.getStudentRequests().catch(() => null),
         availabilitiesApi.getAvailabilities().catch(() => null),
+        roomsApi.getRooms().catch(() => null),
       ]);
 
       if (Array.isArray(uList)) {
@@ -129,6 +134,9 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
       }
       if (Array.isArray(avList)) {
         setAllAvailabilities(avList);
+      }
+      if (Array.isArray(roomList)) {
+        setRooms(roomList);
       }
 
       if (user.email) {
@@ -222,6 +230,12 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
       return;
     }
 
+    const isSpecificUser = broadcastScope === 'specific_tutor_par' || broadcastScope === 'specific_tutor_de_tutores' || broadcastScope === 'specific_student';
+    if (isSpecificUser && !broadcastUserId) {
+      setBroadcastFeedback({ status: 'error', message: 'Por favor selecciona el destinatario.' });
+      return;
+    }
+
     setIsSendingBroadcast(true);
 
     try {
@@ -229,6 +243,7 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
         docenteName: user.name,
         scope: broadcastScope,
         sessionId: broadcastScope === 'specific_session' ? broadcastSessionId : undefined,
+        userId: isSpecificUser ? broadcastUserId : undefined,
         subject: broadcastSubject,
         message: broadcastMessage,
         priority: broadcastPriority,
@@ -346,8 +361,13 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
             allAvailabilities={allAvailabilities}
             sessions={sessions}
             setSessions={setSessions}
+            rooms={rooms}
             onReload={loadData}
           />
+        )}
+
+        {activeTab === 'rooms' && (
+          <DocenteRoomsTab rooms={rooms} sessions={sessions} onReload={loadData} />
         )}
 
         {activeTab === 'attendance' && (
@@ -367,6 +387,7 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
             allAvailabilities={allAvailabilities}
             sessions={sessions}
             setSessions={setSessions}
+            rooms={rooms}
             onReload={loadData}
           />
         )}
@@ -408,6 +429,9 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
             setBroadcastScope={setBroadcastScope}
             broadcastSessionId={broadcastSessionId}
             setBroadcastSessionId={setBroadcastSessionId}
+            allUsers={allUsers}
+            broadcastUserId={broadcastUserId}
+            setBroadcastUserId={setBroadcastUserId}
             broadcastSubject={broadcastSubject}
             setBroadcastSubject={setBroadcastSubject}
             broadcastMessage={broadcastMessage}

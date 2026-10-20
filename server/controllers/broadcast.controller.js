@@ -4,8 +4,9 @@ import { getEffectiveSmtpConfig, formatMinimalEmail } from '../services/email.se
 export const broadcastMessage = async (req, res) => {
   const { 
     docenteName, 
-    scope, // 'all_community' | 'all_students' | 'all_tutors' | 'specific_session'
+    scope, // 'all_community' | 'all_students' | 'all_tutors' | 'specific_session' | 'specific_tutor_par' | 'specific_tutor_de_tutores' | 'specific_student'
     sessionId,
+    userId,
     subject, 
     message,
     priority // 'normal' | 'alta' | 'urgente'
@@ -44,6 +45,32 @@ export const broadcastMessage = async (req, res) => {
           error: "No se encontraron alumnos ni tutores con correo registrado en esta tutoría." 
         });
       }
+    } else if (scope === 'specific_tutor_par' || scope === 'specific_tutor_de_tutores' || scope === 'specific_student') {
+      // Un destinatario puntual, independiente de las tutorías en que participe
+      if (!userId) {
+        return res.status(400).json({ error: "Debe seleccionar el destinatario del comunicado." });
+      }
+      const target = users.find(u => u.id === userId);
+      const roles = target ? [target.role, ...(Array.isArray(target.roles) ? target.roles : [])] : [];
+      const tutorTypes = target ? [target.tutorType, ...(Array.isArray(target.tutorTypes) ? target.tutorTypes : [])] : [];
+      // Un tutor sin subroles declarados se considera tutor par
+      const isTutorPar = tutorTypes.includes('tutor_par') || tutorTypes.every(t => !t);
+      const matchesScope = scope === 'specific_student'
+        ? roles.includes('alumno')
+        : scope === 'specific_tutor_par'
+          ? roles.includes('tutor') && isTutorPar
+          : roles.includes('tutor') && tutorTypes.includes('tutor_de_tutores');
+      if (!target || !matchesScope) {
+        return res.status(404).json({ error: "El destinatario seleccionado no fue encontrado." });
+      }
+      if (!target.email) {
+        return res.status(400).json({ error: `${target.name} no tiene correo registrado.` });
+      }
+      contextTitle = scope === 'specific_student'
+        ? 'Comunicado personal para estudiante'
+        : scope === 'specific_tutor_par' ? 'Comunicado para Tutor Par' : 'Comunicado para Tutor de Tutores';
+      // El enlace del correo apunta al portal que corresponde al destinatario elegido
+      targetUsers = [{ ...target, role: scope === 'specific_student' ? 'alumno' : 'tutor' }];
     } else if (scope === 'all_students') {
       contextTitle = 'Comunidad de Estudiantes UFT';
       targetUsers = users.filter(u => u.role === 'alumno' && u.email);
