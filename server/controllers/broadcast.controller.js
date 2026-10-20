@@ -12,6 +12,8 @@ export const broadcastMessage = async (req, res) => {
     priority // 'normal' | 'alta' | 'urgente'
   } = req.body;
   const db = req.db;
+  // El emisor es quien tiene la sesión iniciada; el nombre enviado por el cliente es solo respaldo
+  const senderName = req.user?.name || docenteName || 'Coordinación Docente UFT';
 
   try {
     if (!subject || !subject.trim() || !message || !message.trim()) {
@@ -110,8 +112,8 @@ export const broadcastMessage = async (req, res) => {
       for (const dest of targetUsers) {
         try {
           const actionUrl = `${baseUrl}/${dest.role === 'tutor' ? 'tutor' : dest.role === 'alumno' ? 'alumno' : 'docente'}`;
-          const emailSubject = `[UFT] Nuevo Comunicado Oficial de Coordinación`;
-          const summaryText = `Se ha publicado un nuevo comunicado oficial en tu portal de Trayectoria Estudiantil UFT (${contextTitle}). Para leer el contenido completo e informarte de las novedades, ingresa directamente a la plataforma.`;
+          const emailSubject = `[UFT] Nuevo comunicado de ${senderName}`;
+          const summaryText = `${senderName} publicó un nuevo comunicado en tu portal de Trayectoria Estudiantil UFT (${contextTitle}). Para leer el contenido completo e informarte de las novedades, ingresa directamente a la plataforma.`;
 
           const htmlBody = formatMinimalEmail({
             toName: dest.name,
@@ -125,7 +127,7 @@ export const broadcastMessage = async (req, res) => {
             from: { name: fromName, address: config.user },
             to: `"${dest.name}" <${dest.email}>`,
             subject: emailSubject,
-            text: `Estimado/a ${dest.name},\n\nSe ha publicado un nuevo comunicado oficial en tu portal de Trayectoria Estudiantil UFT (${contextTitle}).\n\nIngresa directamente a la plataforma para leer el mensaje completo:\n${actionUrl}`,
+            text: `Estimado/a ${dest.name},\n\n${senderName} publicó un nuevo comunicado en tu portal de Trayectoria Estudiantil UFT (${contextTitle}).\n\nIngresa directamente a la plataforma para leer el mensaje completo:\n${actionUrl}`,
             html: htmlBody,
           });
           sentCount++;
@@ -148,7 +150,7 @@ export const broadcastMessage = async (req, res) => {
       timestamp: nowIso,
       read: false,
       priority: priority || 'normal',
-      fromName: docenteName || 'Coordinación Docente UFT'
+      fromName: senderName
     }));
 
     if (notifDocs.length > 0) {
@@ -156,7 +158,7 @@ export const broadcastMessage = async (req, res) => {
     }
 
     await db.collection('broadcast_history').insertOne({
-      docenteName: docenteName || 'Docente UFT',
+      docenteName: senderName,
       scope,
       sessionId: sessionId || null,
       contextTitle,
