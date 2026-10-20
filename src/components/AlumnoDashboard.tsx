@@ -405,10 +405,31 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
     const isDateMatch = s.date === targetDate;
 
     // Las sesiones personalizadas (1 a 1) solo son visibles para el estudiante para quien fueron creadas
-    if (!canStudentAccessSession(s, user.id)) return false;
+    if (!canStudentAccessSession(s, user.id, sessions)) return false;
 
     return isProgramMatch && isDateMatch;
   });
+
+  // Los horarios ofrecidos de un mismo grupo (1 a 1) se muestran juntos en una sola tarjeta
+  const scheduleCards = useMemo(() => {
+    const cards: Session[][] = [];
+    const byGroup = new Map<string, Session[]>();
+    availableSchedules.forEach(s => {
+      if (!s.offerGroupId) {
+        cards.push([s]);
+        return;
+      }
+      const group = byGroup.get(s.offerGroupId);
+      if (group) {
+        group.push(s);
+      } else {
+        const newGroup = [s];
+        byGroup.set(s.offerGroupId, newGroup);
+        cards.push(newGroup);
+      }
+    });
+    return cards;
+  }, [availableSchedules]);
 
   // Próximas sesiones disponibles en el programa activo para facilitar la navegación
   const upcomingProgramSessions = useMemo(() => {
@@ -417,7 +438,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         if (s.program !== activeSegment) return false;
         if (s.isCompleted || isSessionPast(s)) return false;
 
-        return canStudentAccessSession(s, user.id);
+        return canStudentAccessSession(s, user.id, sessions);
       })
       .sort((a, b) => a.date.localeCompare(b.date) || a.timeSlot.localeCompare(b.timeSlot));
   }, [sessions, activeSegment, user.id]);
@@ -467,7 +488,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
     }
 
     // Validación estricta para sesiones personalizadas / individuales (1 a 1)
-    if (!canStudentAccessSession(session, user.id)) {
+    if (!canStudentAccessSession(session, user.id, sessions)) {
       setBookingFeedback('⚠️ Esta tutoría es de carácter personalizado y se encuentra asignada exclusivamente a otro estudiante.');
       return;
     }
@@ -1041,9 +1062,9 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                   <SegmentIcon className="w-3.5 h-3.5" />
                   {segmentInfo.listTitle} ({targetDate})
                 </h3>
-                {availableSchedules.length > 0 && (
+                {scheduleCards.length > 0 && (
                   <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                    {availableSchedules.length} {availableSchedules.length === 1 ? 'disponible' : 'disponibles'}
+                    {scheduleCards.length} {scheduleCards.length === 1 ? 'disponible' : 'disponibles'}
                   </span>
                 )}
               </div>
@@ -1076,7 +1097,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                                  s.date === d && 
                                  !s.isCompleted && 
                                  !isSessionPast(s) &&
-                                 canStudentAccessSession(s, user.id)
+                                 canStudentAccessSession(s, user.id, sessions)
                           ).length;
                           return (
                             <button
@@ -1103,7 +1124,61 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" id="academic-visual-slots-grid">
-                  {availableSchedules.map(session => {
+                  {scheduleCards.map(card => {
+                    if (card.length > 1) {
+                      const first = card[0];
+                      const groupTutor = first.tutorId ? allUsers.find(u => u.id === first.tutorId) : null;
+                      const weekLimitReached = targetWeekActiveBookings.length >= MAX_WEEKLY_ACTIVE_BOOKINGS;
+                      return (
+                        <div
+                          key={first.offerGroupId}
+                          className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-brand-celeste dark:hover:border-brand-celeste p-4 text-center transition-all flex flex-col justify-between space-y-2.5"
+                        >
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-extrabold uppercase tracking-wider text-brand-celeste block">
+                              Sesión 1 a 1 · Elige un horario
+                            </span>
+                            <span className="text-[11px] text-[#092c4c] dark:text-sky-300 block font-bold leading-snug">
+                              {first.title}
+                            </span>
+                            {first.subject && (
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">
+                                📚 {first.subject}
+                              </span>
+                            )}
+                            {first.location && (
+                              <span className="text-[9.5px] text-slate-400 dark:text-slate-500 block truncate font-medium">
+                                📍 {first.location}
+                              </span>
+                            )}
+                            {groupTutor && (
+                              <div className="bg-indigo-50/70 dark:bg-indigo-950/40 px-2 py-1 rounded-md text-[10px] font-bold text-indigo-900 dark:text-indigo-200 border border-indigo-100 dark:border-indigo-900 flex items-center justify-center gap-1 mt-1">
+                                <GraduationCap className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                                <span>Tutor: {groupTutor.name}</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {card.map(option => {
+                              const unavailable = isSessionPast(option) || !!option.isCompleted || isRegistrationWindowClosed(option.date, option.timeSlot) || weekLimitReached;
+                              return (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  disabled={unavailable}
+                                  onClick={() => handleRegisterSlot(option)}
+                                  title={unavailable ? 'Este horario ya no admite inscripciones.' : `Inscribirse a las ${option.timeSlot}`}
+                                  className="px-2 py-2 rounded-lg border border-[#092c4c]/20 dark:border-sky-800 text-[10px] font-bold text-[#092c4c] dark:text-sky-300 hover:bg-[#092c4c] hover:text-white dark:hover:bg-brand-celeste dark:hover:text-[#092c4c] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-[#092c4c]"
+                                >
+                                  {option.timeSlot}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    }
+                    const session = card[0];
                     const enrolledCount = session.studentIds.length;
                     const isRegistered = session.studentIds.includes(user.id);
                     const isFull = enrolledCount >= session.maxSpots;

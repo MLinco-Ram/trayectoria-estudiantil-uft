@@ -1,4 +1,4 @@
-import { User, Session, IssueReport, WebNotification, UserAvailability, StudentRequest, SmtpSettings } from '../types';
+import { User, Session, IssueReport, WebNotification, UserAvailability, StudentRequest, SmtpSettings, BroadcastScope, Room } from '../types';
 
 async function handleResponse<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
@@ -116,6 +116,28 @@ export const sessionsApi = {
       body: JSON.stringify({ studentId }),
     });
     return handleResponse<{ success: boolean; alreadyPresent?: boolean; session: Session; message: string }>(res);
+  },
+};
+
+// --- SALAS ---
+export const roomsApi = {
+  getRooms: async () => {
+    const res = await fetch('/api/rooms');
+    return handleResponse<Room[]>(res);
+  },
+
+  createRoom: async (code: string, description?: string) => {
+    const res = await fetch('/api/rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, description }),
+    });
+    return handleResponse<Room>(res);
+  },
+
+  deleteRoom: async (id: string) => {
+    const res = await fetch(`/api/rooms/${id}`, { method: 'DELETE' });
+    return handleResponse<{ success: boolean }>(res);
   },
 };
 
@@ -252,8 +274,9 @@ export const settingsApi = {
 export const broadcastApi = {
   broadcastMessage: async (payload: {
     docenteName: string;
-    scope: 'all_community' | 'all_students' | 'all_tutors' | 'specific_session';
+    scope: BroadcastScope;
     sessionId?: string;
+    userId?: string;
     subject: string;
     message: string;
     priority?: 'normal' | 'alta' | 'urgente';

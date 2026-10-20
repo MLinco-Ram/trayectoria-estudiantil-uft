@@ -1,14 +1,17 @@
-import React from 'react';
-import { User, Session } from '../../types';
+import React, { useMemo } from 'react';
+import { User, Session, BroadcastScope } from '../../types';
 import { Send, Radio, CheckCircle2, AlertTriangle, Users, BookOpen } from 'lucide-react';
 
 interface DocenteAnnouncementsTabProps {
   user: User;
   sessions: Session[];
-  broadcastScope: 'all_community' | 'all_students' | 'all_tutors' | 'specific_session';
-  setBroadcastScope: (v: 'all_community' | 'all_students' | 'all_tutors' | 'specific_session') => void;
+  broadcastScope: BroadcastScope;
+  setBroadcastScope: (v: BroadcastScope) => void;
   broadcastSessionId: string;
   setBroadcastSessionId: (v: string) => void;
+  allUsers: User[];
+  broadcastUserId: string;
+  setBroadcastUserId: (v: string) => void;
   broadcastSubject: string;
   setBroadcastSubject: (v: string) => void;
   broadcastMessage: string;
@@ -27,6 +30,9 @@ export const DocenteAnnouncementsTab: React.FC<DocenteAnnouncementsTabProps> = (
   setBroadcastScope,
   broadcastSessionId,
   setBroadcastSessionId,
+  allUsers,
+  broadcastUserId,
+  setBroadcastUserId,
   broadcastSubject,
   setBroadcastSubject,
   broadcastMessage,
@@ -37,6 +43,29 @@ export const DocenteAnnouncementsTab: React.FC<DocenteAnnouncementsTabProps> = (
   broadcastFeedback,
   handleSendBroadcast,
 }) => {
+  const hasRole = (u: User, role: string) => u.role === role || (Array.isArray(u.roles) && u.roles.includes(role as any));
+
+  // Personas elegibles cuando el comunicado va a un destinatario específico
+  const recipientOptions = useMemo(() => {
+    if (broadcastScope === 'specific_tutor_par') {
+      // Un tutor sin subroles declarados se considera tutor par
+      return allUsers.filter(u => hasRole(u, 'tutor') && (
+        u.tutorType === 'tutor_par' || (Array.isArray(u.tutorTypes) && u.tutorTypes.includes('tutor_par')) ||
+        (!u.tutorType && !(Array.isArray(u.tutorTypes) && u.tutorTypes.length))
+      ));
+    }
+    if (broadcastScope === 'specific_tutor_de_tutores') {
+      return allUsers.filter(u => hasRole(u, 'tutor') && (
+        u.tutorType === 'tutor_de_tutores' || (Array.isArray(u.tutorTypes) && u.tutorTypes.includes('tutor_de_tutores'))
+      ));
+    }
+    if (broadcastScope === 'specific_student') {
+      return allUsers.filter(u => hasRole(u, 'alumno'));
+    }
+    return [];
+  }, [allUsers, broadcastScope]);
+  const sortedRecipients = [...recipientOptions].sort((a, b) => a.name.localeCompare(b.name));
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -71,13 +100,19 @@ export const DocenteAnnouncementsTab: React.FC<DocenteAnnouncementsTabProps> = (
               </label>
               <select
                 value={broadcastScope}
-                onChange={(e) => setBroadcastScope(e.target.value as any)}
+                onChange={(e) => {
+                  setBroadcastScope(e.target.value as BroadcastScope);
+                  setBroadcastUserId('');
+                }}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white text-slate-800"
               >
                 <option value="all_community">Toda la Comunidad (Estudiantes y Tutores)</option>
                 <option value="all_students">Todos los Estudiantes Registrados</option>
                 <option value="all_tutors">Equipo de Tutores Pares</option>
                 <option value="specific_session">Alumnos de una Tutoría Específica</option>
+                <option value="specific_tutor_par">Un Tutor Par Específico</option>
+                <option value="specific_tutor_de_tutores">Un Tutor de Tutores Específico</option>
+                <option value="specific_student">Un Estudiante Específico</option>
               </select>
             </div>
 
@@ -99,6 +134,30 @@ export const DocenteAnnouncementsTab: React.FC<DocenteAnnouncementsTabProps> = (
                     </option>
                   ))}
                 </select>
+              </div>
+            ) : (broadcastScope === 'specific_tutor_par' || broadcastScope === 'specific_tutor_de_tutores' || broadcastScope === 'specific_student') ? (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  {broadcastScope === 'specific_student' ? 'Seleccionar Estudiante' : broadcastScope === 'specific_tutor_par' ? 'Seleccionar Tutor Par' : 'Seleccionar Tutor de Tutores'}
+                </label>
+                <select
+                  value={broadcastUserId}
+                  onChange={(e) => setBroadcastUserId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white text-slate-800"
+                  required
+                >
+                  <option value="">-- Elige un destinatario --</option>
+                  {sortedRecipients.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}{u.career ? ` (${u.career})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {sortedRecipients.length === 0 && (
+                  <p className="text-[11px] text-amber-700 mt-1.5">
+                    {broadcastScope === 'specific_student' ? 'No hay estudiantes registrados.' : broadcastScope === 'specific_tutor_par' ? 'No hay tutores pares registrados.' : 'No hay tutores de tutores registrados.'}
+                  </p>
+                )}
               </div>
             ) : (
               <div>

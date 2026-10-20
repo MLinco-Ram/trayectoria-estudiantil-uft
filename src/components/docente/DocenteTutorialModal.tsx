@@ -56,6 +56,21 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
 
   // Pasos específicos de cada apartado (Mini-Tutoriales modulares)
   const stepsByTab: Record<DocenteTabType, StepItem[]> = useMemo(() => ({
+    rooms: [
+      {
+        id: 'rooms-header',
+        targetSelector: '#docente-rooms-header',
+        title: 'Catálogo de Salas',
+        badge: 'Paso 1 de 1 • Salas',
+        icon: Sparkles,
+        accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
+        description: 'Registra las salas disponibles con un código corto (ej: B405, B-101, Trayectorias) y una descripción opcional. Al crear una sesión se elige la sala de esta lista y el sistema impide asignar la misma sala a dos sesiones en el mismo horario.',
+        tips: [
+          'Usa la descripción para indicar qué es o dónde está la sala (ej: Amberes Sur B - 1).',
+          'Una sala con sesiones activas no se puede eliminar.'
+        ]
+      }
+    ],
     calendar: [
       {
         id: 'calendar-header',

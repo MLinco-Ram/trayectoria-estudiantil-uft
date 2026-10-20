@@ -50,6 +50,7 @@ export interface Session {
   program: ProgramType;
   type: SessionType;
   reservedForStudentId?: string; // Sesión personalizada: único estudiante que puede verla e inscribirse
+  offerGroupId?: string; // Horarios ofrecidos juntos para una sesión 1 a 1: el estudiante toma solo uno del grupo
   title: string;
   subject?: string; // e.g. "Matemática", "Programación", "Derecho", "Manejo del Tiempo"
   date: string; // YYYY-MM-DD
@@ -118,3 +119,20 @@ export interface StudentRequest {
   createdAt: string;
 }
 
+
+// Destinatarios de un comunicado docente
+export type BroadcastScope =
+  | 'all_community'
+  | 'all_students'
+  | 'all_tutors'
+  | 'specific_session'
+  | 'specific_tutor_par'
+  | 'specific_tutor_de_tutores'
+  | 'specific_student';
+
+export interface Room {
+  id: string;
+  code: string; // Código corto de la sala, ej: "B405", "Trayectorias", "B-101"
+  description?: string; // Qué es o dónde está, ej: "Amberes Sur B - 1"
+  createdAt?: string;
+}
