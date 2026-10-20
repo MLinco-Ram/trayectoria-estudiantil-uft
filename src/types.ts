@@ -89,6 +89,7 @@ export interface WebNotification {
   message: string;
   timestamp: string;
   read: boolean;
+  fromName?: string; // Quién envió el comunicado (si aplica)
 }
 
 export interface UserAvailability {

@@ -190,7 +190,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                   </p>
 
                   <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 pt-1">
-                    <span>Emisor: <strong className="text-slate-600 dark:text-slate-300">{senderLabel}</strong></span>
+                    <span>Emisor: <strong className="text-slate-600 dark:text-slate-300">{notif.fromName || senderLabel}</strong></span>
                     {isUnread ? (
                       <span className="text-[#3a9ad9] dark:text-sky-400 font-bold">Nuevo</span>
                     ) : (
