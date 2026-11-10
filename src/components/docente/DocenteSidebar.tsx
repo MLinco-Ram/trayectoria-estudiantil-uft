@@ -18,7 +18,7 @@ import {
   ArrowLeftRight,
   ArrowRight,
   ChevronDown,
-  DoorOpen
+  BookMarked
 } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
@@ -81,7 +81,7 @@ export const DocenteSidebar: React.FC<DocenteSidebarProps> = ({
   const menuItems = [
     { id: 'calendar' as DocenteTabType, label: 'Panel Docente', icon: CalendarIcon },
     { id: 'create' as DocenteTabType, label: 'Registrar Horarios', icon: PlusCircle },
-    { id: 'rooms' as DocenteTabType, label: 'Salas', icon: DoorOpen },
+    { id: 'rooms' as DocenteTabType, label: 'Diccionario', icon: BookMarked },
     { id: 'attendance' as DocenteTabType, label: 'Pasar Lista', icon: CheckSquare },
     { 
       id: 'flex_schedule' as DocenteTabType, 

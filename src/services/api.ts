@@ -1,4 +1,4 @@
-import { User, Session, IssueReport, WebNotification, UserAvailability, StudentRequest, SmtpSettings, BroadcastScope, Room } from '../types';
+import { User, Session, IssueReport, WebNotification, UserAvailability, StudentRequest, SmtpSettings, BroadcastScope, Room, DictionaryEntry } from '../types';
 
 async function handleResponse<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
@@ -137,6 +137,28 @@ export const roomsApi = {
 
   deleteRoom: async (id: string) => {
     const res = await fetch(`/api/rooms/${id}`, { method: 'DELETE' });
+    return handleResponse<{ success: boolean }>(res);
+  },
+};
+
+// --- DICCIONARIO (materias/áreas y programas adicionales) ---
+export const dictionaryApi = {
+  getEntries: async () => {
+    const res = await fetch('/api/dictionary');
+    return handleResponse<DictionaryEntry[]>(res);
+  },
+
+  createEntry: async (entry: { kind: 'subject' | 'program'; name: string; program?: string }) => {
+    const res = await fetch('/api/dictionary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry),
+    });
+    return handleResponse<DictionaryEntry>(res);
+  },
+
+  deleteEntry: async (id: string) => {
+    const res = await fetch(`/api/dictionary/${id}`, { method: 'DELETE' });
     return handleResponse<{ success: boolean }>(res);
   },
 };

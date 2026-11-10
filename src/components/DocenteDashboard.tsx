@@ -6,7 +6,8 @@ import { DocenteSidebar, DocenteTabType } from './docente/DocenteSidebar';
 import { DocenteCalendarTab } from './docente/DocenteCalendarTab';
 import { DocenteCreateSessionTab } from './docente/DocenteCreateSessionTab';
 import { DocenteAttendanceTab } from './docente/DocenteAttendanceTab';
-import { DocenteRoomsTab } from './docente/DocenteRoomsTab';
+import { DocenteDictionaryTab } from './docente/DocenteDictionaryTab';
+import { useDictionary } from '../hooks/useDictionary';
 import { DocenteFlexScheduleTab } from './docente/DocenteFlexScheduleTab';
 import { DocenteTutorsTab } from './docente/DocenteTutorsTab';
 import { DocenteStudentsTab } from './docente/DocenteStudentsTab';
@@ -44,6 +45,8 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
   const [studentRequests, setStudentRequests] = useState<StudentRequest[]>([]);
   const [allAvailabilities, setAllAvailabilities] = useState<UserAvailability[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
+  // Diccionario de materias/áreas y programas adicionales (también re-renderiza los formularios al cambiar)
+  const { entries: dictionary, reload: reloadDictionary } = useDictionary();
   const [notifications, setNotifications] = useState<WebNotification[]>([]);
   const [showNotifInbox, setShowNotifInbox] = useState(false);
   
@@ -82,7 +85,7 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
   const TAB_LABELS: Record<DocenteTabType, string> = {
     calendar: 'Panel Docente',
     create: 'Registrar Horarios',
-    rooms: 'Salas',
+    rooms: 'Diccionario',
     attendance: 'Pasar Lista',
     flex_schedule: 'Horario Flexible',
     tutors: 'Gestión Tutores',
@@ -94,7 +97,7 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
   };
 
   // Comments Filtering States
-  const [commentFilterProgram, setCommentFilterProgram] = useState<'all' | 'tutorias' | 'psicoeducativo'>('all');
+  const [commentFilterProgram, setCommentFilterProgram] = useState<'all' | 'tutorias' | 'psicoeducativo' | 'comunidad' | (string & {})>('all');
   const [commentFilterRating, setCommentFilterRating] = useState<'all' | '5' | '4' | '3' | '2' | '1'>('all');
   const [commentSearch, setCommentSearch] = useState('');
 
@@ -367,7 +370,7 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
         )}
 
         {activeTab === 'rooms' && (
-          <DocenteRoomsTab rooms={rooms} sessions={sessions} onReload={loadData} />
+          <DocenteDictionaryTab rooms={rooms} sessions={sessions} dictionary={dictionary} onReload={loadData} onReloadDictionary={reloadDictionary} />
         )}
 
         {activeTab === 'attendance' && (

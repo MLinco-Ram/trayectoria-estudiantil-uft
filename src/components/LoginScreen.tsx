@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { User, Role } from '../types';
-import { formatRut } from '../data';
+import { formatRut, UFT_CAREERS } from '../data';
 import { 
   LogIn, 
   UserPlus, 
@@ -70,7 +70,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [regName, setRegName] = useState('');
   const [regRut, setRegRut] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  const [regCareer, setRegCareer] = useState('Ing. Civil en Inform. y Telec.');
+  const [regCareer, setRegCareer] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [regTermsAccepted, setRegTermsAccepted] = useState(false);
@@ -190,6 +190,11 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         status: 'error', 
         message: 'El correo institucional debe tener dominio oficial de la universidad (ejemplo: usuario@uft.cl, usuario@mail.uft.cl o usuario@uft.edu).' 
       });
+      return;
+    }
+
+    if (!regCareer) {
+      setRegFeedback({ status: 'error', message: 'Selecciona tu carrera.' });
       return;
     }
 
@@ -445,12 +450,12 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                       value={regCareer}
                       onChange={(e) => setRegCareer(e.target.value)}
                     >
-                      <option value="Ing. Civil en Inform. y Telec.">Ing. Civil en Inform. y Telec.</option>
-                      <option value="Ingeniería Civil Industrial">Ingeniería Civil Industrial</option>
-                      <option value="Derecho">Derecho</option>
-                      <option value="Psicología">Psicología</option>
-                      <option value="Medicina">Medicina</option>
-                      <option value="Kinesiología">Kinesiología</option>
+                      <option value="" disabled>Selecciona tu carrera</option>
+                      {UFT_CAREERS.map(group => (
+                        <optgroup key={group.faculty} label={`Facultad de ${group.faculty}`}>
+                          {group.careers.map(c => <option key={c} value={c}>{c}</option>)}
+                        </optgroup>
+                      ))}
                     </select>
                     <ChevronDown className="w-4 h-4 text-white absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>

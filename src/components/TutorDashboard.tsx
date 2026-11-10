@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { User, Session, IssueReport, UserAvailability, SessionFeedback, WebNotification } from '../types';
 import { triggerNotification, TIME_SLOTS } from '../data';
+import { useDictionary } from '../hooks/useDictionary';
 import { getSocket } from '../services/socket';
 import { 
   Calendar, 
@@ -66,6 +67,8 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
   if (!user) return null;
 
   const [sessions, setSessions] = useState<Session[]>([]);
+  // Nombres de programas adicionales del Diccionario
+  useDictionary();
   const [reports, setReports] = useState<IssueReport[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [notifications, setNotifications] = useState<WebNotification[]>([]);
@@ -959,7 +962,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                               ? 'bg-purple-50 text-purple-800 border-purple-200'
                               : 'bg-sky-50 text-sky-800 border-sky-200'
                           }`}>
-                            {s.type === 'tutoria_general' ? 'Tutoría Grupal' : s.type === 'psico_taller' ? 'Taller Psicoeducativo' : s.type === 'psico_asesoria_individual' ? 'Asesoría Psicoeducativa' : 'Tutoría Personalizada'}
+                            {s.type === 'tutoria_general' ? 'Tutoría Grupal' : s.type === 'psico_taller' ? 'Taller Psicoeducativo' : s.type === 'psico_asesoria_individual' ? 'Asesoría Psicoeducativa' : s.type === 'actividad_comunidad' ? 'Actividad Comunidad' : 'Tutoría Personalizada'}
                           </span>
                           <span className="text-xs font-mono font-bold text-brand-navy bg-slate-50 px-2 py-1 rounded flex items-center space-x-1">
                             <Clock className="h-3 w-3 inline text-brand-celeste hover:animate-pulse" />

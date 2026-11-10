@@ -20,7 +20,7 @@ import {
   X,
   AlertCircle
 } from 'lucide-react';
-import { TIME_SLOTS } from '../../data';
+import { TIME_SLOTS, programLabel, getCustomPrograms } from '../../data';
 import { sessionsApi } from '../../services/api';
 import { TutorBlocksCalendar } from './tutorAvailability';
 
@@ -41,7 +41,7 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
 }) => {
   // Modos de vista: Cuadrícula Semanal interactiva, Calendario Mensual, Agenda por Lista o Vista Diaria
   const [viewMode, setViewMode] = useState<'week' | 'month' | 'day' | 'list'>('week');
-  const [programFilter, setProgramFilter] = useState<'all' | 'tutorias' | 'psicoeducativo'>('all');
+  const [programFilter, setProgramFilter] = useState<'all' | 'tutorias' | 'psicoeducativo' | 'comunidad' | (string & {})>('all');
   const [tutorFilter, setTutorFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [currentWeekOffset, setCurrentWeekOffset] = useState<number>(0);
@@ -228,6 +228,12 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
                   {filteredSessions.filter(s => s.program === 'psicoeducativo').length}
                 </span>
               </div>
+              <div className="bg-white/10 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/15 text-center">
+                <span className="text-[10px] uppercase font-bold text-slate-300 block">Comunidad</span>
+                <span className="text-lg font-black text-rose-300">
+                  {filteredSessions.filter(s => s.program === 'comunidad').length}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -265,6 +271,8 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
               <option value="all">📚 Todos los Programas</option>
               <option value="tutorias">🎯 Tutorías Académicas</option>
               <option value="psicoeducativo">🧠 Apoyo Psicoeducativo</option>
+              <option value="comunidad">🤝 Actividades para la Comunidad</option>
+              {getCustomPrograms().map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
             </select>
 
             {/* Filtro Tutor */}
@@ -431,7 +439,7 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
                                         <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded ${
                                           isTutorias ? 'bg-blue-200/80 text-blue-900' : 'bg-purple-200/80 text-purple-900'
                                         }`}>
-                                          {isTutorias ? 'Tutoría' : 'Psico'}
+                                          {isTutorias ? 'Tutoría' : sess.program === 'psicoeducativo' ? 'Psico' : programLabel(sess.program, 'short').slice(0, 8)}
                                         </span>
                                         <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${
                                           isFull ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-800'
@@ -611,7 +619,7 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
                           <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
                             isTutorias ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
                           }`}>
-                            {isTutorias ? 'Tutorías' : 'Psicoeducativo'}
+                            {programLabel(sess.program, 'short')}
                           </span>
                           <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
                             isFull ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
@@ -681,7 +689,7 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
                 <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
                   selectedSessionDetail.program === 'tutorias' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-purple-400 text-purple-950'
                 }`}>
-                  {selectedSessionDetail.program === 'tutorias' ? 'Programa Tutorías Académicas' : 'Programa Apoyo Psicoeducativo'}
+                  {programLabel(selectedSessionDetail.program)}
                 </span>
                 <h3 className="text-base font-extrabold text-white leading-snug pt-1">
                   {selectedSessionDetail.title}

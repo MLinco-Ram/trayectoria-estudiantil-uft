@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { User, Session, ProgramType, SessionType, UserAvailability, Room } from '../../types';
 import { PlusCircle, X, Calendar, Clock, MapPin, Users, BookOpen, CheckCircle2, AlertTriangle, GraduationCap, Check, Sparkles } from 'lucide-react';
-import { getTodayDateStr, TIME_SLOTS, SUBJECTS, triggerNotification, findRoomConflict } from '../../data';
+import { getTodayDateStr, TIME_SLOTS, getSubjects, getPrograms, programLabel, triggerNotification, findRoomConflict } from '../../data';
 import { sessionsApi } from '../../services/api';
 
 interface DocenteCreateSessionTabProps {
@@ -181,7 +181,7 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
     }
 
     if (!formLocation) {
-      setFeedback({ status: 'error', message: 'Selecciona una sala. Si no aparece, regístrala en "Salas".' });
+      setFeedback({ status: 'error', message: 'Selecciona una sala. Si no aparece, regístrala en "Diccionario › Salas".' });
       return;
     }
 
@@ -263,8 +263,8 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
           triggerNotification(
             docObj.email,
             docObj.name,
-            `Nuevo Taller Psicoeducativo Asignado: "${newSession.title}"`,
-            `Se ha programado a tu cargo la sesión psicoeducativa "${newSession.title}" ${slots.length > 1 ? 'en los horarios' : 'el día'} ${scheduleText} (${newSession.location}).`
+            formProgram === 'psicoeducativo' ? `Nuevo Taller Psicoeducativo Asignado: "${newSession.title}"` : `Nueva Actividad Asignada (${programLabel(formProgram)}): "${newSession.title}"`,
+            `Se ha programado a tu cargo la ${formProgram === 'psicoeducativo' ? 'sesión psicoeducativa' : `actividad de ${programLabel(formProgram)}`} "${newSession.title}" ${slots.length > 1 ? 'en los horarios' : 'el día'} ${scheduleText} (${newSession.location}).`
           );
         }
       }
@@ -327,9 +327,16 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
                 onChange={(e) => {
                   const prog = e.target.value as ProgramType;
                   setFormProgram(prog);
+                  setFormSubject(getSubjects(prog)[0]?.name || '');
                   if (prog === 'tutorias') {
                     setFormType('tutoria_general');
                     setFormMaxSpots(15);
+                  } else if (prog === 'comunidad') {
+                    setFormType('actividad_comunidad');
+                    setFormMaxSpots(30);
+                  } else if (prog !== 'psicoeducativo') {
+                    setFormType('actividad_grupal');
+                    setFormMaxSpots(30);
                   } else {
                     setFormType('psico_taller');
                     setFormMaxSpots(20);
@@ -339,6 +346,10 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
               >
                 <option value="tutorias">Programa de Tutorías Académicas</option>
                 <option value="psicoeducativo">Programa de Apoyo Psicoeducativo</option>
+                <option value="comunidad">Actividades para la Comunidad</option>
+                {getPrograms().filter(p => p.custom).map(p => (
+                  <option key={p.key} value={p.key}>{p.label}</option>
+                ))}
               </select>
             </div>
 
@@ -366,6 +377,10 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
                     <option value="tutoria_general">Tutoría Grupal / Colectiva</option>
                     <option value="tutoria_personalizada">Tutoría Personalizada (1 a 1)</option>
                   </>
+                ) : formProgram === 'comunidad' ? (
+                  <option value="actividad_comunidad">Actividad Abierta a la Comunidad</option>
+                ) : formProgram !== 'psicoeducativo' ? (
+                  <option value="actividad_grupal">Actividad Grupal</option>
                 ) : (
                   <>
                     <option value="psico_taller">Taller Grupal de Hábitos y Ansiedad</option>
@@ -424,7 +439,7 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
                   onChange={(e) => setFormSubject(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white"
                 >
-                  {SUBJECTS.filter(s => s.program === formProgram).map(s => (
+                  {getSubjects(formProgram).map(s => (
                     <option key={s.code} value={s.name}>{s.name}</option>
                   ))}
                 </select>
@@ -743,7 +758,7 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white"
                   required
                 >
-                  <option value="">{rooms.length === 0 ? 'No hay salas registradas (ver "Salas")' : 'Selecciona una sala'}</option>
+                  <option value="">{rooms.length === 0 ? 'No hay salas registradas (ver "Diccionario › Salas")' : 'Selecciona una sala'}</option>
                   {rooms.map(r => {
                     const busy = roomSlotsToCheck.some(sl => findRoomConflict(sessions, r.code, sl.date, sl.timeSlot));
                     return (
@@ -774,7 +789,7 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
 
 
           {/* SELECCIÓN DE DOCENTE RESPONSABLE PARA PROGRAMA PSICOEDUCATIVO */}
-          {formProgram === 'psicoeducativo' && (
+          {formProgram !== 'tutorias' && (
             <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">

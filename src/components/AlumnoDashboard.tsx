@@ -5,9 +5,9 @@ import {
   TIME_SLOTS,
   getTodayDateStr,
   getDynamicPresetDates,
-  SATISFACTION_SURVEY_QUESTIONS,
-  SURVEY_SCALE_OPTIONS,
-  SATISFACTION_SURVEY_INSTRUCTIONS,
+  getSurveyConfig,
+  programLabel,
+  getCustomPrograms,
   isSessionPast,
   isSessionActive,
   isRegistrationWindowClosed,
@@ -17,6 +17,7 @@ import {
   canStudentAccessSession,
 } from '../data';
 import { getSocket } from '../services/socket';
+import { useDictionary } from '../hooks/useDictionary';
 import { 
   Calendar, 
   Clock, 
@@ -47,7 +48,9 @@ import {
   QrCode,
   User as UserIcon,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  HeartHandshake,
+  Layers
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, getRoleHomePath } from '../context/AuthContext';
@@ -77,12 +80,15 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   const [notifications, setNotifications] = useState<WebNotification[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   
+  // Programas adicionales del Diccionario (pestañas propias)
+  useDictionary();
+
   // Tab view controller with persistence across reloads
   // tutorias, psicoeducativo, my_bookings, history, inconvenientes
-  const [activeSegment, setActiveSegment] = useState<'tutorias' | 'psicoeducativo' | 'my_bookings' | 'history' | 'inconvenientes'>(() => {
+  const [activeSegment, setActiveSegment] = useState<'tutorias' | 'psicoeducativo' | 'comunidad' | 'my_bookings' | 'history' | 'inconvenientes' | (string & {})>(() => {
     const saved = localStorage.getItem('uft_alumno_active_segment');
     if (saved === 'disponibilidad') return 'tutorias';
-    return (saved as 'tutorias' | 'psicoeducativo' | 'my_bookings' | 'history' | 'inconvenientes') || 'tutorias';
+    return (saved as string) || 'tutorias';
   });
 
   useEffect(() => {
@@ -175,11 +181,21 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   const [ratingSuccessMsg, setRatingSuccessMsg] = useState<string | null>(null);
   const [isSubmittingRating, setIsSubmittingRating] = useState<boolean>(false);
   const [showSurveyInstructions, setShowSurveyInstructions] = useState<boolean>(false);
+  // Campos extra de la encuesta de talleres psicoeducativos
+  const [workshopExtra, setWorkshopExtra] = useState<{ mostUseful: string; additionalSupport: string; relatorPositive: string; relatorImprove: string }>({ mostUseful: '', additionalSupport: '', relatorPositive: '', relatorImprove: '' });
+  const surveyCfg = getSurveyConfig(evaluatingSession || {});
 
   // Helper para abrir la encuesta con respuestas previas o iniciales
   const handleOpenEvaluationModal = (session: Session) => {
     const existing = session.ratings?.[user.id];
+    const cfgQuestions = getSurveyConfig(session).questions;
     setEvaluatingSession(session);
+    setWorkshopExtra({
+      mostUseful: existing?.mostUseful || '',
+      additionalSupport: existing?.additionalSupport || '',
+      relatorPositive: existing?.relatorPositive || '',
+      relatorImprove: existing?.relatorImprove || ''
+    });
     setRatingSuccessMsg(null);
     if (existing) {
       setRatingComment(existing.comment || '');
@@ -187,14 +203,14 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         setSurveyAnswers(existing.answers);
       } else {
         const initialMap: Record<number, number> = {};
-        SATISFACTION_SURVEY_QUESTIONS.forEach(q => {
+        cfgQuestions.forEach(q => {
           initialMap[q.id] = existing.rating || 5;
         });
         setSurveyAnswers(initialMap);
       }
     } else {
       const initialMap: Record<number, number> = {};
-      SATISFACTION_SURVEY_QUESTIONS.forEach(q => {
+      cfgQuestions.forEach(q => {
         initialMap[q.id] = 5;
       });
       setSurveyAnswers(initialMap);
@@ -211,7 +227,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
   const handleSetAllAnswers = (score: number) => {
     const newAnswers: Record<number, number> = {};
-    SATISFACTION_SURVEY_QUESTIONS.forEach(q => {
+    surveyCfg.questions.forEach(q => {
       newAnswers[q.id] = score;
     });
     setSurveyAnswers(newAnswers);
@@ -232,8 +248,8 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
     e.preventDefault();
     if (!evaluatingSession) return;
 
-    const totalQuestions = SATISFACTION_SURVEY_QUESTIONS.length;
-    const sum = SATISFACTION_SURVEY_QUESTIONS.reduce((acc, q) => acc + (surveyAnswers[q.id] || 5), 0);
+    const totalQuestions = surveyCfg.questions.length;
+    const sum = surveyCfg.questions.reduce((acc, q) => acc + (surveyAnswers[q.id] || 5), 0);
     const calculatedAvg = Math.round((sum / totalQuestions) * 10) / 10;
 
     setIsSubmittingRating(true);
@@ -243,7 +259,14 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       rating: calculatedAvg,
       answers: surveyAnswers,
       comment: ratingComment.trim(),
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      surveyKind: surveyCfg.kind,
+      ...(surveyCfg.kind !== 'habitos' ? {
+        mostUseful: workshopExtra.mostUseful.trim(),
+        additionalSupport: workshopExtra.additionalSupport,
+        relatorPositive: workshopExtra.relatorPositive.trim(),
+        relatorImprove: workshopExtra.relatorImprove.trim()
+      } : {})
     };
 
     // Guardar la encuesta en MongoDB Atlas (solo el campo de este estudiante)
@@ -268,7 +291,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
     ));
 
     setIsSubmittingRating(false);
-    setRatingSuccessMsg('¡Muchas gracias! Tu encuesta de satisfacción de 12 preguntas ha sido registrada con éxito.');
+    setRatingSuccessMsg(`¡Muchas gracias! Tu ${surveyCfg.title.toLowerCase()} ha sido registrada con éxito.`);
     setTimeout(() => {
       setEvaluatingSession(null);
       setRatingSuccessMsg(null);
@@ -501,7 +524,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
     // Check 2-hour deadline limit before session start
     if (isRegistrationWindowClosed(session.date, session.timeSlot)) {
-      setBookingFeedback('⚠️ Plazo de inscripción cerrado: Las inscripciones deben realizarse con al menos 2 horas de anticipación antes del inicio de la tutoría.');
+      setBookingFeedback('⚠️ Plazo de inscripción cerrado: Las inscripciones deben realizarse con al menos 2 horas de anticipación antes del inicio de la sesión.');
       return;
     }
 
@@ -604,8 +627,27 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
     }
   };
 
+  const customProgramTabs = getCustomPrograms();
+  const isCustomProgramSegment = customProgramTabs.some(p => p.key === activeSegment);
+  const isProgramSegment = activeSegment === 'tutorias' || activeSegment === 'psicoeducativo' || activeSegment === 'comunidad' || isCustomProgramSegment;
+
   // Identidad visual de cada programa, para que el cambio entre uno y otro sea evidente aunque no haya sesiones
-  const segmentInfo = activeSegment === 'psicoeducativo'
+  const segmentInfo = activeSegment === 'comunidad'
+    ? {
+        icon: HeartHandshake,
+        badge: 'Comunidad UFT',
+        title: 'Actividades para la Comunidad',
+        description: 'Actividades abiertas a toda la comunidad universitaria organizadas por Trayectoria Estudiantil.',
+        listTitle: 'Actividades disponibles',
+        emptyTitle: 'No hay actividades para la comunidad',
+        emptyHint: 'Aún no hay actividades programadas. Revisa más adelante o atento a los comunicados.',
+        banner: 'bg-gradient-to-r from-rose-700 to-orange-600 border-rose-700',
+        badgeCls: 'bg-white/20 text-white',
+        accentText: 'text-rose-700 dark:text-rose-300',
+        emptyCard: 'border-rose-200 dark:border-rose-800 bg-rose-50/40 dark:bg-rose-950/20',
+        emptyIcon: 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300',
+      }
+    : activeSegment === 'psicoeducativo'
     ? {
         icon: BookOpen,
         badge: 'Apoyo Psicoeducativo',
@@ -619,6 +661,21 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         accentText: 'text-teal-700 dark:text-teal-300',
         emptyCard: 'border-teal-200 dark:border-teal-800 bg-teal-50/40 dark:bg-teal-950/20',
         emptyIcon: 'bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300',
+      }
+    : isCustomProgramSegment
+    ? {
+        icon: Layers,
+        badge: 'Programa',
+        title: programLabel(activeSegment),
+        description: 'Actividades grupales de este programa de Trayectoria Estudiantil.',
+        listTitle: 'Actividades disponibles',
+        emptyTitle: 'No hay actividades',
+        emptyHint: 'Aún no hay actividades programadas en este programa.',
+        banner: 'bg-gradient-to-r from-indigo-700 to-violet-600 border-indigo-700',
+        badgeCls: 'bg-white/20 text-white',
+        accentText: 'text-indigo-700 dark:text-indigo-300',
+        emptyCard: 'border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/20',
+        emptyIcon: 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300',
       }
     : {
         icon: Award,
@@ -688,6 +745,35 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                 <BookOpen className="h-4 w-4 lg:h-4.5 lg:w-4.5 shrink-0" />
                 <span>Talleres Psicoeducativos</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSegment('comunidad')}
+                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeSegment === 'comunidad'
+                    ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
+                    : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <HeartHandshake className="h-4 w-4 lg:h-4.5 lg:w-4.5 shrink-0" />
+                <span>Comunidad</span>
+              </button>
+
+              {customProgramTabs.map(p => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => setActiveSegment(p.key)}
+                  className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    activeSegment === p.key
+                      ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
+                      : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  <Layers className="h-4 w-4 lg:h-4.5 lg:w-4.5 shrink-0" />
+                  <span>{p.label}</span>
+                </button>
+              ))}
 
               <button
                 type="button"
@@ -942,7 +1028,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
           )}
 
           {/* Encabezado del programa activo (color, ícono y texto propios de cada uno) */}
-          {(activeSegment === 'tutorias' || activeSegment === 'psicoeducativo') && (
+          {isProgramSegment && (
             <div
               key={activeSegment}
               id="alumno-segment-banner"
@@ -962,7 +1048,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
           )}
 
           {/* Date Picker (Calendar selector widget shown above slot cards in reference gym mockup) */}
-          {(activeSegment === 'tutorias' || activeSegment === 'psicoeducativo') && (
+          {isProgramSegment && (
             <div id="alumno-date-picker-card" className="bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 p-3.5 sm:p-4 space-y-3 transition-colors">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
@@ -1055,7 +1141,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
           )}
 
           {/* A. BOOK SCHEDULER VIEW (Tutorias General and Psycoeducational sessions) */}
-            {(activeSegment === 'tutorias' || activeSegment === 'psicoeducativo') && (
+            {isProgramSegment && (
             <div className="space-y-3">
               <div className="flex items-center justify-between pl-1.5 mt-2">
                 <h3 className={`text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5 ${segmentInfo.accentText}`}>
@@ -1086,7 +1172,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                   {upcomingProgramDates.length > 0 ? (
                     <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                        Hay {activeSegment === 'psicoeducativo' ? 'talleres programados' : 'tutorías programadas'} en las siguientes fechas. Selecciona una para inscribirte:
+                        Hay {activeSegment === 'comunidad' ? 'actividades programadas' : activeSegment === 'psicoeducativo' ? 'talleres programados' : 'tutorías programadas'} en las siguientes fechas. Selecciona una para inscribirte:
                       </p>
                       <div className="flex flex-wrap justify-center gap-2 pt-1">
                         {upcomingProgramDates.map(d => {
@@ -1230,7 +1316,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                             )}
                             {!isPast && !isCompleted && isClosedDeadline && !isRegistered && (
                               <span className="inline-block text-[8px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 font-bold rounded px-1.5 border border-amber-200 dark:border-amber-800">
-                                ⏱️ Cierre &lt;2h
+                                ⏱️ Inscripción cerrada
                               </span>
                             )}
                           </div>
@@ -1309,7 +1395,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                         <div className="flex justify-between items-start">
                           <div>
                             <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
-                              {s.program === 'tutorias' ? 'Programa Tutorías' : 'Módulo Psicoeducativo'}
+                              {programLabel(s.program)}
                             </span>
                             <h4 className="text-xs font-bold text-slate-800 dark:text-white leading-snug mt-0.5">{s.title}</h4>
                           </div>
@@ -1413,7 +1499,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                                 {isPresent ? '✓ Asistencia Confirmada' : 'Ausente / No Registrado'}
                               </span>
                               <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
-                                {s.program === 'tutorias' ? 'Programa Tutorías' : 'Programa Psicoeducativo'}
+                                {programLabel(s.program)}
                               </span>
                             </div>
 
@@ -1890,7 +1976,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                         <div key={r.id} className="border border-slate-100 dark:border-slate-800 rounded-xl p-4 bg-slate-50/20 dark:bg-slate-800/40 space-y-2">
                           <div className="flex justify-between items-start">
                             <span className={`px-2 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-widest ${r.program === 'tutorias' ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900' : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-100 dark:border-amber-900'}`}>
-                              {r.program === 'tutorias' ? 'Programa Tutorías' : 'Psicoeducativo'}
+                              {programLabel(r.program, 'short')}
                             </span>
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${r.status === 'resuelto' ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300' : 'bg-yellow-100 dark:bg-yellow-950/70 text-yellow-800 dark:text-yellow-300'}`}>
                               {r.status === 'resuelto' ? 'Clase Efectuada / Asignada' : 'Aviso Pendiente de Revisión'}
@@ -1969,8 +2055,8 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-sm sm:text-base font-bold tracking-tight truncate">Encuesta de Hábitos y Satisfacción</h3>
-                  <p className="text-[11px] sm:text-xs text-slate-300 truncate">Diagnóstico de hábitos de estudio y calidad académica (12 Ítems)</p>
+                  <h3 className="text-sm sm:text-base font-bold tracking-tight truncate">{surveyCfg.title}</h3>
+                  <p className="text-[11px] sm:text-xs text-slate-300 truncate">{surveyCfg.subtitle} ({surveyCfg.questions.length} ítems{surveyCfg.kind !== 'habitos' ? ' + preguntas abiertas' : ''})</p>
                 </div>
               </div>
               <button
@@ -2009,8 +2095,8 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                         <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
                         <span className="text-xs sm:text-sm font-black text-amber-900 dark:text-amber-200">
                           {(
-                            SATISFACTION_SURVEY_QUESTIONS.reduce((acc, q) => acc + (surveyAnswers[q.id] || 5), 0) /
-                            SATISFACTION_SURVEY_QUESTIONS.length
+                            surveyCfg.questions.reduce((acc, q) => acc + (surveyAnswers[q.id] || 5), 0) /
+                            surveyCfg.questions.length
                           ).toFixed(1)} / 5.0
                         </span>
                       </div>
@@ -2033,13 +2119,13 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                         <span>Marcar todas con un clic:</span>
                       </span>
                       <div className="flex flex-wrap gap-1">
-                        {SURVEY_SCALE_OPTIONS.map((opt) => (
+                        {surveyCfg.scale.map((opt) => (
                           <button
                             key={opt.score}
                             type="button"
                             onClick={() => handleSetAllAnswers(opt.score)}
                             className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold text-slate-700 dark:text-slate-200 transition cursor-pointer shadow-2xs"
-                            title={`Marcar "${opt.label}" a todas las 12 preguntas`}
+                            title={`Marcar "${opt.label}" a todas las preguntas`}
                           >
                             {opt.score}. {opt.shortLabel}
                           </button>
@@ -2064,12 +2150,12 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                       </div>
                       
                       <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                        {SATISFACTION_SURVEY_INSTRUCTIONS}
+                        {surveyCfg.instructions}
                       </p>
 
                       {showSurveyInstructions && (
                         <div className="grid grid-cols-1 sm:grid-cols-5 gap-1.5 pt-1 animate-fade-in">
-                          {SURVEY_SCALE_OPTIONS.map((opt) => (
+                          {surveyCfg.scale.map((opt) => (
                             <div key={opt.score} className="bg-white dark:bg-slate-800 px-2 py-1.5 rounded-lg border border-sky-100 dark:border-sky-950 text-[10px] shadow-2xs">
                               <p className="font-extrabold text-[#092c4c] dark:text-sky-300">{opt.label}</p>
                               <p className="text-slate-500 dark:text-slate-400 text-[9px] leading-tight mt-0.5">{opt.description}</p>
@@ -2081,9 +2167,9 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
                     {/* Listado Responsivo de las 12 Preguntas */}
                     <div className="space-y-3">
-                      {SATISFACTION_SURVEY_QUESTIONS.map((q) => {
+                      {surveyCfg.questions.map((q) => {
                         const currentVal = surveyAnswers[q.id] || 5;
-                        const currentOption = SURVEY_SCALE_OPTIONS.find(o => o.score === currentVal);
+                        const currentOption = surveyCfg.scale.find(o => o.score === currentVal);
 
                         return (
                           <div
@@ -2101,7 +2187,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
                             {/* 5 Botones de selección adaptables a móviles y escritorio */}
                             <div className="grid grid-cols-5 gap-1 sm:gap-1.5 pt-0.5">
-                              {SURVEY_SCALE_OPTIONS.map((opt) => {
+                              {surveyCfg.scale.map((opt) => {
                                 const isSelected = currentVal === opt.score;
                                 return (
                                   <button
@@ -2139,10 +2225,42 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                       })}
                     </div>
 
+                    {/* Preguntas abiertas de la encuesta de talleres */}
+                    {surveyCfg.kind !== 'habitos' && (
+                      <div className="space-y-3 pt-1">
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                            Después del taller, ¿consideras que necesitas algún apoyo adicional?
+                          </label>
+                          <select
+                            required
+                            value={workshopExtra.additionalSupport}
+                            onChange={(e) => setWorkshopExtra(prev => ({ ...prev, additionalSupport: e.target.value }))}
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-xs text-slate-800 dark:text-slate-100 focus:border-[#3a9ad9] outline-none"
+                          >
+                            <option value="" disabled>Selecciona una opción</option>
+                            {surveyCfg.supportOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                        </div>
+                        {surveyCfg.openQuestions.map(q => (
+                          <div key={q.key} className="space-y-1.5">
+                            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">{q.label}</label>
+                            <textarea
+                              rows={2}
+                              required={q.key === 'mostUseful'}
+                              value={workshopExtra[q.key]}
+                              onChange={(e) => setWorkshopExtra(prev => ({ ...prev, [q.key]: e.target.value }))}
+                              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-xs text-slate-800 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-[#3a9ad9] focus:ring-2 focus:ring-[#3a9ad9]/20 outline-none transition-all"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Comentarios y Sugerencias */}
                     <div className="space-y-1.5 pt-1">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Comentarios u observaciones adicionales sobre la sesión (Opcional):
+                        {surveyCfg.commentLabel}
                       </label>
                       <textarea
                         rows={2}
@@ -2172,7 +2290,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                     className="px-5 py-2.5 rounded-xl bg-[#092c4c] dark:bg-[#3a9ad9] hover:bg-[#153a5c] dark:hover:bg-sky-400 text-white dark:text-slate-900 text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
                     <ThumbsUp className="w-3.5 h-3.5" />
-                    <span>{isSubmittingRating ? 'Guardando...' : 'Enviar Evaluación (12 Ítems)'}</span>
+                    <span>{isSubmittingRating ? 'Guardando...' : `Enviar Evaluación (${surveyCfg.questions.length} Ítems)`}</span>
                   </button>
                 </div>
               )}
@@ -2223,6 +2341,25 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         >
           <BookOpen className={`w-4 h-4 mb-0.5 ${activeSegment === 'psicoeducativo' ? 'text-brand-celeste' : 'text-slate-400'}`} />
           <span className="text-[10px] leading-tight">Talleres</span>
+        </button>
+
+        {/* 2b. Comunidad */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveSegment('comunidad');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            const mainElem = document.getElementById('student-main-panel-workspace');
+            if (mainElem) mainElem.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer flex-1 ${
+            activeSegment === 'comunidad'
+              ? 'text-brand-celeste font-bold'
+              : 'text-slate-400 hover:text-white font-medium'
+          }`}
+        >
+          <HeartHandshake className={`w-4 h-4 mb-0.5 ${activeSegment === 'comunidad' ? 'text-brand-celeste' : 'text-slate-400'}`} />
+          <span className="text-[10px] leading-tight">Comunidad</span>
         </button>
 
         {/* 3. Escanear QR (Botón Central Destacado) */}
