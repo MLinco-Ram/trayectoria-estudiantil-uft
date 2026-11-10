@@ -285,10 +285,10 @@ export function canTakeAttendance(session: { date: string; timeSlot?: string }):
 }
 
 /** Horas de anticipación con que cierra la inscripción de los estudiantes. */
-export const REGISTRATION_CLOSE_HOURS_BEFORE = 2;
+export const REGISTRATION_CLOSE_HOURS_BEFORE = 1;
 
 /**
- * Comprueba si el plazo de inscripción cerró (menos de 2 horas antes de iniciar o si la sesión ya pasó).
+ * Comprueba si el plazo de inscripción cerró (menos de 1 hora antes de iniciar o si la sesión ya pasó).
  */
 export function isRegistrationWindowClosed(sessionDate: string, timeSlot?: string): boolean {
   try {
