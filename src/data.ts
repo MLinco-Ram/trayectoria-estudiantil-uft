@@ -1,4 +1,4 @@
-import { User, Session, IssueReport, WebNotification, UserAvailability, StudentRequest } from './types';
+import { User, Session, IssueReport, WebNotification, UserAvailability, StudentRequest, DictionaryEntry } from './types';
 
 // ==========================================
 // CONSTANTES INSTITUCIONALES UFT (SIN MOCKS)
@@ -20,7 +20,69 @@ export const SUBJECTS = [
   { code: 'DER', name: 'Derecho', program: 'tutorias' },
   { code: 'TIEM', name: 'Manejo del Tiempo', program: 'psicoeducativo' },
   { code: 'EST', name: 'Estrategias de Estudio', program: 'psicoeducativo' },
-  { code: 'ANS', name: 'Control de Ansiedad', program: 'psicoeducativo' }
+  { code: 'ANS', name: 'Control de Ansiedad', program: 'psicoeducativo' },
+  { code: 'AUTO', name: 'Autorregulación', program: 'psicoeducativo' },
+  { code: 'NEUR', name: 'Neuro herramientas', program: 'psicoeducativo' },
+  { code: 'MOTI', name: 'Motivación', program: 'psicoeducativo' },
+  { code: 'EVOR', name: 'Evaluaciones orales', program: 'psicoeducativo' },
+  { code: 'OTRO', name: 'Otro', program: 'psicoeducativo' },
+  { code: 'COMU', name: 'Actividad para la comunidad', program: 'comunidad' },
+  { code: 'COMO', name: 'Otro', program: 'comunidad' }
+];
+
+// Etiquetas de cada programa para toda la interfaz
+export const PROGRAM_LABELS: Record<string, { full: string; short: string; emoji: string }> = {
+  tutorias: { full: 'Programa de Tutorías Académicas', short: 'Tutorías', emoji: '🎯' },
+  psicoeducativo: { full: 'Programa de Apoyo Psicoeducativo', short: 'Psicoeducativo', emoji: '🧠' },
+  comunidad: { full: 'Actividades para la Comunidad', short: 'Comunidad', emoji: '🤝' }
+};
+export const BASE_PROGRAM_KEYS = ['tutorias', 'psicoeducativo', 'comunidad'];
+
+// ==========================================
+// DICCIONARIO EDITABLE (materias/áreas y programas adicionales, desde MongoDB)
+// ==========================================
+let customPrograms: DictionaryEntry[] = [];
+let customSubjects: DictionaryEntry[] = [];
+
+/** Registra lo que devuelve /api/dictionary; los componentes lo leen al renderizar. */
+export function setDictionary(entries: DictionaryEntry[]) {
+  customPrograms = entries.filter(e => e.kind === 'program' && e.key);
+  customSubjects = entries.filter(e => e.kind === 'subject' && e.program);
+}
+
+/** Programas base + programas creados en el Diccionario. */
+export function getPrograms(): { key: string; label: string; custom: boolean }[] {
+  return [
+    ...BASE_PROGRAM_KEYS.map(key => ({ key, label: PROGRAM_LABELS[key].full, custom: false })),
+    ...customPrograms.map(p => ({ key: p.key as string, label: p.name, custom: true }))
+  ];
+}
+
+export const getCustomPrograms = () => customPrograms.map(p => ({ key: p.key as string, label: p.name }));
+
+/** Materias/áreas de un programa: las fijas + las agregadas en el Diccionario. */
+export function getSubjects(program: string): { code: string; name: string; program: string; custom?: boolean }[] {
+  const base = SUBJECTS.filter(s => s.program === program);
+  const extra = customSubjects.filter(s => s.program === program).map(s => ({ code: s.id, name: s.name, program, custom: true }));
+  return [...base, ...extra];
+}
+
+export const programLabel = (p?: string, kind: 'full' | 'short' = 'full') => {
+  if (p && PROGRAM_LABELS[p]) return PROGRAM_LABELS[p][kind];
+  const custom = customPrograms.find(c => c.key === p);
+  return custom ? custom.name : (p || PROGRAM_LABELS.psicoeducativo[kind]);
+};
+
+// Carreras de pregrado UFT agrupadas por facultad (fuente: admision.finis.cl/carreras, nov 2026)
+export const UFT_CAREERS: { faculty: string; careers: string[] }[] = [
+  { faculty: 'Arquitectura, Diseño y Estudios Creativos', careers: ['Arquitectura', 'Diseño', 'Diseño de Moda & Management', 'Doble Título Publicidad y Diseño', 'Publicidad'] },
+  { faculty: 'Artes', careers: ['Actuación y Creación Teatral', 'Bachillerato en Artes, Arquitectura y Diseño', 'Licenciatura en Artes Visuales'] },
+  { faculty: 'Derecho', careers: ['Derecho'] },
+  { faculty: 'Economía y Negocios', careers: ['Contador Auditor', 'Dirección y Gestión de Artes Culinarias', 'Ingeniería Comercial', 'Ingeniería en Información y Control de Gestión'] },
+  { faculty: 'Educación y Ciencias Sociales', careers: ['Administración Pública', 'Bachillerato en Ciencias Sociales', 'Ciencia Política', 'Pedagogía en Educación Básica', 'Pedagogía en Educación Parvularia', 'Programa de Formación Pedagógica en Educación Media', 'Psicología', 'Sociología'] },
+  { faculty: 'Humanidades y Comunicaciones', careers: ['Bachillerato en Humanidades', 'Dirección Editorial', 'Gestión Cultural y Patrimonio', 'Licenciatura en Historia', 'Licenciatura en Literatura', 'Periodismo y Comunicación'] },
+  { faculty: 'Ingeniería', careers: ['Ingeniería Civil Biomédica', 'Ingeniería Civil en Inteligencia Artificial y Realidad Virtual', 'Ingeniería Civil Industrial', 'Ingeniería Civil Informática y Telecomunicaciones'] },
+  { faculty: 'Medicina y Salud', careers: ['Bachillerato en Medicina y Ciencias Biomédicas', 'Enfermería', 'Kinesiología', 'Medicina', 'Nutrición y Dietética', 'Odontología'] }
 ];
 
 export const SURVEY_SCALE_OPTIONS = [
@@ -48,6 +110,100 @@ export const SATISFACTION_SURVEY_QUESTIONS = [
   { id: 11, title: 'Anticipación en entregas', question: 'Trato de terminar mis trabajos importantes con tiempo de sobra.' },
   { id: 12, title: 'Revisión y prolijidad', question: 'Me tomo el tiempo de revisar mis tareas antes de entregarlas.' }
 ];
+
+// Encuesta genérica de talleres psicoeducativos (Google Form oficial de Trayectoria)
+export const WORKSHOP_SURVEY_INSTRUCTIONS =
+  'La participación es voluntaria. Tus respuestas serán tratadas de manera confidencial y analizadas de forma agrupada. No hay respuestas buenas ni malas; responde según tu experiencia real. Si tienes alguna duda puedes contactarte con trayectorias@uft.cl';
+
+export const WORKSHOP_SCALE_OPTIONS = [
+  { score: 1, label: '1. Muy en desacuerdo', shortLabel: 'Muy en desac.', description: 'Muy en desacuerdo' },
+  { score: 2, label: '2. En desacuerdo', shortLabel: 'En desac.', description: 'En desacuerdo' },
+  { score: 3, label: '3. Neutral', shortLabel: 'Neutral', description: 'Ni de acuerdo ni en desacuerdo' },
+  { score: 4, label: '4. De acuerdo', shortLabel: 'De acuerdo', description: 'De acuerdo' },
+  { score: 5, label: '5. Muy de acuerdo', shortLabel: 'Muy de ac.', description: 'Muy de acuerdo' }
+];
+
+export const WORKSHOP_SURVEY_QUESTIONS = [
+  { id: 1, title: 'Relevancia', question: 'El taller abordó necesidades relevantes para mi vida académica.' },
+  { id: 2, title: 'Claridad', question: 'Los contenidos fueron claros y fáciles de comprender.' },
+  { id: 3, title: 'Aplicación', question: 'Las actividades realizadas ayudaron a aplicar lo trabajado.' },
+  { id: 4, title: 'Autoeficacia', question: 'Después del taller me siento más capaz de aplicar al menos una estrategia revisada.' },
+  { id: 5, title: 'Satisfacción', question: 'En general, quedé satisfecho/a con el taller.' },
+  { id: 6, title: 'Recomendación', question: 'Recomendaría este taller a otros/as estudiantes.' }
+];
+
+export const WORKSHOP_SUPPORT_OPTIONS = [
+  'No, por ahora no',
+  'Sí, apoyo académico/tutoría',
+  'Sí, apoyo psicoeducativo'
+];
+
+export const WORKSHOP_OPEN_QUESTIONS = [
+  { key: 'mostUseful', label: '¿Qué fue lo más útil del taller?' },
+  { key: 'relatorPositive', label: '¿Qué aspectos positivos rescatas del/la relator(a) durante el taller?' },
+  { key: 'relatorImprove', label: '¿Qué recomendarías mejorar al relator(a) para una próxima versión del taller?' }
+] as const;
+
+// Encuesta de tutorías colectivas: misma estructura que la de talleres, enfocada en la tutoría par grupal
+export const TUTORING_SURVEY_INSTRUCTIONS =
+  'La participación es voluntaria. Tus respuestas son confidenciales y se analizan de forma agrupada para mejorar las tutorías colectivas. No hay respuestas buenas ni malas; responde según tu experiencia en esta sesión. Si tienes dudas puedes escribir a trayectorias@uft.cl';
+
+export const TUTORING_SURVEY_QUESTIONS = [
+  { id: 1, title: 'Pertinencia', question: 'La tutoría abordó contenidos o dudas relevantes para mi asignatura.' },
+  { id: 2, title: 'Claridad', question: 'El/la tutor(a) explicó los contenidos de forma clara y ordenada.' },
+  { id: 3, title: 'Práctica', question: 'Los ejercicios realizados me ayudaron a practicar lo revisado.' },
+  { id: 4, title: 'Trabajo en grupo', question: 'Trabajar con otros/as compañeros/as en la sesión enriqueció mi aprendizaje.' },
+  { id: 5, title: 'Preparación', question: 'Después de la tutoría me siento mejor preparado/a para mis evaluaciones.' },
+  { id: 6, title: 'Recomendación', question: 'Recomendaría esta tutoría colectiva a otros/as estudiantes.' }
+];
+
+export const TUTORING_SUPPORT_OPTIONS = [
+  'No, por ahora no',
+  'Sí, más tutorías colectivas de esta asignatura',
+  'Sí, una tutoría personalizada (1 a 1)',
+  'Sí, apoyo psicoeducativo'
+];
+
+export const TUTORING_OPEN_QUESTIONS = [
+  { key: 'mostUseful', label: '¿Qué contenido o ejercicio de la tutoría te resultó más útil?' },
+  { key: 'relatorPositive', label: '¿Qué aspectos positivos rescatas del/la tutor(a) durante la sesión?' },
+  { key: 'relatorImprove', label: '¿Qué recomendarías mejorar al tutor(a) para una próxima tutoría?' }
+] as const;
+
+export type SurveyKind = 'habitos' | 'taller' | 'tutoria';
+
+/** Las sesiones grupales psicoeducativas/comunidad usan la encuesta de talleres; las tutorías colectivas, la de tutorías. */
+export const getSurveyKind = (s: { program?: string; type?: string }): SurveyKind => {
+  if (s.program && s.program !== 'tutorias' && s.type !== 'psico_asesoria_individual') return 'taller';
+  if (s.program === 'tutorias' && s.type === 'tutoria_general') return 'tutoria';
+  return 'habitos';
+};
+
+export const getSurveyConfigByKind = (kind: SurveyKind = 'habitos', program?: string) => {
+  if (kind === 'taller') return {
+    kind, title: program === 'comunidad' ? 'Encuesta Actividad para la Comunidad' : program === 'psicoeducativo' || !program ? 'Encuesta Taller Psicoeducativo' : `Encuesta ${programLabel(program)}`,
+    subtitle: 'Evaluación del taller y del relator/a', instructions: WORKSHOP_SURVEY_INSTRUCTIONS,
+    questions: WORKSHOP_SURVEY_QUESTIONS, scale: WORKSHOP_SCALE_OPTIONS,
+    supportOptions: WORKSHOP_SUPPORT_OPTIONS, openQuestions: WORKSHOP_OPEN_QUESTIONS,
+    commentLabel: 'Comentarios o sugerencias sobre el taller (Opcional):'
+  };
+  if (kind === 'tutoria') return {
+    kind, title: 'Encuesta Tutoría Colectiva',
+    subtitle: 'Evaluación de la tutoría y del tutor/a', instructions: TUTORING_SURVEY_INSTRUCTIONS,
+    questions: TUTORING_SURVEY_QUESTIONS, scale: WORKSHOP_SCALE_OPTIONS,
+    supportOptions: TUTORING_SUPPORT_OPTIONS, openQuestions: TUTORING_OPEN_QUESTIONS,
+    commentLabel: 'Comentarios o sugerencias sobre la tutoría (Opcional):'
+  };
+  return {
+    kind: 'habitos' as SurveyKind, title: 'Encuesta de Hábitos y Satisfacción',
+    subtitle: 'Diagnóstico de hábitos de estudio y calidad académica', instructions: SATISFACTION_SURVEY_INSTRUCTIONS,
+    questions: SATISFACTION_SURVEY_QUESTIONS, scale: SURVEY_SCALE_OPTIONS,
+    supportOptions: [] as string[], openQuestions: [] as readonly { key: 'mostUseful' | 'relatorPositive' | 'relatorImprove'; label: string }[],
+    commentLabel: 'Comentarios u observaciones adicionales sobre la sesión (Opcional):'
+  };
+};
+
+export const getSurveyConfig = (s: { program?: string; type?: string }) => getSurveyConfigByKind(getSurveyKind(s), s.program);
 
 // Arreglos vacíos por defecto (toda la data proviene exclusivamente de MongoDB Atlas)
 export const MOCK_USERS: User[] = [];
@@ -121,6 +277,17 @@ export function isSessionActive(session: { date: string; timeSlot?: string; isCo
 }
 
 /**
+ * La asistencia solo se puede pasar el mismo día de la clase (a cualquier hora de ese día).
+ * Evita que una sesión futura quede marcada como finalizada/archivada al tomar asistencia antes de tiempo.
+ */
+export function canTakeAttendance(session: { date: string; timeSlot?: string }): boolean {
+  return !!session?.date && session.date === getTodayDateStr();
+}
+
+/** Horas de anticipación con que cierra la inscripción de los estudiantes. */
+export const REGISTRATION_CLOSE_HOURS_BEFORE = 2;
+
+/**
  * Comprueba si el plazo de inscripción cerró (menos de 2 horas antes de iniciar o si la sesión ya pasó).
  */
 export function isRegistrationWindowClosed(sessionDate: string, timeSlot?: string): boolean {
@@ -140,7 +307,7 @@ export function isRegistrationWindowClosed(sessionDate: string, timeSlot?: strin
     const diffMs = sessionDateTime.getTime() - Date.now();
     const diffHours = diffMs / (1000 * 60 * 60);
 
-    return diffHours < 2;
+    return diffHours < REGISTRATION_CLOSE_HOURS_BEFORE;
   } catch (e) {
     return false;
   }

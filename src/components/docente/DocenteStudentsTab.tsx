@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../../types';
 import { Users, UserPlus, Search, Edit3, Trash2, GraduationCap, Mail } from 'lucide-react';
+import { CareerSelect } from '../common/CareerSelect';
 import { formatRut } from '../../data';
 import { usersApi } from '../../services/api';
 
@@ -19,7 +20,7 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
   const [newStudentName, setNewStudentName] = useState('');
   const [newStudentRut, setNewStudentRut] = useState('');
   const [newStudentEmail, setNewStudentEmail] = useState('');
-  const [newStudentCareer, setNewStudentCareer] = useState('Ing. Civil en Inform. y Telec.');
+  const [newStudentCareer, setNewStudentCareer] = useState('Ingeniería Civil Informática y Telecomunicaciones');
   const [newStudentPassword, setNewStudentPassword] = useState('123');
   const [studentFeedback, setStudentFeedback] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
   const [isSubmittingStudent, setIsSubmittingStudent] = useState(false);
@@ -186,12 +187,10 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Carrera</label>
-              <input
-                type="text"
+              <CareerSelect
                 value={newStudentCareer}
-                onChange={(e) => setNewStudentCareer(e.target.value)}
-                placeholder="Ing. Civil en Informática"
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-[#3a9ad9]"
+                onChange={setNewStudentCareer}
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-[#3a9ad9] bg-white"
                 required
               />
             </div>
@@ -326,11 +325,10 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Carrera</label>
-                <input
-                  type="text"
+                <CareerSelect
                   value={editCareer}
-                  onChange={(e) => setEditCareer(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs"
+                  onChange={setEditCareer}
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs bg-white"
                 />
               </div>
               <div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User, TutorType, Role, UserAvailability } from '../../types';
 import { BookOpen, UserPlus, Search, Edit3, Trash2, GraduationCap, CheckCircle2, AlertTriangle, Lock, Mail, ShieldCheck, Users, UserCheck, ArrowRight, Sparkles, Layers, X, UserCheck2 } from 'lucide-react';
+import { CareerSelect } from '../common/CareerSelect';
 import { formatRut } from '../../data';
 import { usersApi } from '../../services/api';
 import { TutorSchedulesCard } from './tutorAvailability';
@@ -22,7 +23,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
   const [newTutorName, setNewTutorName] = useState('');
   const [newTutorRut, setNewTutorRut] = useState('');
   const [newTutorEmail, setNewTutorEmail] = useState('');
-  const [newTutorCareer, setNewTutorCareer] = useState('Ing. Civil en Informática');
+  const [newTutorCareer, setNewTutorCareer] = useState('Ingeniería Civil Informática y Telecomunicaciones');
   const [newTutorPassword, setNewTutorPassword] = useState('123');
   const [newTutorType, setNewTutorType] = useState<TutorType>('tutor_par');
   const [tutorFeedback, setTutorFeedback] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
@@ -385,11 +386,10 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Carrera</label>
-              <input
-                type="text"
+              <CareerSelect
                 value={newTutorCareer}
-                onChange={(e) => setNewTutorCareer(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-[#3a9ad9]"
+                onChange={setNewTutorCareer}
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-[#3a9ad9] bg-white"
                 required
               />
             </div>
@@ -961,10 +961,9 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                 </div>
                 <div>
                   <label className="block text-[10px] sm:text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase mb-1">Carrera</label>
-                  <input
-                    type="text"
+                  <CareerSelect
                     value={editCareer}
-                    onChange={(e) => setEditCareer(e.target.value)}
+                    onChange={setEditCareer}
                     className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                   />
                 </div>

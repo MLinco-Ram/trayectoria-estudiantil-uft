@@ -101,6 +101,13 @@ export const deleteSession = async (req, res) => {
   }
 };
 
+// La asistencia solo se puede registrar el mismo día de la clase (hora de Chile; el servidor corre en UTC)
+const hasAttendanceOpened = (session) => {
+  if (!session?.date) return false;
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  return session.date === today;
+};
+
 export const registerQRAttendance = async (req, res) => {
   const db = req.db;
   try {
@@ -113,6 +120,10 @@ export const registerQRAttendance = async (req, res) => {
     const session = await db.collection('sessions').findOne({ id });
     if (!session) {
       return res.status(404).json({ error: 'Sesión no encontrada' });
+    }
+
+    if (!hasAttendanceOpened(session)) {
+      return res.status(400).json({ error: 'La asistencia solo se puede registrar el día de la clase.' });
     }
 
     // Las sesiones personalizadas (1 a 1) solo admiten al estudiante para quien fueron creadas

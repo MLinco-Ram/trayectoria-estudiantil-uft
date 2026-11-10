@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Room, Session } from '../../types';
 import { roomsApi } from '../../services/api';
+import { programLabel } from '../../data';
 import { DoorOpen, Plus, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 interface DocenteRoomsTabProps {
@@ -185,7 +186,7 @@ export const DocenteRoomsTab: React.FC<DocenteRoomsTabProps> = ({ rooms, session
                       <div>
                         <p className="text-sm font-semibold text-slate-800">{s.title}</p>
                         <p className="text-[11px] text-slate-500">
-                          {s.program === 'tutorias' ? 'Tutoría' : 'Psicoeducativo'}{s.subject ? ` • ${s.subject}` : ''}
+                          {s.program === 'tutorias' ? 'Tutoría' : programLabel(s.program, 'short')}{s.subject ? ` • ${s.subject}` : ''}
                         </p>
                       </div>
                       <div className="text-xs text-slate-600 sm:text-right">

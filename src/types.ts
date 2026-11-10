@@ -25,7 +25,8 @@ export interface User {
   password?: string; // Optional password for registered users
 }
 
-export type ProgramType = 'tutorias' | 'psicoeducativo';
+// Programas base + los creados en el Diccionario (clave en minúsculas, ej: 'talleres_de_verano')
+export type ProgramType = 'tutorias' | 'psicoeducativo' | 'comunidad' | (string & {});
 
 export type SessionType = 
   | 'tutoria_general' 
@@ -34,7 +35,9 @@ export type SessionType =
   | 'psico_asesoria_individual'
   | 'induccion'
   | 'clase_magistral'
-  | 'taller_ampliado';
+  | 'taller_ampliado'
+  | 'actividad_comunidad'
+  | 'actividad_grupal';
 
 export interface SessionFeedback {
   studentId: string;
@@ -43,6 +46,12 @@ export interface SessionFeedback {
   answers?: Record<number, number>; // questionId (1..12) -> score (1..5)
   comment: string;
   createdAt: string;
+  surveyKind?: 'habitos' | 'taller' | 'tutoria';
+  // Solo encuestas de talleres y de tutorías colectivas
+  mostUseful?: string;
+  additionalSupport?: string;
+  relatorPositive?: string;
+  relatorImprove?: string;
 }
 
 export interface Session {
@@ -130,6 +139,15 @@ export type BroadcastScope =
   | 'specific_tutor_par'
   | 'specific_tutor_de_tutores'
   | 'specific_student';
+
+export interface DictionaryEntry {
+  id: string;
+  kind: 'subject' | 'program';
+  name: string;
+  key?: string; // Solo programas: clave usada en Session.program
+  program?: string; // Solo materias/áreas: programa al que pertenecen
+  createdAt?: string;
+}
 
 export interface Room {
   id: string;

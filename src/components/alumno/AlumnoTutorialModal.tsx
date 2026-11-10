@@ -18,7 +18,7 @@ export interface AlumnoTutorialModalProps {
   isOpen: boolean;
   onClose: () => void;
   userName?: string;
-  onNavigateTab?: (tab: 'tutorias' | 'psicoeducativo' | 'my_bookings' | 'history' | 'inconvenientes') => void;
+  onNavigateTab?: (tab: 'tutorias' | 'psicoeducativo' | 'comunidad' | 'my_bookings' | 'history' | 'inconvenientes') => void;
 }
 
 interface StepItem {
@@ -30,7 +30,7 @@ interface StepItem {
   accentGradient: string;
   description: string;
   tips: string[];
-  tab?: 'tutorias' | 'psicoeducativo' | 'my_bookings' | 'history' | 'inconvenientes';
+  tab?: 'tutorias' | 'psicoeducativo' | 'comunidad' | 'my_bookings' | 'history' | 'inconvenientes';
 }
 
 export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({

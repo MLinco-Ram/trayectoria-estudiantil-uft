@@ -31,7 +31,7 @@ import {
   CalendarCheck
 } from 'lucide-react';
 import type ExcelJS from 'exceljs';
-import { TIME_SLOTS } from '../../data';
+import { TIME_SLOTS, programLabel } from '../../data';
 
 type TimeRangeFilter = 'dia' | 'semana' | 'mes' | 'trimestre' | 'semestre' | 'anio' | 'todo';
 
@@ -310,7 +310,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
         tutArr[m].inscritos += stIds.length;
         tutArr[m].presentes += pres;
         if (sess.isCompleted) tutArr[m].completadas++;
-      } else {
+      } else if (sess.program === 'psicoeducativo') {
         talArr[m].agendadas++;
         talArr[m].inscritos += stIds.length;
         talArr[m].presentes += pres;
@@ -575,7 +575,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
           return [
             s.id,
             s.title,
-            s.program === 'tutorias' ? 'Tutorías Académicas' : 'Acompañamiento Psicoeducativo',
+            s.program === 'tutorias' ? 'Tutorías Académicas' : s.program === 'psicoeducativo' ? 'Acompañamiento Psicoeducativo' : programLabel(s.program),
             s.subject || 'General',
             s.date,
             s.timeSlot,
@@ -794,7 +794,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
             tableRows.push([
               s.date,
               s.title,
-              s.program === 'tutorias' ? 'Tutorías Académicas' : 'Acompañamiento Psicoeducativo',
+              s.program === 'tutorias' ? 'Tutorías Académicas' : s.program === 'psicoeducativo' ? 'Acompañamiento Psicoeducativo' : programLabel(s.program),
               s.subject || 'General',
               tutor ? tutor.name : 'Coordinación',
               student ? student.name : 'Alumno UFT',
@@ -888,7 +888,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
           'Tope Horario Alumno',
           req.studentName,
           req.studentCareer || 'Pregrado UFT',
-          req.program === 'tutorias' ? 'Tutorías' : 'Psicoeducativo',
+          programLabel(req.program, 'short'),
           req.preferredTime || 'Flexible',
           req.message,
           (req.status || 'pendiente').toUpperCase()
@@ -1850,7 +1850,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
                         {idx + 1}. {item.subject}
                       </p>
                       <span className="text-[10px] font-semibold text-[#3a9ad9]">
-                        {item.program === 'tutorias' ? 'Tutoría Académica' : 'Taller Psicoeducativo'}
+                        {item.program === 'tutorias' ? 'Tutoría Académica' : item.program === 'psicoeducativo' ? 'Taller Psicoeducativo' : programLabel(item.program)}
                       </span>
                     </div>
                     <div className="text-right shrink-0">

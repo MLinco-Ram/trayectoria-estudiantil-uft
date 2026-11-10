@@ -16,9 +16,11 @@ import {
   X, 
   Plus, 
   Check, 
-  GraduationCap 
+  GraduationCap,
+  RotateCcw,
 } from 'lucide-react';
-import { getTodayDateStr, getRelativeDateStr, triggerNotification } from '../../data';
+import { StudentPicker } from '../common/StudentPicker';
+import { getTodayDateStr, getRelativeDateStr, triggerNotification, canTakeAttendance } from '../../data';
 import { sessionsApi } from '../../services/api';
 import { getSocket } from '../../services/socket';
 import { SessionQRModal } from '../common/SessionQRModal';
@@ -113,6 +115,11 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
   const handleMarkAttendance = async (sessionId: string, studentId: string, status: 'presente' | 'ausente') => {
     const session = sessions.find(s => s.id === sessionId);
     if (!session) return;
+    if (!canTakeAttendance(session)) {
+      setAttendanceFeedback('La asistencia solo se puede pasar el día de la clase.');
+      setTimeout(() => setAttendanceFeedback(null), 4000);
+      return;
+    }
 
     const newAttendance = { ...(session.attendance || {}), [studentId]: status };
     const updatedSessions = sessions.map(s => s.id === sessionId ? { ...s, attendance: newAttendance, isCompleted: true } : s);
@@ -154,6 +161,26 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
     }
   };
 
+  // Reinicia la asistencia de la sesión: todos en "pendiente" y la sesión deja de estar finalizada
+  const handleResetAttendance = async (sessionId: string) => {
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+    if (!confirm(`¿Reiniciar la asistencia de "${session.title}"? Todos los estudiantes quedarán en "pendiente".`)) return;
+    const newAttendance: Record<string, 'presente' | 'ausente' | 'pendiente'> = {};
+    (session.studentIds || []).forEach(id => { newAttendance[id] = 'pendiente'; });
+    const previous = sessions;
+    setSessions(sessions.map(s => s.id === sessionId ? { ...s, attendance: newAttendance, isCompleted: false } : s));
+    try {
+      await sessionsApi.updateSession(sessionId, { attendance: newAttendance, isCompleted: false });
+      setAttendanceFeedback('Asistencia reiniciada: todos los estudiantes quedaron en pendiente.');
+    } catch (err) {
+      console.warn('Error al reiniciar asistencia:', err);
+      setSessions(previous);
+      setAttendanceFeedback('Error al reiniciar la asistencia en el servidor.');
+    }
+    setTimeout(() => setAttendanceFeedback(null), 4000);
+  };
+
   // Función para agregar un estudiante manualmente a la sesión
   const handleAddStudentToSession = async (sessionId: string) => {
     const studentId = selectedStudentToAdd;
@@ -168,9 +195,11 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
     }
 
     const newStudentIds = [...(session.studentIds || []), studentId];
+    // Fuera del día de la clase solo se inscribe; la asistencia queda pendiente
+    const sessionStarted = canTakeAttendance(session);
     const newAttendance: Record<string, 'presente' | 'ausente' | 'pendiente'> = { 
       ...(session.attendance || {}), 
-      [studentId]: initialStatus 
+      [studentId]: sessionStarted ? initialStatus : 'pendiente'
     };
 
     const updatedSessions = sessions.map(s => s.id === sessionId ? { ...s, studentIds: newStudentIds, attendance: newAttendance } : s);
@@ -361,6 +390,17 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
+                      {/* Reiniciar asistencia: todos vuelven a "pendiente" y la sesión se reabre */}
+                      <button
+                        type="button"
+                        onClick={() => handleResetAttendance(sess.id)}
+                        disabled={!Object.values(sess.attendance || {}).some(v => v !== 'pendiente') && !sess.isCompleted}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer bg-white text-amber-700 border border-amber-300 hover:bg-amber-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        title="Dejar a todos los estudiantes en pendiente y reabrir la sesión"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Reiniciar asistencia</span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
@@ -430,53 +470,14 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
                       <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                         {/* Buscador y selector */}
                         <div className="sm:col-span-6 space-y-1.5">
-                          <div className="relative">
-                            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input
-                              type="text"
-                              placeholder="Buscar por nombre, RUT o carrera..."
-                              value={studentSearchQuery}
-                              onChange={(e) => setStudentSearchQuery(e.target.value)}
-                              className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500"
-                            />
-                          </div>
-                          <select
-                            value={selectedStudentToAdd}
-                            onChange={(e) => setSelectedStudentToAdd(e.target.value)}
-                            className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-medium text-slate-800 focus:outline-none focus:border-emerald-500"
-                          >
-                            <option value="">-- Seleccionar Estudiante ({
-                              allStudents
-                                .filter(st => !(sess.studentIds || []).includes(st.id))
-                                .filter(st => {
-                                  if (!studentSearchQuery) return true;
-                                  const q = studentSearchQuery.toLowerCase();
-                                  return (
-                                    st.name?.toLowerCase().includes(q) ||
-                                    st.rut?.toLowerCase().includes(q) ||
-                                    st.career?.toLowerCase().includes(q) ||
-                                    st.email?.toLowerCase().includes(q)
-                                  );
-                                }).length
-                            } disponibles) --</option>
-                            {allStudents
-                              .filter(st => !(sess.studentIds || []).includes(st.id))
-                              .filter(st => {
-                                if (!studentSearchQuery) return true;
-                                const q = studentSearchQuery.toLowerCase();
-                                return (
-                                  st.name?.toLowerCase().includes(q) ||
-                                  st.rut?.toLowerCase().includes(q) ||
-                                  st.career?.toLowerCase().includes(q) ||
-                                  st.email?.toLowerCase().includes(q)
-                                );
-                              })
-                              .map(st => (
-                                <option key={st.id} value={st.id}>
-                                  {st.name} {st.rut ? `(${st.rut})` : ''} - {st.career || 'Estudiante'}
-                                </option>
-                              ))}
-                          </select>
+                          <StudentPicker
+                            students={allStudents}
+                            excludeIds={sess.studentIds || []}
+                            query={studentSearchQuery}
+                            onQueryChange={setStudentSearchQuery}
+                            selectedId={selectedStudentToAdd}
+                            onSelect={setSelectedStudentToAdd}
+                          />
                         </div>
 
                         {/* Estado inicial */}

@@ -16,7 +16,7 @@ import {
   Check,
   CalendarCheck
 } from 'lucide-react';
-import { triggerNotification, getTodayDateStr, TIME_SLOTS, SUBJECTS, findRoomConflict } from '../../data';
+import { triggerNotification, getTodayDateStr, TIME_SLOTS, getSubjects, findRoomConflict } from '../../data';
 import { sessionsApi, studentRequestsApi } from '../../services/api';
 
 interface DocenteFlexScheduleTabProps {
@@ -148,7 +148,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
     }
 
     if (!flexLocation) {
-      setFeedback({ status: 'error', message: 'Selecciona una sala. Si no aparece, regístrala en "Salas".' });
+      setFeedback({ status: 'error', message: 'Selecciona una sala. Si no aparece, regístrala en "Diccionario › Salas".' });
       return;
     }
 
@@ -504,7 +504,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
                     onChange={(e) => setFlexSubject(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white font-medium"
                   >
-                    {SUBJECTS.filter(s => s.program === resolvingReq.program).map(s => (
+                    {getSubjects(resolvingReq.program).map(s => (
                       <option key={s.code} value={s.name}>{s.name}</option>
                     ))}
                   </select>
@@ -689,7 +689,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white"
                   required
                 >
-                  <option value="">{rooms.length === 0 ? 'No hay salas registradas (ver "Salas")' : 'Selecciona una sala'}</option>
+                  <option value="">{rooms.length === 0 ? 'No hay salas registradas (ver "Diccionario › Salas")' : 'Selecciona una sala'}</option>
                   {rooms.map(r => {
                     const busy = !!findRoomConflict(sessions, r.code, flexDate, flexTimeSlot);
                     return (

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Session, User, SessionFeedback } from '../../types';
-import { SATISFACTION_SURVEY_QUESTIONS, SURVEY_SCALE_OPTIONS } from '../../data';
+import { getSurveyConfigByKind, getCustomPrograms } from '../../data';
 import { Star, MessageSquare, Search, Filter, BookOpen, ClipboardList, X, CheckCircle2 } from 'lucide-react';
 
 interface FeedbackEntry {
@@ -13,13 +13,16 @@ interface FeedbackEntry {
   comment: string;
   createdAt: string;
   answers?: Record<number, number>;
+  feedback: SessionFeedback;
 }
+
+const surveyDefs = (fb: SessionFeedback, program?: string) => getSurveyConfigByKind(fb.surveyKind, program);
 
 interface DocenteCommentsTabProps {
   sessions: Session[];
   allUsers: User[];
-  commentFilterProgram: 'all' | 'tutorias' | 'psicoeducativo';
-  setCommentFilterProgram: (v: 'all' | 'tutorias' | 'psicoeducativo') => void;
+  commentFilterProgram: 'all' | 'tutorias' | 'psicoeducativo' | 'comunidad' | (string & {});
+  setCommentFilterProgram: (v: 'all' | 'tutorias' | 'psicoeducativo' | 'comunidad' | (string & {})) => void;
   commentFilterRating: 'all' | '5' | '4' | '3' | '2' | '1';
   setCommentFilterRating: (v: 'all' | '5' | '4' | '3' | '2' | '1') => void;
   commentSearch: string;
@@ -56,7 +59,8 @@ export const DocenteCommentsTab: React.FC<DocenteCommentsTabProps> = ({
           rating: fb.rating,
           comment: fb.comment,
           createdAt: fb.createdAt,
-          answers: fb.answers
+          answers: fb.answers,
+          feedback: fb
         });
       });
 
@@ -97,6 +101,8 @@ export const DocenteCommentsTab: React.FC<DocenteCommentsTabProps> = ({
               <option value="all">Todos los Programas</option>
               <option value="tutorias">Tutorías Académicas</option>
               <option value="psicoeducativo">Apoyo Psicoeducativo</option>
+              <option value="comunidad">Actividades para la Comunidad</option>
+              {getCustomPrograms().map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
             </select>
 
             <select
@@ -161,7 +167,7 @@ export const DocenteCommentsTab: React.FC<DocenteCommentsTabProps> = ({
                           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-[#092c4c] hover:bg-slate-100 transition-colors cursor-pointer"
                         >
                           <ClipboardList className="w-3.5 h-3.5 text-[#3a9ad9]" />
-                          Ver encuesta de satisfacción ({answerEntries.length}/12)
+                          Ver {surveyDefs(fb.feedback, fb.program).title.toLowerCase()} ({answerEntries.length}/{surveyDefs(fb.feedback).questions.length})
                         </button>
                       </div>
                     )}
@@ -195,7 +201,7 @@ export const DocenteCommentsTab: React.FC<DocenteCommentsTabProps> = ({
                   <ClipboardList className="w-5 h-5 text-[#7bd6e0]" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold leading-tight">Encuesta de Satisfacción</h2>
+                  <h2 className="text-sm font-bold leading-tight">{surveyDefs(selectedSurvey.feedback, selectedSurvey.program).title}</h2>
                   <p className="text-[11px] text-[#7bd6e0]">{selectedSurvey.studentName} • {selectedSurvey.sessionTitle}</p>
                 </div>
               </div>
@@ -209,10 +215,10 @@ export const DocenteCommentsTab: React.FC<DocenteCommentsTabProps> = ({
 
             {/* Body */}
             <div className="p-6 overflow-y-auto space-y-3">
-              {SATISFACTION_SURVEY_QUESTIONS.map(q => {
+              {surveyDefs(selectedSurvey.feedback).questions.map(q => {
                 const score = selectedSurvey.answers?.[q.id];
                 if (score === undefined) return null;
-                const opt = SURVEY_SCALE_OPTIONS.find(o => o.score === score);
+                const opt = surveyDefs(selectedSurvey.feedback).scale.find(o => o.score === score);
                 return (
                   <div key={q.id} className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 text-xs pb-3 border-b border-slate-100 last:border-b-0 last:pb-0">
                     <div className="flex-1">
@@ -230,6 +236,23 @@ export const DocenteCommentsTab: React.FC<DocenteCommentsTabProps> = ({
                   </div>
                 );
               })}
+
+              {(selectedSurvey.feedback.surveyKind === 'taller' || selectedSurvey.feedback.surveyKind === 'tutoria') && (
+                <div className="pt-3 border-t border-slate-100 space-y-2.5 text-xs">
+                  {selectedSurvey.feedback.additionalSupport && (
+                    <div>
+                      <p className="text-[11px] font-bold text-slate-500 mb-0.5">¿Necesita apoyo adicional?</p>
+                      <p className="text-slate-700 font-semibold">{selectedSurvey.feedback.additionalSupport}</p>
+                    </div>
+                  )}
+                  {surveyDefs(selectedSurvey.feedback).openQuestions.map(q => selectedSurvey.feedback[q.key] ? (
+                    <div key={q.key}>
+                      <p className="text-[11px] font-bold text-slate-500 mb-0.5">{q.label}</p>
+                      <p className="text-slate-600 italic">"{selectedSurvey.feedback[q.key]}"</p>
+                    </div>
+                  ) : null)}
+                </div>
+              )}
 
               {selectedSurvey.comment && (
                 <div className="pt-3 border-t border-slate-100">
