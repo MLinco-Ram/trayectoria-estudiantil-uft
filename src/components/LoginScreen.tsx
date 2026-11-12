@@ -400,7 +400,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     </div>
                     <input
                       type="text"
-                      className="flex-1 bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75"
+                      className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75"
                       placeholder="Ej. Camila Linco"
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
@@ -416,7 +416,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     </div>
                     <input
                       type="text"
-                      className="flex-1 bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75 font-mono"
+                      className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75 font-mono"
                       placeholder="12.345.678-9"
                       value={regRut}
                       onChange={(e) => setRegRut(formatRut(e.target.value))}
@@ -434,7 +434,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     </div>
                     <input
                       type="email"
-                      className="flex-1 bg-transparent border-0 outline-none px-3 text-xs font-bold text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"
+                      className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-xs font-bold text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"
                       placeholder="ejemplo@uft.cl"
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
@@ -467,7 +467,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     <div className="flex items-center bg-[#007ba7] dark:bg-[#083556] rounded-full p-1.5 border-2 border-slate-900 dark:border-slate-700 shadow-md overflow-hidden">
                       <input
                         type={showRegPassword ? 'text' : 'password'}
-                        className="flex-1 bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75"
+                        className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75"
                         placeholder="Mínimo 4"
                         value={regPassword}
                         onChange={(e) => setRegPassword(e.target.value)}
@@ -475,7 +475,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                       <button
                         type="button"
                         onClick={() => setShowRegPassword((v) => !v)}
-                        className="pr-2 text-white/80 hover:text-white cursor-pointer"
+                        className="shrink-0 pr-2 text-white/80 hover:text-white cursor-pointer"
                       >
                         {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
@@ -486,7 +486,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     <div className="flex items-center bg-[#007ba7] dark:bg-[#083556] rounded-full p-1.5 border-2 border-slate-900 dark:border-slate-700 shadow-md overflow-hidden">
                       <input
                         type={showRegConfirm ? 'text' : 'password'}
-                        className="flex-1 bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75"
+                        className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75"
                         placeholder="Repite"
                         value={regConfirmPassword}
                         onChange={(e) => setRegConfirmPassword(e.target.value)}
@@ -494,7 +494,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                       <button
                         type="button"
                         onClick={() => setShowRegConfirm((v) => !v)}
-                        className="pr-2 text-white/80 hover:text-white cursor-pointer"
+                        className="shrink-0 pr-2 text-white/80 hover:text-white cursor-pointer"
                       >
                         {showRegConfirm ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
