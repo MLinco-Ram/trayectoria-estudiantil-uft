@@ -554,10 +554,14 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bookedFields)
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    } catch (err) {
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `HTTP ${res.status}`);
+      }
+    } catch (err: any) {
       console.error('Error guardando reserva:', err);
-      setBookingFeedback('⚠️ No se pudo guardar tu reserva en el servidor. Intenta nuevamente.');
+      const serverMsg = err?.message && !String(err.message).startsWith('HTTP') ? err.message : '';
+      setBookingFeedback(`⚠️ ${serverMsg || 'No se pudo guardar tu reserva en el servidor. Intenta nuevamente.'}`);
       return;
     }
 

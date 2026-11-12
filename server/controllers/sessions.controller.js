@@ -19,6 +19,33 @@ const parseSlotRange = (timeSlot = '') => {
   return m ? [Number(m[1]) * 60 + Number(m[2]), Number(m[3]) * 60 + Number(m[4])] : null;
 };
 
+// Horas de anticipación con que cierra la autoinscripción (0 = hasta el inicio). Debe coincidir con
+// REGISTRATION_CLOSE_HOURS_BEFORE de src/data.ts.
+const REGISTRATION_CLOSE_HOURS_BEFORE = 0;
+
+// Fecha (YYYY-MM-DD) y minutos del día actuales en hora de Chile (el servidor puede correr en UTC)
+const nowInSantiago = () => {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Santiago', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+    }).formatToParts(new Date()).map(p => [p.type, p.value])
+  );
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
+};
+
+// true si la sesión ya comenzó (o falta menos del margen configurado) o su fecha ya pasó
+const isRegistrationClosed = (session) => {
+  if (!session?.date) return true;
+  const now = nowInSantiago();
+  if (session.date < now.date) return true;
+  if (session.date > now.date) return false;
+  const start = String(session.timeSlot || '').match(/^(\d{1,2}):(\d{2})/);
+  if (!start) return false;
+  const startMinutes = Number(start[1]) * 60 + Number(start[2]);
+  return now.minutes >= startMinutes - REGISTRATION_CLOSE_HOURS_BEFORE * 60;
+};
+
 // Una sala no puede tener dos sesiones activas que se crucen en la misma fecha
 const findRoomConflict = async (db, session) => {
   const room = String(session.location || '').trim();
@@ -72,6 +99,17 @@ export const updateSession = async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
     delete updateData._id; // Evitar modificar _id immutable de Mongo
+
+    // Autoinscripción: si quien llama se agrega a sí mismo, la sesión no debe haber comenzado
+    if (Array.isArray(updateData.studentIds) && updateData.studentIds.includes(req.user?.id)) {
+      const current = await db.collection('sessions').findOne({ id });
+      if (!current) return res.status(404).json({ error: 'La sesión no existe.' });
+      const alreadyEnrolled = (current.studentIds || []).includes(req.user.id);
+      if (!alreadyEnrolled && isRegistrationClosed(current)) {
+        return res.status(400).json({ error: 'Plazo de inscripción cerrado: esta sesión ya comenzó.' });
+      }
+    }
+
     await db.collection('sessions').updateOne({ id }, { $set: updateData });
     
     const updatedFullSession = await db.collection('sessions').findOne({ id });
