@@ -23,6 +23,9 @@ export interface User {
   email: string;
   career?: string; // Optional career for student/tutor
   password?: string; // Optional password for registered users
+  createdAt?: string; // Fecha y hora de registro (ISO)
+  tutorialsSeen?: string[]; // Tutoriales ya vistos (ej. 'alumno', 'tutor:par', 'docente:calendar')
+  mustChangePassword?: boolean; // Cuenta creada por staff: debe cambiar la contraseña inicial en el primer ingreso
 }
 
 // Programas base + los creados en el Diccionario (clave en minúsculas, ej: 'talleres_de_verano')
@@ -154,4 +157,16 @@ export interface Room {
   code: string; // Código corto de la sala, ej: "B405", "Trayectorias", "B-101"
   description?: string; // Qué es o dónde está, ej: "Amberes Sur B - 1"
   createdAt?: string;
+}
+
+// Usuario importado (p. ej. desde Excel) que todavía no tiene cuenta ni ha recibido correo
+export interface PendingUser {
+  id: string;
+  name: string;
+  rut: string;
+  email: string;
+  career: string;
+  role: 'alumno' | 'tutor' | 'docente' | null;
+  tutorTypes: TutorType[];
+  createdAt: string;
 }

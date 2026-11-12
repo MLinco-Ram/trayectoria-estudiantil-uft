@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { RegisteredAt } from '../common/RegisteredAt';
 import { User, TutorType, Role, UserAvailability } from '../../types';
 import { BookOpen, UserPlus, Search, Edit3, Trash2, GraduationCap, CheckCircle2, AlertTriangle, Lock, Mail, ShieldCheck, Users, UserCheck, ArrowRight, Sparkles, Layers, X, UserCheck2 } from 'lucide-react';
 import { CareerSelect } from '../common/CareerSelect';
 import { formatRut } from '../../data';
 import { usersApi } from '../../services/api';
+import { SendInitialPasswordButton } from '../common/SendInitialPasswordButton';
 import { TutorSchedulesCard } from './tutorAvailability';
 
 interface DocenteTutorsTabProps {
@@ -24,7 +26,6 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
   const [newTutorRut, setNewTutorRut] = useState('');
   const [newTutorEmail, setNewTutorEmail] = useState('');
   const [newTutorCareer, setNewTutorCareer] = useState('Ingeniería Civil Informática y Telecomunicaciones');
-  const [newTutorPassword, setNewTutorPassword] = useState('123');
   const [newTutorType, setNewTutorType] = useState<TutorType>('tutor_par');
   const [tutorFeedback, setTutorFeedback] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
   const [isSubmittingTutor, setIsSubmittingTutor] = useState(false);
@@ -36,7 +37,6 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
   const [editRut, setEditRut] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editCareer, setEditCareer] = useState('');
-  const [editPassword, setEditPassword] = useState('');
   const [editTutorTypes, setEditTutorTypes] = useState<TutorType[]>(['tutor_par']);
   const [editRoles, setEditRoles] = useState<Role[]>(['tutor']);
 
@@ -97,7 +97,6 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       setNewTutorName('');
       setNewTutorRut('');
       setNewTutorEmail('');
-      setNewTutorPassword('123');
       setNewTutorType('tutor_par');
       setDismissedRut('');
     } catch (err: any) {
@@ -142,8 +141,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       tutorType: newTutorType,
       assignedTutorIds: newTutorType === 'tutor_de_tutores' ? [] : undefined,
       email: newTutorEmail.trim().toLowerCase(),
-      career: newTutorCareer.trim() || 'Ing. Civil en Informática',
-      password: newTutorPassword.trim() || '123'
+      career: newTutorCareer.trim() || 'Ing. Civil en Informática'
     };
 
     try {
@@ -153,13 +151,12 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
 
       setTutorFeedback({
         status: 'success',
-        message: `¡${newTutorType === 'tutor_de_tutores' ? 'Tutor de Tutores' : 'Tutor Par'} "${newTutorName}" registrado exitosamente!`
+        message: `¡${newTutorType === 'tutor_de_tutores' ? 'Tutor de Tutores' : 'Tutor Par'} "${newTutorName}" registrado exitosamente! Se envió la contraseña inicial a su correo.`
       });
 
       setNewTutorName('');
       setNewTutorRut('');
       setNewTutorEmail('');
-      setNewTutorPassword('123');
       setNewTutorType('tutor_par');
     } catch (err: any) {
       setTutorFeedback({
@@ -192,9 +189,6 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       tutorTypes: editRoles.includes('tutor') ? editTutorTypes : undefined,
       tutorType: editRoles.includes('tutor') ? (editTutorTypes[0] || 'tutor_par') : undefined,
     };
-    if (editPassword.trim()) {
-      payload.password = editPassword.trim();
-    }
 
     try {
       await usersApi.updateUser(editingTutor.id, payload);
@@ -393,16 +387,6 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                 required
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Contraseña</label>
-              <input
-                type="text"
-                value={newTutorPassword}
-                onChange={(e) => setNewTutorPassword(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-[#3a9ad9] font-mono"
-                required
-              />
-            </div>
             <div className="flex items-end">
               <button
                 type="submit"
@@ -419,7 +403,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
 
       {/* APARTADO DOCENTE: ASIGNACIÓN DE TUTORES A UN TUTOR DE TUTORES */}
       <div id="docente-tutors-lead-assignment" className="bg-white rounded-2xl shadow-sm border border-indigo-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-[#092c4c] to-indigo-900 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-white">
+        <div className="bg-[#092c4c] px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-white">
           <div className="flex items-center gap-2.5">
             <div className="p-1.5 bg-indigo-500/20 rounded-lg text-indigo-300">
               <ShieldCheck className="w-5 h-5" />
@@ -598,6 +582,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                 <th className="py-3 px-4">Tipo de Tutor</th>
                 <th className="py-3 px-4">Roles Habilitados</th>
                 <th className="py-3 px-4">RUT</th>
+                <th className="py-3 px-4">Registrado</th>
                 <th className="py-3 px-5 text-right">Acciones</th>
               </tr>
             </thead>
@@ -683,6 +668,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                       </div>
                     </td>
                     <td className="py-3 px-4 font-mono font-semibold">{tut.rut}</td>
+                    <td className="py-3 px-4"><RegisteredAt iso={tut.createdAt} /></td>
                     <td className="py-3 px-5 text-right">
                       <button
                         onClick={() => {
@@ -698,7 +684,6 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                               : ['tutor_par'];
                           setEditTutorTypes(userTutorTypes);
                           setEditRoles(tut.roles && tut.roles.length > 0 ? [...tut.roles] : [tut.role || 'tutor']);
-                          setEditPassword('');
                         }}
                         className="p-1 rounded text-slate-400 hover:text-slate-700 mr-1 cursor-pointer"
                         title="Editar Tutor y Roles"
@@ -881,7 +866,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                   <div className="flex items-center justify-between">
                     <label className="block text-[10px] sm:text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase">Modalidad de Tutor</label>
                     {editTutorTypes.includes('tutor_par') && editTutorTypes.includes('tutor_de_tutores') && (
-                      <span className="text-[9px] bg-gradient-to-r from-emerald-500 to-indigo-600 text-white font-extrabold px-1.5 py-0.2 rounded-full">
+                      <span className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 font-bold px-1.5 py-0.5 rounded-md">
                         Doble Perfil
                       </span>
                     )}
@@ -978,18 +963,9 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                   required
                 />
               </div>
-              <div>
-                <label className="block text-[10px] sm:text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase mb-1 flex items-center justify-between">
-                  <span>Nueva Clave</span>
-                  <span className="text-[9.5px] text-slate-400 font-normal lowercase">(opcional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={editPassword}
-                  onChange={(e) => setEditPassword(e.target.value)}
-                  placeholder="Dejar en blanco para conservar"
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-mono bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400"
-                />
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-3 space-y-2">
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug"><span className="font-bold uppercase text-slate-700 dark:text-slate-200">Acceso:</span> se envía la contraseña inicial (últimos 4 del RUT) al correo. Se recomienda cambiarla después de ingresar.</p>
+                <SendInitialPasswordButton user={editingTutor} />
               </div>
 
               {/* Botones pegados al pie */}

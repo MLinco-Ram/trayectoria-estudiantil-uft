@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Role } from '../../types';
 import { useAuth, getRoleHomePath } from '../../context/AuthContext';
+import ForceChangePasswordScreen from '../ForceChangePasswordScreen';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -43,6 +44,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowe
   if (allowedRoles && !allowedRoles.includes(currentUser.role)) {
     // Si no tiene el rol permitido, redirigir a su propio home de rol
     return <Navigate to={getRoleHomePath(currentUser.role)} replace />;
+  }
+
+  // Primer ingreso con contraseña inicial: no se muestra el panel hasta cambiarla
+  if (currentUser.mustChangePassword) {
+    return <ForceChangePasswordScreen />;
   }
 
   return <>{children}</>;

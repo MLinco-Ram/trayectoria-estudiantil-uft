@@ -69,7 +69,7 @@ export const DocenteAnnouncementsTab: React.FC<DocenteAnnouncementsTabProps> = (
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div id="docente-announcements-header" className="bg-gradient-to-r from-[#092c4c] to-[#153a5c] px-6 py-5 flex items-center justify-between text-white">
+        <div id="docente-announcements-header" className="bg-[#092c4c] px-6 py-5 flex items-center justify-between text-white">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-white/10 rounded-xl text-[#3a9ad9]">
               <Radio className="w-5 h-5" />

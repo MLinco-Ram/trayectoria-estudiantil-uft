@@ -226,7 +226,7 @@ export const resetPassword = async (req, res) => {
 
     await db.collection('users').updateOne(
       { $or: [{ id: resetRecord.userId }, { rut: resetRecord.userRut }] },
-      { $set: { password: hashedPassword } }
+      { $set: { password: hashedPassword }, $unset: { mustChangePassword: '' } }
     );
 
     await db.collection('password_resets').deleteMany({ userId: resetRecord.userId });
@@ -241,9 +241,61 @@ export const resetPassword = async (req, res) => {
   }
 };
 
+// Cambio de contraseña del propio usuario (obligatorio en el primer ingreso de cuentas creadas por staff)
+export const changePassword = async (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  try {
+    const user = req.user;
+    const isMatch = user?.password ? await bcrypt.compare(String(currentPassword || ''), user.password) : false;
+    if (!isMatch) {
+      return res.status(400).json({ error: 'La contraseña actual no es correcta.' });
+    }
+    const clean = typeof newPassword === 'string' ? newPassword.trim() : '';
+    if (clean.length < 6) {
+      return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres.' });
+    }
+    if (await bcrypt.compare(clean, user.password)) {
+      return res.status(400).json({ error: 'La nueva contraseña debe ser distinta de la actual.' });
+    }
+    const plainRut = (decryptField(user.rut) || '').replace(/[\.\-\s]/g, '').toUpperCase();
+    if (plainRut && plainRut.includes(clean.replace(/[\.\-\s]/g, '').toUpperCase())) {
+      return res.status(400).json({ error: 'La nueva contraseña no puede ser parte de tu RUT.' });
+    }
+
+    const hashed = await bcrypt.hash(clean, await bcrypt.genSalt(10));
+    await req.db.collection('users').updateOne(
+      { id: user.id },
+      { $set: { password: hashed }, $unset: { mustChangePassword: '' } }
+    );
+    const { mustChangePassword, ...rest } = user;
+    res.json(sanitizeUserOutput({ ...rest, password: hashed }));
+  } catch (err) {
+    sendServerError(res, err, 'Error al cambiar la contraseña.');
+  }
+};
+
 export const logout = (req, res) => {
   clearSessionCookie(res);
   res.json({ success: true });
+};
+
+// Marca un tutorial como visto por el usuario de la sesión (persistente entre navegadores y equipos)
+const TUTORIAL_KEY = /^[a-z_]{1,20}(:[a-z_]{1,30})?$/;
+export const markTutorialSeen = async (req, res) => {
+  try {
+    const key = String(req.body?.key || '');
+    if (!TUTORIAL_KEY.test(key)) {
+      return res.status(400).json({ error: 'Identificador de tutorial no válido.' });
+    }
+    const seen = Array.isArray(req.user.tutorialsSeen) ? req.user.tutorialsSeen : [];
+    if (!seen.includes(key)) {
+      if (seen.length >= 100) return res.status(400).json({ error: 'Demasiados tutoriales registrados.' });
+      await req.db.collection('users').updateOne({ id: req.user.id }, { $addToSet: { tutorialsSeen: key } });
+    }
+    res.json({ tutorialsSeen: seen.includes(key) ? seen : [...seen, key] });
+  } catch (err) {
+    sendServerError(res, err);
+  }
 };
 
 // Devuelve el usuario de la sesión actual (requiere requireAuth)

@@ -88,7 +88,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const role = roles.includes(prev.role) ? prev.role : roles[0];
           const tutorType = prev.tutorType && tutorTypes.includes(prev.tutorType) ? prev.tutorType : (tutorTypes[0] ?? fresh.tutorType);
           const { password: _password, ...prevWithoutPassword } = prev;
-          const next: User = { ...prevWithoutPassword, ...fresh, role, roles, tutorType };
+          const next: User = { ...prevWithoutPassword, ...fresh, role, roles, tutorType, mustChangePassword: Boolean(fresh.mustChangePassword) };
           if (JSON.stringify(next) === JSON.stringify(prev)) return prev;
           setSessionCookie(next);
           return next;

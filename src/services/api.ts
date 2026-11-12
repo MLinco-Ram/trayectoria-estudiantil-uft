@@ -1,4 +1,4 @@
-import { User, Session, IssueReport, WebNotification, UserAvailability, StudentRequest, SmtpSettings, BroadcastScope, Room, DictionaryEntry } from '../types';
+import { User, PendingUser, TutorType, Session, IssueReport, WebNotification, UserAvailability, StudentRequest, SmtpSettings, BroadcastScope, Room, DictionaryEntry } from '../types';
 
 async function handleResponse<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
@@ -34,6 +34,24 @@ export const authApi = {
     return handleResponse<{ valid: boolean; error?: string }>(res);
   },
 
+  markTutorialSeen: async (key: string) => {
+    const res = await fetch('/api/me/tutorials', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key }),
+    });
+    return handleResponse<{ tutorialsSeen: string[] }>(res);
+  },
+
+  changePassword: async (payload: { currentPassword: string; newPassword: string }) => {
+    const res = await fetch('/api/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return handleResponse<User>(res);
+  },
+
   resetPassword: async (payload: { token: string; newPassword: string }) => {
     const res = await fetch('/api/reset-password', {
       method: 'POST',
@@ -49,6 +67,11 @@ export const usersApi = {
   getUsers: async () => {
     const res = await fetch('/api/users');
     return handleResponse<User[]>(res);
+  },
+
+  sendInitialPassword: async (id: string) => {
+    const res = await fetch(`/api/users/${encodeURIComponent(id)}/send-initial-password`, { method: 'POST' });
+    return handleResponse<{ success: boolean; message: string }>(res);
   },
 
   createUser: async (user: Partial<User>) => {
@@ -354,3 +377,24 @@ export const systemApi = {
   },
 };
 
+
+// --- USUARIOS PENDIENTES DE REGISTRO (solo admin) ---
+const jsonPost = (url: string, method: string, body: unknown) =>
+  fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+export const pendingUsersApi = {
+  list: async () => handleResponse<PendingUser[]>(await fetch('/api/pending-users')),
+  import: async (rows: { name: string; rut: string; email: string; career?: string; role?: PendingUser['role']; tutorTypes?: TutorType[] }[]) =>
+    handleResponse<{ added: number; skipped: { label: string; reason: string }[] }>(
+      await jsonPost('/api/pending-users/import', 'POST', { rows })
+    ),
+  update: async (ids: string[], changes: Partial<Pick<PendingUser, 'role' | 'tutorTypes' | 'career' | 'name' | 'email'>>) =>
+    handleResponse<{ updated: number }>(await jsonPost('/api/pending-users', 'PATCH', { ids, ...changes })),
+  remove: async (ids: string[]) =>
+    handleResponse<{ deleted: number }>(await jsonPost('/api/pending-users/delete', 'POST', { ids })),
+  register: async (ids: string[]) =>
+    handleResponse<{
+      registered: { id: string; name: string; emailSent: boolean }[];
+      failed: { id: string; name: string; reason: string }[];
+    }>(await jsonPost('/api/pending-users/register', 'POST', { ids })),
+};

@@ -47,6 +47,7 @@ import { NotificationModal } from './common/NotificationModal';
 import { TutorAttendanceTab } from './tutor/TutorAttendanceTab';
 import { TutorTutorialModal } from './tutor/TutorTutorialModal';
 import { useNavigate } from 'react-router-dom';
+import { useTutorialSeen, legacyTutorialSeen } from '../hooks/useTutorialSeen';
 import { useAuth, getRoleHomePath } from '../context/AuthContext';
 
 interface TutorDashboardProps {
@@ -145,17 +146,18 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
 
   // Tutorial Interactivo Guiado con Foco (Spotlight)
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const { hasSeen: hasSeenTutorial, markSeen: markTutorialSeen } = useTutorialSeen();
 
+  // Mostrar el tutorial solo la primera vez por subrol (tutor par / tutor de tutores), registrado en la BD
   useEffect(() => {
-    if (user?.id) {
-      const storageKey = `uft_tutor_tutorial_shown_${user.id}_${isLeadTutor ? 'lead' : 'par'}`;
-      const hasShown = localStorage.getItem(storageKey);
-      if (!hasShown) {
-        setIsTutorialOpen(true);
-        localStorage.setItem(storageKey, 'true');
-      }
+    if (!user?.id) return;
+    const key = `tutor:${isLeadTutor ? 'lead' : 'par'}`;
+    if (hasSeenTutorial(key)) return;
+    if (!legacyTutorialSeen(`uft_tutor_tutorial_shown_${user.id}_${isLeadTutor ? 'lead' : 'par'}`)) {
+      setIsTutorialOpen(true);
     }
-  }, [user?.id, isLeadTutor]);
+    markTutorialSeen(key);
+  }, [user?.id, isLeadTutor, hasSeenTutorial, markTutorialSeen]);
 
   const handleOpenTutorial = () => {
     setIsTutorialOpen(true);
@@ -699,7 +701,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                   onClick={() => { setActiveTab('assigned_tutors'); reloadData(); }}
                   className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                     activeTab === 'assigned_tutors'
-                      ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-sm ring-1 ring-indigo-300 font-black'
+                      ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-300 font-black'
                       : 'text-indigo-200 hover:bg-indigo-500/20 hover:text-white'
                   }`}
                 >
@@ -721,7 +723,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                   onClick={() => { setActiveTab('compliance_review'); reloadData(); }}
                   className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                     activeTab === 'compliance_review'
-                      ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-sm ring-1 ring-indigo-300 font-black'
+                      ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-300 font-black'
                       : 'text-indigo-200 hover:bg-indigo-500/20 hover:text-white'
                   }`}
                 >
@@ -985,10 +987,10 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                         </div>
 
                         {/* Cronograma / Temario / Plan de Trabajo del Tutor */}
-                        <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100/80 space-y-2.5">
-                          <div className="flex items-center justify-between">
-                            <h5 className="text-[10px] font-bold text-indigo-900 uppercase tracking-wider flex items-center space-x-1.5">
-                              <BookOpen className="h-3.5 w-3.5 text-indigo-600" />
+                        <div className="bg-slate-50/60 rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-2.5">
+                          <div className="flex items-start justify-between gap-3">
+                            <h5 className="text-[10px] font-bold text-indigo-900 dark:!text-sky-300 uppercase tracking-wider flex items-center gap-1.5">
+                              <BookOpen className="h-3.5 w-3.5 text-indigo-600 dark:!text-sky-400 shrink-0" />
                               <span>Cronograma y Plan de la Tutoría</span>
                             </h5>
                             {editingSyllabusSessionId !== s.id && (
@@ -998,7 +1000,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                                   setEditingSyllabusSessionId(s.id);
                                   setSyllabusText(s.syllabus || '');
                                 }}
-                                className="text-[10px] text-indigo-600 hover:text-indigo-900 font-bold hover:underline cursor-pointer flex items-center gap-1"
+                                className="text-[10px] text-indigo-600 hover:text-indigo-900 dark:!text-sky-300 dark:hover:!text-white font-bold hover:underline cursor-pointer flex items-center gap-1 whitespace-nowrap shrink-0"
                               >
                                 ✏️ {s.syllabus ? 'Editar Cronograma' : '+ Asignar Cronograma'}
                               </button>
@@ -1036,9 +1038,9 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                               {s.syllabus}
                             </div>
                           ) : (
-                            <p className="text-[11px] text-slate-400 italic">
+                            <div className="text-[11px] text-slate-500 dark:!text-slate-400 leading-relaxed">
                               Aún no has asignado un cronograma temático para esta tutoría. Haz clic en <strong>+ Asignar Cronograma</strong> para informar a los alumnos y docentes qué se trabajará.
-                            </p>
+                            </div>
                           )}
                         </div>
 
@@ -1567,7 +1569,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
           {activeTab === 'assigned_tutors' && isLeadTutor && (
             <div id="tutor-assigned-tutors-view" className="space-y-6 animate-fade-in">
               {/* Header Card */}
-              <div className="bg-gradient-to-r from-[#092c4c] via-[#103a63] to-indigo-950 rounded-2xl shadow-sm p-6 text-white border border-indigo-300/30">
+              <div className="bg-[#092c4c] rounded-2xl shadow-sm p-6 text-white border border-indigo-300/30">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -1656,7 +1658,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                         <div className="p-5 sm:p-6 space-y-4">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="flex items-start gap-3.5">
-                              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#092c4c] to-[#103a63] text-white flex items-center justify-center font-extrabold text-sm shrink-0 shadow-xs">
+                              <div className="w-11 h-11 rounded-xl bg-[#092c4c] text-white flex items-center justify-center font-extrabold text-sm shrink-0 shadow-xs">
                                 {tutor.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
                               </div>
                               <div>
@@ -1832,7 +1834,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
           {activeTab === 'compliance_review' && isLeadTutor && (
             <div className="space-y-6 animate-fade-in" id="tutor-compliance-review-view">
               {/* Cabecera Principal */}
-              <div className="bg-gradient-to-r from-[#092c4c] via-[#103a63] to-indigo-950 rounded-2xl shadow-sm p-6 text-white border border-indigo-300/30">
+              <div className="bg-[#092c4c] rounded-2xl shadow-sm p-6 text-white border border-indigo-300/30">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">

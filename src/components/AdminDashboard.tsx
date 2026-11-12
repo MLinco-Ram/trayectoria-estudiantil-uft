@@ -14,13 +14,15 @@ import {
   ExternalLink,
   GraduationCap,
   ArrowLeftRight,
-  ChevronDown
+  ChevronDown,
+  ClipboardList,
 } from 'lucide-react';
 import { AdminDocentesTab } from './admin/AdminDocentesTab';
 import { AdminTutoresTab } from './admin/AdminTutoresTab';
 import { AdminAlumnosTab } from './admin/AdminAlumnosTab';
 import { AdminSmtpTab } from './admin/AdminSmtpTab';
 import { AdminMaintenanceTab } from './admin/AdminMaintenanceTab';
+import { AdminPendingTab } from './admin/AdminPendingTab';
 import { EditUserModal } from './admin/EditUserModal';
 import { ThemeToggle } from './common/ThemeToggle';
 
@@ -31,6 +33,9 @@ interface AdminDashboardProps {
   user?: User;
   onLogout?: () => void;
 }
+
+const ADMIN_TABS = ['docentes', 'tutores', 'alumnos', 'pendientes', 'smtp', 'maintenance'] as const;
+type AdminTab = typeof ADMIN_TABS[number];
 
 export default function AdminDashboard({ user: propUser, onLogout: propLogout }: AdminDashboardProps = {}) {
   const auth = useAuth();
@@ -51,9 +56,9 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
   }
 
   // Navigation Tab State with persistence across reloads
-  const [activeTab, setActiveTab] = useState<'docentes' | 'tutores' | 'alumnos' | 'smtp' | 'maintenance'>(() => {
-    const saved = localStorage.getItem('uft_admin_active_tab');
-    return (saved as 'docentes' | 'tutores' | 'alumnos' | 'smtp' | 'maintenance') || 'docentes';
+  const [activeTab, setActiveTab] = useState<AdminTab>(() => {
+    const saved = localStorage.getItem('uft_admin_active_tab') as AdminTab | null;
+    return saved && ADMIN_TABS.includes(saved) ? saved : 'docentes';
   });
 
   useEffect(() => {
@@ -75,7 +80,6 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
   const [newDocRut, setNewDocRut] = useState('');
   const [newDocEmail, setNewDocEmail] = useState('');
   const [newDocCareer, setNewDocCareer] = useState('Jefa de Trayectoria Estudiantil');
-  const [newDocPassword, setNewDocPassword] = useState('123');
   const [docFeedback, setDocFeedback] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
   const [isSubmittingDoc, setIsSubmittingDoc] = useState(false);
 
@@ -85,7 +89,6 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
   const [editRut, setEditRut] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editCareer, setEditCareer] = useState('');
-  const [editPassword, setEditPassword] = useState('');
   const [editRoles, setEditRoles] = useState<Role[]>(['alumno']);
   const [editTutorTypes, setEditTutorTypes] = useState<TutorType[]>(['tutor_par']);
   const [isUpdatingUser, setIsUpdatingUser] = useState(false);
@@ -207,8 +210,7 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       rut: newDocRut.trim(),
       role: 'docente',
       email: cleanEmail,
-      career: newDocCareer.trim() || 'Coordinación Docente',
-      password: newDocPassword.trim() || '123'
+      career: newDocCareer.trim() || 'Coordinación Docente'
     };
 
     try {
@@ -217,13 +219,12 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
 
       setDocFeedback({
         status: 'success',
-        message: `¡Docente "${newDocName}" creado exitosamente en MongoDB Atlas! Ya puede iniciar sesión con su RUT y contraseña.`
+        message: `¡Docente "${newDocName}" creado exitosamente en MongoDB Atlas! Se envió su contraseña inicial por correo.`
       });
 
       setNewDocName('');
       setNewDocRut('');
       setNewDocEmail('');
-      setNewDocPassword('123');
       setNewDocCareer('Jefa de Trayectoria Estudiantil');
     } catch (err: any) {
       console.error('Error creando docente:', err);
@@ -246,7 +247,6 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
     setEditRut(targetUser.rut || '');
     setEditEmail(targetUser.email || '');
     setEditCareer(targetUser.career || '');
-    setEditPassword('');
     const userRoles: Role[] = (targetUser.roles && targetUser.roles.length > 0)
       ? targetUser.roles
       : [targetUser.role || 'alumno'];
@@ -295,9 +295,6 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       tutorType: editRoles.includes('tutor') ? (editTutorTypes[0] || 'tutor_par') : undefined,
     };
 
-    if (editPassword.trim()) {
-      updatePayload.password = editPassword.trim();
-    }
 
     try {
       await usersApi.updateUser(editingUser.id, updatePayload);
@@ -500,30 +497,30 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
     <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans flex flex-col transition-colors duration-200" id="admin-dashboard-wrapper">
       {/* Header Institucional */}
       <header className="bg-[#092c4c] text-white sticky top-0 z-40 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 lg:gap-4 min-w-0">
             <img 
               src="/UFT_LogoHorizontal_Blanco.png" 
               alt="Universidad Finis Terrae" 
-              className="h-10 w-auto object-contain select-none pointer-events-none"
+              className="h-9 lg:h-10 w-auto object-contain select-none pointer-events-none shrink-0"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
               }}
             />
-            <div className="border-l border-slate-600 pl-4">
+            <div className="border-l border-slate-600 pl-3 lg:pl-4 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-xl tracking-tight">Trayectoria <span className="text-[#3a9ad9]">UFT.</span></span>
-                <span className="bg-[#3a9ad9]/20 text-[#3a9ad9] text-[10px] font-bold px-2 py-0.5 rounded border border-[#3a9ad9]/40 uppercase tracking-wider">
+                <span className="font-extrabold text-lg lg:text-xl tracking-tight whitespace-nowrap">Trayectoria <span className="text-[#3a9ad9]">UFT.</span></span>
+                <span className="hidden lg:inline-block whitespace-nowrap bg-[#3a9ad9]/20 text-[#3a9ad9] text-[10px] font-bold px-2 py-0.5 rounded border border-[#3a9ad9]/40 uppercase tracking-wider">
                   Admin Panel
                 </span>
               </div>
-              <p className="text-xs text-slate-300 font-light">Panel Central de Administración y Configuración TI</p>
+              <p className="hidden xl:block text-xs text-slate-300 font-light truncate">Panel Central de Administración y Configuración TI</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex flex-col text-right">
-              <span className="text-sm font-semibold">{user.name}</span>
+          <div className="flex items-center gap-2 lg:gap-3 shrink-0">
+            <div className="hidden xl:flex flex-col text-right">
+              <span className="text-sm font-semibold whitespace-nowrap">{user.name}</span>
               <span className="text-xs text-[#3a9ad9] font-mono">admin_root</span>
             </div>
             {portalOptions.length > 0 && (
@@ -532,10 +529,10 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
                   type="button"
                   onClick={() => setShowPortalSwitcher(!showPortalSwitcher)}
                   aria-expanded={showPortalSwitcher}
-                  className="flex items-center gap-2 bg-[#3a9ad9]/20 text-white hover:bg-[#3a9ad9] px-3.5 py-2 rounded-xl text-xs font-semibold transition border border-[#3a9ad9]/40"
+                  className="flex items-center gap-2 bg-[#3a9ad9]/20 text-white hover:bg-[#3a9ad9] px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition border border-[#3a9ad9]/40"
                 >
                   <ArrowLeftRight className="w-4 h-4" />
-                  <span className="hidden sm:inline">Cambiar de portal</span>
+                  <span className="hidden lg:inline">Cambiar de portal</span>
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showPortalSwitcher ? 'rotate-180' : ''}`} />
                 </button>
                 {showPortalSwitcher && (
@@ -565,11 +562,12 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
             <ThemeToggle className="bg-[#061e34] text-amber-300 border-slate-700 hover:bg-[#0c2a47]" />
             <button
               onClick={onLogout}
-              className="flex items-center gap-2 bg-rose-500/20 text-rose-200 hover:bg-rose-500 hover:text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition border border-rose-500/30"
+              className="flex items-center gap-2 bg-rose-500/20 text-rose-200 hover:bg-rose-500 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition border border-rose-500/30"
               title="Cerrar sesión"
+              aria-label="Cerrar sesión"
             >
               <LogOut className="w-4 h-4" />
-              <span>Cerrar Sesión</span>
+              <span className="hidden lg:inline">Cerrar Sesión</span>
             </button>
           </div>
         </div>
@@ -616,6 +614,18 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
           </button>
 
           <button
+            onClick={() => setActiveTab('pendientes')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition ${
+              activeTab === 'pendientes'
+                ? 'bg-[#092c4c] text-white shadow-md'
+                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <ClipboardList className="w-4 h-4" />
+            <span>Pendientes</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('smtp')}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition ${
               activeTab === 'smtp'
@@ -654,8 +664,6 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
             setNewDocEmail={setNewDocEmail}
             newDocCareer={newDocCareer}
             setNewDocCareer={setNewDocCareer}
-            newDocPassword={newDocPassword}
-            setNewDocPassword={setNewDocPassword}
             docFeedback={docFeedback}
             isSubmittingDoc={isSubmittingDoc}
             handleCreateDocente={handleCreateDocente}
@@ -683,6 +691,8 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
             handleDeleteUser={handleDeleteUser}
           />
         )}
+
+        {activeTab === 'pendientes' && <AdminPendingTab onRegistered={loadUsers} />}
 
         {activeTab === 'smtp' && (
           <AdminSmtpTab
@@ -741,8 +751,6 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
             setEditEmail={setEditEmail}
             editCareer={editCareer}
             setEditCareer={setEditCareer}
-            editPassword={editPassword}
-            setEditPassword={setEditPassword}
             editRoles={editRoles}
             setEditRoles={setEditRoles}
             editTutorTypes={editTutorTypes}

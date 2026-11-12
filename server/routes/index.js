@@ -13,7 +13,8 @@ import broadcastRoutes from './broadcast.routes.js';
 import cronRoutes from './cron.routes.js';
 import emailRoutes from './email.routes.js';
 import systemRoutes from './system.routes.js';
-import { requireAuth, requireRole } from '../middlewares/auth.js';
+import pendingUsersRoutes from './pendingUsers.routes.js';
+import { requireAuth, requireRole, requirePasswordChanged } from '../middlewares/auth.js';
 import { registerStudent } from '../controllers/users.controller.js';
 import { loginLimiter } from '../middlewares/rateLimiters.js';
 
@@ -25,6 +26,7 @@ apiRouter.post('/register', loginLimiter, registerStudent);
 
 // Todo lo que sigue exige una sesión válida
 apiRouter.use(requireAuth);
+apiRouter.use(requirePasswordChanged);
 const adminOnly = requireRole('admin');
 
 // Endpoint de verificación de salud y conexión a MongoDB
@@ -50,6 +52,7 @@ apiRouter.get('/check-db', (req, res) => res.redirect('/api/health'));
 
 // Montar submódulos de rutas
 apiRouter.use('/users', usersRoutes);
+apiRouter.use('/pending-users', adminOnly, pendingUsersRoutes);
 apiRouter.use('/sessions', sessionsRoutes);
 apiRouter.use('/rooms', roomsRoutes);
 apiRouter.use('/dictionary', dictionaryRoutes);

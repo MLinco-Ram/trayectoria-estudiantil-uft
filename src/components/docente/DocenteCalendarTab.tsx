@@ -189,7 +189,7 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
       {/* Barra Superior Principal con Métricas Rápidas y Controles */}
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
         {/* Banner Institucional Superior */}
-        <div id="docente-calendar-header" className="bg-gradient-to-r from-[#092c4c] via-[#0e375e] to-[#1a4a75] text-white p-6">
+        <div id="docente-calendar-header" className="bg-[#092c4c] text-white p-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2.5">

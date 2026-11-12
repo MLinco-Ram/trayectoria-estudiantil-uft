@@ -1,9 +1,11 @@
 import bcrypt from 'bcrypt';
-import { encryptField, hashRut, sanitizeUserOutput } from '../services/crypto.service.js';
+import { isPasswordChangeRequired } from '../config/features.js';
+import { encryptField, decryptField, hashRut, sanitizeUserOutput } from '../services/crypto.service.js';
 import { emitEvent } from '../services/socket.service.js';
 import { setSessionCookie } from '../services/session.service.js';
 import { getUserRoles } from '../middlewares/auth.js';
 import { sendServerError } from '../utils/errors.js';
+import { sendEmail } from '../services/email.service.js';
 
 const ALUMNO_EMAIL_DOMAINS = ['@uft.cl', '@mail.uft.cl', '@uft.edu'];
 
@@ -36,6 +38,20 @@ export const getUsers = async (req, res) => {
 };
 
 // Valida, hashea la contraseña, cifra el RUT e inserta. Devuelve { error } o { user } (sin datos sensibles)
+const initialPasswordFromRut = (rut) => (rut || '').replace(/[\.\-\s]/g, '').slice(-4).toUpperCase();
+
+// Envía la contraseña inicial por correo. Devuelve true solo si salió por SMTP real (no simulado).
+async function sendInitialPasswordEmail(user, initialPassword) {
+  const mail = await sendEmail({
+    to: user.email,
+    toName: user.name,
+    subject: 'Tu contraseña de acceso a Trayectoria Estudiantil UFT',
+    text: `Tu contraseña de acceso a Trayectoria Estudiantil UFT es: ${initialPassword} (los últimos 4 caracteres de tu RUT, sin puntos ni guión). Ingresa con tu RUT y esta contraseña. ${isPasswordChangeRequired() ? 'Se te pedirá cambiarla en tu primer ingreso.' : 'Te recomendamos cambiarla después de ingresar.'}`,
+    actionText: 'Ingresar a la Plataforma'
+  });
+  return !mail?.simulated;
+}
+
 async function insertUser(db, newUser) {
   // Validación de seguridad de RUT (exactamente 9 caracteres ignorando puntos y guión)
   const cleanRut = (newUser.rut || '').replace(/[\.\-]/g, '').trim();
@@ -56,6 +72,8 @@ async function insertUser(db, newUser) {
     newUser.password = await bcrypt.hash(newUser.password, salt);
   }
 
+  if (!newUser.createdAt) newUser.createdAt = new Date().toISOString();
+
   const plainRut = newUser.rut;
   // Cifrar el RUT en reposo antes de guardar en MongoDB Atlas
   newUser.rut = encryptField(plainRut);
@@ -68,16 +86,39 @@ async function insertUser(db, newUser) {
   return { user: safeResult };
 }
 
+// Crea una cuenta con la contraseña inicial (últimos 4 caracteres del RUT) y se la envía por correo.
+// La usan el alta manual (Docente/Admin) y el registro de pendientes importados desde Excel.
+export async function createAccountWithInitialPassword(db, data) {
+  const { _id, rutHash, password, mustChangePassword, ...newUser } = data || {};
+  if (!newUser.id) newUser.id = `${newUser.role || 'user'}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+  // Nunca se acepta ni se devuelve una contraseña desde el cliente; se comunica solo por correo.
+  const initialPassword = initialPasswordFromRut(newUser.rut);
+  newUser.password = initialPassword;
+  if (isPasswordChangeRequired()) newUser.mustChangePassword = true;
+
+  const result = await insertUser(db, newUser);
+  if (result.error) return { error: result.error };
+
+  let emailSent = false;
+  if (newUser.email) {
+    try {
+      emailSent = await sendInitialPasswordEmail(newUser, initialPassword);
+    } catch (mailErr) {
+      console.warn('[Mail] No se pudo enviar el correo de bienvenida:', mailErr.message);
+    }
+  }
+  return { user: result.user, emailSent };
+}
+
 // Alta de usuarios desde los paneles de Docente y Administrador
 export const createUser = async (req, res) => {
   try {
-    const { _id, rutHash, ...newUser } = req.body || {};
-    if (rejectAdminChangeByNonAdmin(req, res, { role: newUser.role, roles: newUser.roles })) return;
-    if (!newUser.id) newUser.id = `${newUser.role || 'user'}_${Date.now()}`;
-
-    const result = await insertUser(req.db, newUser);
+    const body = req.body || {};
+    if (rejectAdminChangeByNonAdmin(req, res, { role: body.role, roles: body.roles })) return;
+    const result = await createAccountWithInitialPassword(req.db, body);
     if (result.error) return res.status(400).json({ error: result.error });
-    res.status(201).json(result.user);
+    res.status(201).json({ ...result.user, emailSent: result.emailSent });
   } catch (err) {
     sendServerError(res, err);
   }
@@ -114,6 +155,37 @@ export const registerStudent = async (req, res) => {
     res.status(201).json(result.user);
   } catch (err) {
     sendServerError(res, err);
+  }
+};
+
+// Restablece la contraseña a la inicial (últimos 4 del RUT), la envía por correo y exige cambiarla al ingresar.
+// El correo se envía antes de guardar: si falla, la contraseña actual del usuario no cambia.
+export const sendInitialPassword = async (req, res) => {
+  try {
+    const targetUser = await findUserById(req.db, req.params.id);
+    if (!targetUser) return res.status(404).json({ error: 'Usuario no encontrado.' });
+    if (rejectAdminChangeByNonAdmin(req, res, { targetUser })) return;
+    if (!targetUser.email) return res.status(400).json({ error: 'El usuario no tiene un correo registrado.' });
+
+    const plainRut = decryptField(targetUser.rut) || targetUser.rut;
+    const initialPassword = initialPasswordFromRut(plainRut);
+    if (initialPassword.length !== 4) return res.status(400).json({ error: 'El usuario no tiene un RUT válido.' });
+
+    const sent = await sendInitialPasswordEmail(targetUser, initialPassword);
+    if (!sent) {
+      return res.status(503).json({ error: 'El servidor de correo (SMTP) no está configurado. No se cambió la contraseña.' });
+    }
+
+    const hashed = await bcrypt.hash(initialPassword, await bcrypt.genSalt(10));
+    await req.db.collection('users').updateOne(
+      { _id: targetUser._id },
+      isPasswordChangeRequired()
+        ? { $set: { password: hashed, mustChangePassword: true } }
+        : { $set: { password: hashed }, $unset: { mustChangePassword: '' } }
+    );
+    res.json({ success: true, message: `Contraseña enviada a ${targetUser.email}.` });
+  } catch (err) {
+    sendServerError(res, err, 'No se pudo enviar la contraseña por correo.');
   }
 };
 

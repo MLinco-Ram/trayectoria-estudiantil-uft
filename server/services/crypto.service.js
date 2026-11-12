@@ -1,3 +1,4 @@
+import { isPasswordChangeRequired } from '../config/features.js';
 import crypto from 'crypto';
 import { requireEnv } from '../config/env.js';
 
@@ -98,6 +99,11 @@ export function sanitizeUserOutput(user) {
   
   const decryptedRut = decryptField(user.rut);
   const { password, rutHash, ...cleanUser } = user;
+  if (!isPasswordChangeRequired()) delete cleanUser.mustChangePassword;
+  // Fecha de registro: la guardada al crear la cuenta o, en cuentas antiguas, la que trae el ObjectId
+  if (!cleanUser.createdAt && user._id && typeof user._id.getTimestamp === 'function') {
+    cleanUser.createdAt = user._id.getTimestamp().toISOString();
+  }
 
   return {
     ...cleanUser,

@@ -39,7 +39,6 @@ interface StepItem {
   title: string;
   badge: string;
   icon: React.ComponentType<{ className?: string }>;
-  accentGradient: string;
   description: string;
   tips: string[];
 }
@@ -63,7 +62,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Catálogo de Salas',
         badge: 'Paso 1 de 1 • Salas',
         icon: Sparkles,
-        accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
         description: 'Registra las salas disponibles con un código corto (ej: B405, B-101, Trayectorias) y una descripción opcional. Al crear una sesión se elige la sala de esta lista y el sistema impide asignar la misma sala a dos sesiones en el mismo horario.',
         tips: [
           'Usa la descripción para indicar qué es o dónde está la sala (ej: Amberes Sur B - 1).',
@@ -78,7 +76,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Agenda y Calendario General de Tutorías',
         badge: 'Paso 1 de 3 • Resumen y Métricas',
         icon: Calendar,
-        accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
         description: 'Visualiza en tiempo real el cronograma completo de tutorías académicas y talleres psicoeducativos programados en la universidad.',
         tips: [
           'Consulta los contadores rápidos de sesiones activas, tutorías pares y talleres.',
@@ -91,7 +88,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Filtros y Búsqueda Rápida',
         badge: 'Paso 2 de 3 • Filtrado Avanzado',
         icon: Sparkles,
-        accentGradient: 'from-sky-900 to-indigo-950',
         description: 'Encuentra al instante cualquier sesión buscando por asignatura, sala o nombre del tutor, o segmenta por programa académico.',
         tips: [
           'Usa el buscador para localizar tutorías específicas por palabra clave.',
@@ -104,7 +100,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Modalidades de Visualización',
         badge: 'Paso 3 de 3 • Navegación Temporal',
         icon: Layers,
-        accentGradient: 'from-[#092c4c] via-[#153a5c] to-cyan-900',
         description: 'Alterna con un clic entre la cuadrícula semanal por bloques, el calendario mensual interactivo o la vista de lista compacta.',
         tips: [
           'Haz clic en cualquier sesión para ver los alumnos inscritos y detalles del temario.',
@@ -119,7 +114,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Programa y Modalidad de la Sesión',
         badge: 'Paso 1 de 3 • Tipo de Actividad',
         icon: PlusCircle,
-        accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
         description: 'Selecciona si vas a programar una tutoría académica de carrera o un taller/asesoría del programa de apoyo psicoeducativo.',
         tips: [
           'Tutorías grupales tienen cupos automáticos de hasta 15 estudiantes.',
@@ -132,7 +126,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Detalles, Asignatura y Horario',
         badge: 'Paso 2 de 3 • Configuración',
         icon: Clock,
-        accentGradient: 'from-sky-900 to-indigo-950',
         description: 'Define el título descriptivo, ramo, fecha de realización, bloque horario institucional y la sala o cubículo asignado.',
         tips: [
           'Elige títulos claros para que los estudiantes los identifiquen fácilmente.',
@@ -145,7 +138,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Asignación de Tutor y Disponibilidad en Vivo',
         badge: 'Paso 3 de 3 • Confirmación',
         icon: CheckCircle2,
-        accentGradient: 'from-emerald-950 via-[#092c4c] to-sky-900',
         description: 'El sistema valida automáticamente qué tutores tienen disponibilidad declarada en el día y bloque elegido para asignarlos con total seguridad.',
         tips: [
           'La insignia verde indica que el tutor confirmó disponibilidad en ese horario.',
@@ -160,7 +152,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Selección de Fecha y Sesión',
         badge: 'Paso 1 de 3 • Búsqueda de Clase',
         icon: Calendar,
-        accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
         description: 'Elige la fecha y localiza rápidamente la sesión de tutoría sobre la cual deseas registrar o supervisar la asistencia.',
         tips: [
           'Puedes usar el selector de fecha o ver todas las sesiones activas.',
@@ -173,7 +164,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Proyección de QR y PIN en Vivo',
         badge: 'Paso 2 de 3 • Auto-Check-in Alumnos',
         icon: Sparkles,
-        accentGradient: 'from-sky-900 to-indigo-950',
         description: 'Abre el modal interactivo de Código QR para proyectarlo en pantalla completa en la sala. Los alumnos pueden escanearlo o ingresar el PIN de 4 dígitos.',
         tips: [
           'El registro de los estudiantes que escanean se refleja inmediatamente en tiempo real.',
@@ -186,7 +176,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Nómina y Registro Manual de Asistencia',
         badge: 'Paso 3 de 3 • Control de Alumnos',
         icon: CheckSquare,
-        accentGradient: 'from-emerald-950 via-[#092c4c] to-teal-900',
         description: 'Supervisa a los inscritos, marca presentes o ausentes de forma manual con un solo clic, y añade alumnos que asistan presencialmente.',
         tips: [
           'Marcar "Ausente" notifica al alumno por correo sobre su inasistencia.',
@@ -201,7 +190,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Gestión de Horarios Flexibles',
         badge: 'Paso 1 de 2 • Solicitudes Estudiantiles',
         icon: Inbox,
-        accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
         description: 'Revisa las peticiones de estudiantes que requieren tutoría pero cuyos horarios de clase no coincidían con la oferta semanal estándar.',
         tips: [
           'Los estudiantes indican sus materias críticas y bloques horarios libres.',
@@ -214,7 +202,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Emparejamiento y Creación en 1 Clic',
         badge: 'Paso 2 de 2 • Asignación a Tutores',
         icon: CheckCircle2,
-        accentGradient: 'from-sky-900 via-[#092c4c] to-indigo-950',
         description: 'Haz clic en "Resolver Solicitud" para asignar directamente un tutor con disponibilidad compatible y convertir la petición en una sesión oficial.',
         tips: [
           'El sistema prioriza automáticamente a los tutores con horarios libres coincidentes.',
@@ -229,7 +216,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Registrar o Promover Tutores',
         badge: 'Paso 1 de 3 • Registro y Roles',
         icon: PlusCircle,
-        accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
         description: 'Ingresa nuevos tutores o asigna el rol de tutor a estudiantes existentes mediante su RUT institucional, seleccionando si será Tutor Par o Tutor de Tutores.',
         tips: [
           'Tutor Par: Dicta sesiones directas y registra temarios.',
@@ -242,7 +228,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Asignar Tutores a Cargo',
         badge: 'Paso 2 de 3 • Coordinación de Liderazgo',
         icon: ShieldCheck,
-        accentGradient: 'from-indigo-950 via-[#092c4c] to-sky-900',
         description: 'Coordina y asocia qué tutores pares están bajo la supervisión y acompañamiento de cada Tutor de Tutores.',
         tips: [
           'Selecciona al Tutor de Tutores y marca las casillas de los tutores asignados.',
@@ -255,7 +240,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Directorio y Nómina General de Tutores',
         badge: 'Paso 3 de 3 • Nómina Completa',
         icon: Users,
-        accentGradient: 'from-[#092c4c] via-[#153a5c] to-slate-900',
         description: 'Consulta la lista completa de tutores habilitados, filtra por nombre o carrera, y edita sus credenciales o perfiles multi-rol.',
         tips: [
           'Usa el buscador para filtrar rápidamente tutores por nombre o carrera.',
@@ -270,7 +254,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Directorio y Registro de Alumnos UFT',
         badge: 'Paso 1 de 2 • Comunidad Estudiantil',
         icon: Users,
-        accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
         description: 'Monitorea y gestiona la base de estudiantes inscritos en los programas de acompañamiento y tutorías.',
         tips: [
           'Visualiza el total de estudiantes activos por carrera.',
@@ -283,7 +266,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Búsqueda, Edición y Registro Rápido',
         badge: 'Paso 2 de 2 • Administración',
         icon: Sparkles,
-        accentGradient: 'from-sky-900 via-[#092c4c] to-indigo-950',
         description: 'Busca alumnos por RUT o nombre, edita sus datos académicos o registra nuevos ingresos de forma sencilla.',
         tips: [
           'Los estudiantes pueden iniciar sesión con su RUT institucional.',
@@ -298,7 +280,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Avisos de Inconvenientes de Tutores',
         badge: 'Paso 1 de 2 • Alertas en Vivo',
         icon: AlertTriangle,
-        accentGradient: 'from-rose-950 via-[#092c4c] to-slate-900',
         description: 'Revisa de inmediato las alertas enviadas por tutores que no pueden asistir a su clase por razones de fuerza mayor o topes horarios.',
         tips: [
           'El contador superior te indica los casos críticos pendientes de resolución.',
@@ -311,7 +292,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Reasignación Inmediata de Sustitutos',
         badge: 'Paso 2 de 2 • Resolución en 1 Clic',
         icon: CheckCircle2,
-        accentGradient: 'from-[#092c4c] via-[#153a5c] to-emerald-950',
         description: 'Selecciona un tutor sustituto con disponibilidad libre y reasigna la sesión con un clic para que ningún alumno pierda su clase.',
         tips: [
           'Al resolver la reasignación, el nuevo tutor y los alumnos reciben un aviso automático.',
@@ -326,7 +306,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Emisión de Comunicados Oficiales UFT',
         badge: 'Paso 1 de 2 • Difusión Masiva',
         icon: Send,
-        accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
         description: 'Canal oficial de coordinación para despachar avisos institucionales directamente al correo y a la bandeja web de los usuarios.',
         tips: [
           'Los comunicados se entregan en tiempo real vía WebSockets y notificaciones por correo.',
@@ -339,7 +318,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Segmentación de Audiencia y Prioridad',
         badge: 'Paso 2 de 2 • Redacción y Envío',
         icon: Sparkles,
-        accentGradient: 'from-sky-900 via-[#092c4c] to-indigo-950',
         description: 'Elige si el mensaje es para toda la comunidad, todos los estudiantes, tutores pares o los inscritos en una tutoría específica.',
         tips: [
           'Define la prioridad del mensaje (Normal, Alta o Urgente).',
@@ -354,7 +332,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Filtro Temporal y Exportación a Excel',
         badge: 'Paso 1 de 2 • Período y Reportes',
         icon: FileSpreadsheet,
-        accentGradient: 'from-emerald-950 via-[#092c4c] to-teal-900',
         description: 'Segmenta las estadísticas por día, semana, mes, semestre o año, y descarga planillas Excel completas con formato institucional listo para auditorías.',
         tips: [
           'Selecciona el período de tiempo deseado con los botones de rango.',
@@ -367,7 +344,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Tarjetas KPI e Indicadores Clave',
         badge: 'Paso 2 de 2 • Rendimiento Institucional',
         icon: TrendingUp,
-        accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
         description: 'Monitorea en tiempo real los indicadores estratégicos de sesiones totales, asistencias efectivas, inasistencias, alumnos únicos y nivel de satisfacción.',
         tips: [
           'Supervisa la tasa de asistencia efectiva para medir la participación de los alumnos.',
@@ -382,7 +358,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Retroalimentación y Encuestas de Alumnos',
         badge: 'Paso 1 de 2 • Calidad Docente',
         icon: MessageSquare,
-        accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
         description: 'Revisa las evaluaciones, calificaciones en estrellas y opiniones dejadas por los alumnos tras asistir a cada tutoría o taller.',
         tips: [
           'Permite supervisar la percepción pedagógica y calidad del acompañamiento.',
@@ -395,7 +370,6 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Filtros por Calificación y Encuesta Detallada',
         badge: 'Paso 2 de 2 • Búsqueda y Detalle',
         icon: Sparkles,
-        accentGradient: 'from-amber-950 via-[#092c4c] to-sky-900',
         description: 'Filtra por calificación de 1 a 5 estrellas, busca comentarios específicos o abre la encuesta completa para ver las respuestas desglosadas.',
         tips: [
           'Haz clic en "Ver Encuesta Detallada" para ver la rúbrica completa de preguntas.',
@@ -545,7 +519,7 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden will-change-transform"
       >
         {/* Header con Gradiente UFT */}
-        <div className={`bg-gradient-to-r ${currentStepData.accentGradient} p-4 text-white relative`}>
+        <div className="bg-[#092c4c] p-4 text-white relative">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-white/15 text-sky-300 border border-white/20 shrink-0">
@@ -642,7 +616,7 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
               <button
                 type="button"
                 onClick={handleNext}
-                className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#092c4c] to-[#153a5c] hover:from-[#0d3b66] hover:to-[#1e4a73] text-white text-xs font-extrabold shadow-md shadow-slate-900/10 hover:shadow-lg transition flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-1.5 rounded-xl bg-[#092c4c] hover:bg-[#0d3b66] text-white text-xs font-extrabold shadow-md shadow-slate-900/10 hover:shadow-lg transition flex items-center gap-1.5 cursor-pointer"
               >
                 <span>{isLastStep ? '¡Entendido!' : 'Siguiente'}</span>
                 {!isLastStep && <ChevronRight className="w-3.5 h-3.5" />}

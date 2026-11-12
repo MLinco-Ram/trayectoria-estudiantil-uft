@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { RegisteredAt } from '../common/RegisteredAt';
 import { User } from '../../types';
 import { Users, UserPlus, Search, Edit3, Trash2, GraduationCap, Mail } from 'lucide-react';
 import { CareerSelect } from '../common/CareerSelect';
 import { formatRut } from '../../data';
 import { usersApi } from '../../services/api';
+import { SendInitialPasswordButton } from '../common/SendInitialPasswordButton';
 
 interface DocenteStudentsTabProps {
   allUsers: User[];
@@ -21,7 +23,6 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
   const [newStudentRut, setNewStudentRut] = useState('');
   const [newStudentEmail, setNewStudentEmail] = useState('');
   const [newStudentCareer, setNewStudentCareer] = useState('Ingeniería Civil Informática y Telecomunicaciones');
-  const [newStudentPassword, setNewStudentPassword] = useState('123');
   const [studentFeedback, setStudentFeedback] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
   const [isSubmittingStudent, setIsSubmittingStudent] = useState(false);
 
@@ -31,7 +32,6 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
   const [editRut, setEditRut] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editCareer, setEditCareer] = useState('');
-  const [editPassword, setEditPassword] = useState('');
 
   const alumnos = allUsers.filter(u => u && (u.role === 'alumno' || (Array.isArray(u.roles) && u.roles.includes('alumno'))));
 
@@ -58,8 +58,7 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
       rut: newStudentRut.trim(),
       role: 'alumno',
       email: newStudentEmail.trim().toLowerCase(),
-      career: newStudentCareer.trim() || 'Estudiante UFT',
-      password: newStudentPassword.trim() || '123'
+      career: newStudentCareer.trim() || 'Estudiante UFT'
     };
 
     try {
@@ -68,13 +67,12 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
 
       setStudentFeedback({
         status: 'success',
-        message: `¡Estudiante "${newStudentName}" registrado con éxito!`
+        message: `¡Estudiante "${newStudentName}" registrado con éxito! Se envió la contraseña inicial a su correo.`
       });
 
       setNewStudentName('');
       setNewStudentRut('');
       setNewStudentEmail('');
-      setNewStudentPassword('123');
     } catch (err: any) {
       setStudentFeedback({
         status: 'error',
@@ -96,9 +94,6 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
       email: editEmail.trim().toLowerCase(),
       career: editCareer.trim(),
     };
-    if (editPassword.trim()) {
-      payload.password = editPassword.trim();
-    }
 
     try {
       await usersApi.updateUser(editingStudent.id, payload);
@@ -194,16 +189,6 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
                 required
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Contraseña</label>
-              <input
-                type="text"
-                value={newStudentPassword}
-                onChange={(e) => setNewStudentPassword(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-[#3a9ad9] font-mono"
-                required
-              />
-            </div>
             <div className="flex items-end">
               <button
                 type="submit"
@@ -242,6 +227,7 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
               <tr>
                 <th className="py-3 px-5">Alumno / Carrera</th>
                 <th className="py-3 px-4">RUT</th>
+                <th className="py-3 px-4">Registrado</th>
                 <th className="py-3 px-4">Estado</th>
                 <th className="py-3 px-5 text-right">Acciones</th>
               </tr>
@@ -254,6 +240,7 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
                     <div className="text-[#3a9ad9]">{alum.career}</div>
                   </td>
                   <td className="py-3 px-4 font-mono font-semibold">{alum.rut}</td>
+                  <td className="py-3 px-4"><RegisteredAt iso={alum.createdAt} /></td>
                   <td className="py-3 px-4">
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                       Activo
@@ -267,7 +254,6 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
                         setEditRut(alum.rut);
                         setEditEmail(alum.email);
                         setEditCareer(alum.career || '');
-                        setEditPassword('');
                       }}
                       className="p-1 rounded text-slate-400 hover:text-slate-700 mr-1"
                     >
@@ -289,8 +275,8 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
 
       {/* Modal de edición */}
       {editingStudent && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-4 sm:p-6 space-y-4 my-auto max-h-[96vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain">
             <h3 className="font-bold text-slate-900 text-sm">Editar Datos de Estudiante</h3>
             <form onSubmit={handleSaveEditStudent} className="space-y-3">
               <div>
@@ -331,15 +317,9 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
                   className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs bg-white"
                 />
               </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Nueva Clave (opcional)</label>
-                <input
-                  type="text"
-                  value={editPassword}
-                  onChange={(e) => setEditPassword(e.target.value)}
-                  placeholder="Dejar en blanco para conservar"
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-mono"
-                />
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-3 space-y-2">
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug"><span className="font-bold uppercase text-slate-700 dark:text-slate-200">Acceso:</span> se envía la contraseña inicial (últimos 4 del RUT) al correo. Se recomienda cambiarla después de ingresar.</p>
+                <SendInitialPasswordButton user={editingStudent} />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button
