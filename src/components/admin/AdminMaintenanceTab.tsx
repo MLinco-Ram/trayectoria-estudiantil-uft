@@ -107,7 +107,7 @@ export const AdminMaintenanceTab: React.FC<AdminMaintenanceTabProps> = ({ onSucc
     <div className="space-y-6">
       {/* Banner Principal de Mantenimiento */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-rose-900 via-rose-800 to-[#092c4c] text-white p-6 md:p-8">
+        <div className="bg-[#092c4c] border-b-4 border-rose-600 text-white p-6 md:p-8">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-white/10 rounded-2xl text-rose-300 border border-white/15">
               <Trash2 className="w-6 h-6" />

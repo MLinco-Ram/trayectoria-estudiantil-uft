@@ -30,7 +30,6 @@ interface StepItem {
   title: string;
   badge: string;
   icon: React.ComponentType<{ className?: string }>;
-  accentGradient: string;
   description: string;
   tips: string[];
   tab?: TutorTab;
@@ -59,7 +58,6 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
           : `¡Hola ${userName.split(' ')[0]}, bienvenido a tu Portal Tutor Par UFT!`,
         badge: isLeadTutor ? '1. Tu Perfil y Liderazgo' : '1. Tu Perfil y Métricas',
         icon: Sparkles,
-        accentGradient: isLeadTutor ? 'from-indigo-900 via-indigo-950 to-slate-900' : 'from-[#092c4c] via-[#103a63] to-sky-900',
         tab: 'my_schedule',
         description: isLeadTutor 
           ? 'En esta tarjeta superior puedes verificar tu carrera, rol de liderazgo institucional y el resumen general de tutorías asignadas, alumnos y tutores a cargo.'
@@ -75,7 +73,6 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
         title: 'Módulos de Gestión y Navegación',
         badge: '2. Barra de Pestañas',
         icon: Award,
-        accentGradient: 'from-sky-900 to-indigo-950',
         tab: 'my_schedule',
         description: 'Utiliza la barra superior para alternar rápidamente entre todas las funciones del portal institucional:',
         tips: [
@@ -90,7 +87,6 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
         title: 'Mis Tutorías y Carga de Cronograma/Temario',
         badge: '3. Gestión de Clases',
         icon: Calendar,
-        accentGradient: 'from-sky-900 via-[#092c4c] to-[#103a63]',
         tab: 'my_schedule',
         description: 'Visualiza tus tutorías programadas, fechas, salas asignadas, cupos ocupados y el estado del temario.',
         tips: [
@@ -104,7 +100,6 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
         title: 'Pasar Lista y Registro de Asistencia',
         badge: '4. Control de Asistencia',
         icon: CheckSquare,
-        accentGradient: 'from-emerald-900 via-[#092c4c] to-[#103a63]',
         tab: 'attendance',
         description: 'Pasa lista de manera digital marcando a los alumnos como Presente, Ausente o Justificado en segundos.',
         tips: [
@@ -118,7 +113,6 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
         title: 'Declaración de Disponibilidad Horaria',
         badge: '5. Matriz de Horarios',
         icon: Clock,
-        accentGradient: 'from-[#092c4c] to-[#153a5c]',
         tab: 'my_availability',
         description: 'Define tus bloques semanales disponibles (Lunes a Viernes de 08:30 a 20:00) para que coordinación te programe tutorías en horarios compatibles.',
         tips: [
@@ -132,7 +126,6 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
         title: 'Avisar Inconveniente a Coordinación Docente',
         badge: '6. Alertas & Flexibilidad',
         icon: AlertTriangle,
-        accentGradient: 'from-amber-900/90 via-[#092c4c] to-slate-900',
         tab: 'report_issue',
         description: '¿Tienes un tope de horario por certamen o imprevisto de fuerza mayor? Envía un aviso formal con propuesta de reasignación a los docentes coordinadores.',
         tips: [
@@ -150,7 +143,6 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
         title: 'Directorio de Tutores a Cargo',
         badge: '7. Supervisión de Tutores',
         icon: ShieldCheck,
-        accentGradient: 'from-indigo-900 via-purple-950 to-slate-900',
         tab: 'assigned_tutors',
         description: 'Supervisa la nómina de tutores pares asignados a tu coordinación, sus carreras, ramos dictados y datos de contacto directo.',
         tips: [
@@ -164,7 +156,6 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
         title: 'Auditoría y Revisión de Cumplimiento',
         badge: '8. Control de Calidad',
         icon: ClipboardCheck,
-        accentGradient: 'from-indigo-950 via-[#092c4c] to-slate-900',
         tab: 'compliance_review',
         description: 'Monitorea que cada sesión cumpla con su cronograma previo cargado y el 100% de asistencia registrada.',
         tips: [
@@ -180,7 +171,6 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
       title: 'Bandeja de Mensajes y Botón de Repetición (!)',
       badge: isLeadTutor ? '9. Centro de Ayuda' : '7. Centro de Ayuda',
       icon: Bell,
-      accentGradient: 'from-emerald-800 to-[#092c4c]',
       description: 'En la esquina superior derecha tienes tu bandeja de comunicados, modo oscuro y el botón con signo de exclamación (!) para repetir este tour cuando lo necesites.',
       tips: [
         'Revisa avisos importantes y respuestas de coordinación docente en la campana.',
@@ -327,7 +317,7 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
         className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-amber-400/60 dark:border-amber-400/50 overflow-hidden flex flex-col will-change-transform"
       >
         {/* Cabecera del Paso con degradado */}
-        <div className={`bg-gradient-to-r ${activeStepData.accentGradient} p-3.5 sm:p-4 text-white relative transition-colors duration-400`}>
+        <div className="bg-[#092c4c] p-3.5 sm:p-4 text-white relative">
           {/* Botón de Parar / Cerrar tutorial */}
           <button
             type="button"
@@ -368,7 +358,7 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
               key={idx}
               className={`h-full flex-1 transition-all duration-500 ease-out ${
                 idx <= currentStep 
-                  ? 'bg-gradient-to-r from-amber-400 to-amber-500' 
+                  ? 'bg-amber-500' 
                   : 'bg-transparent'
               }`}
             />

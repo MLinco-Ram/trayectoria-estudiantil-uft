@@ -19,6 +19,7 @@ import { ThemeToggle } from './common/ThemeToggle';
 import { NotificationModal } from './common/NotificationModal';
 
 import { LogOut, GraduationCap, ShieldCheck, Bell, Sparkles } from 'lucide-react';
+import { useTutorialSeen, legacyTutorialSeen } from '../hooks/useTutorialSeen';
 import { useAuth } from '../context/AuthContext';
 
 interface DocenteDashboardProps {
@@ -64,21 +65,22 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
 
   // Mini-Tutoriales Modulares por Sección
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const { hasSeen: hasSeenTutorial, markSeen: markTutorialSeen } = useTutorialSeen();
 
-  // Auto-mostrar el mini-tutorial la primera vez que se entra a cada apartado
+  // Auto-mostrar el mini-tutorial la primera vez que se entra a cada apartado (registro en la BD)
   useEffect(() => {
-    if (activeTab) {
-      const hasSeen = localStorage.getItem(`uft_docente_tutorial_seen_${activeTab}`);
-      if (!hasSeen) {
-        setIsTutorialOpen(true);
-      }
+    if (!activeTab) return;
+    const key = `docente:${activeTab}`;
+    if (hasSeenTutorial(key)) return;
+    if (legacyTutorialSeen(`uft_docente_tutorial_seen_${activeTab}`)) {
+      markTutorialSeen(key);
+      return;
     }
-  }, [activeTab]);
+    setIsTutorialOpen(true);
+  }, [activeTab, hasSeenTutorial, markTutorialSeen]);
 
   const handleCloseTutorial = () => {
-    if (activeTab) {
-      localStorage.setItem(`uft_docente_tutorial_seen_${activeTab}`, 'true');
-    }
+    if (activeTab) markTutorialSeen(`docente:${activeTab}`);
     setIsTutorialOpen(false);
   };
 

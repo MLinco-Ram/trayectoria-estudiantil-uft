@@ -269,7 +269,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         {/* Banner Superior */}
-        <div id="docente-flex-banner" className="bg-gradient-to-r from-[#092c4c] via-[#0e375e] to-[#1a4a75] text-white p-4 sm:p-6 md:p-8">
+        <div id="docente-flex-banner" className="bg-[#092c4c] text-white p-4 sm:p-6 md:p-8">
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
             <div className="flex items-start gap-3 min-w-0">
               <div className="p-2.5 bg-[#3a9ad9]/20 text-[#3a9ad9] rounded-2xl border border-[#3a9ad9]/30 shrink-0">

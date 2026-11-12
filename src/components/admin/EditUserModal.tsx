@@ -1,8 +1,9 @@
 import React from 'react';
 import { User, Role, TutorType } from '../../types';
-import { Edit3, X, Save, Lock, Briefcase, Mail, CheckCircle2, AlertTriangle, Shield, BookOpen, Check } from 'lucide-react';
+import { Edit3, X, Save, KeyRound, User as UserIcon, Briefcase, Mail, CheckCircle2, AlertTriangle, Shield, BookOpen, Check } from 'lucide-react';
 import { CareerSelect } from '../common/CareerSelect';
 import { formatRut } from '../../data';
+import { SendInitialPasswordButton } from '../common/SendInitialPasswordButton';
 
 interface EditUserModalProps {
   editingUser: User;
@@ -14,8 +15,6 @@ interface EditUserModalProps {
   setEditEmail: (v: string) => void;
   editCareer: string;
   setEditCareer: (v: string) => void;
-  editPassword: string;
-  setEditPassword: (v: string) => void;
   editRoles: Role[];
   setEditRoles: React.Dispatch<React.SetStateAction<Role[]>>;
   editTutorTypes: TutorType[];
@@ -36,8 +35,6 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
   setEditEmail,
   editCareer,
   setEditCareer,
-  editPassword,
-  setEditPassword,
   editRoles,
   setEditRoles,
   editTutorTypes,
@@ -74,7 +71,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-200 my-auto max-h-[96vh] sm:max-h-[90vh] flex flex-col">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl max-w-4xl w-full overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-200 my-auto max-h-[96vh] sm:max-h-[90vh] flex flex-col">
         {/* Modal Header */}
         <div className="bg-[#092c4c] dark:bg-slate-950 px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between text-white shrink-0 border-b border-[#153a5c] dark:border-slate-800">
           <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
@@ -104,10 +101,11 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
           </button>
         </div>
 
-        {/* Modal Form Scrollable Body */}
-        <form onSubmit={onSave} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
+        <form onSubmit={onSave} className="flex flex-col flex-1 min-h-0">
+          {/* Cuerpo desplazable */}
+          <div className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 md:grid-flow-dense gap-4 items-start overflow-y-auto flex-1 overscroll-contain">
           {editFeedback && (
-            <div className={`p-3 rounded-xl text-xs sm:text-sm flex items-center gap-2.5 ${
+            <div className={`md:col-span-2 p-3 rounded-xl text-xs sm:text-sm flex items-center gap-2.5 ${
               editFeedback.status === 'success' 
                 ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800' 
                 : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 border border-rose-200 dark:border-rose-800'
@@ -117,15 +115,99 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
             </div>
           )}
 
-          {/* Configuración Multi-rol */}
-          <div className="bg-slate-50 dark:bg-slate-800/60 p-3 sm:p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
-            <label className="block text-[11px] sm:text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
-              Roles Asignados (Configuración Multi-rol)
+          <section className="md:col-start-1 rounded-2xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-800/40 p-3.5 sm:p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-[#3a9ad9]/15 text-[#3a9ad9] shrink-0"><UserIcon className="w-3.5 h-3.5" /></div>
+              <div className="min-w-0">
+                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider">Datos personales</h4>
+                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-snug">Información de contacto e identificación.</p>
+              </div>
+            </div>
+          <div>
+            <label className="block text-[11px] sm:text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+              Nombre Completo
             </label>
-            <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
-              Marca los roles pertinentes. El usuario podrá alternar de portal libremente.
-            </p>
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="w-full px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs sm:text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-hidden bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              required
+            />
+          </div>
+          {/* RUT y Carrera en Grid adaptable */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] sm:text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                RUT (9 Caracteres)
+              </label>
+              <input
+                type="text"
+                value={editRut}
+                onChange={(e) => setEditRut(formatRut(e.target.value))}
+                className="w-full px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs sm:text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-hidden font-mono bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] sm:text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 truncate">
+                {editRoles.includes('docente') ? 'Cargo / Acompañamiento' : 'Carrera'}
+              </label>
+              <div className="relative">
+                <Briefcase className="w-4 h-4 absolute left-3 top-2.5 sm:top-3 text-slate-400 pointer-events-none" />
+                {editRoles.includes('docente') ? (
+                  <select
+                    value={editCareer || 'Coordinación de Tutorías'}
+                    onChange={(e) => setEditCareer(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 sm:py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs sm:text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-hidden bg-white dark:bg-slate-800 text-slate-800 dark:text-white cursor-pointer"
+                  >
+                    {!["Jefa de Trayectoria Estudiantil", "Coordinación de Tutorías", "Profesional Psicoeducativo", "Docente Practicante", "Practicante (Apoyo Psicoeducativo / Tutorías)", "Docente Tutor de Facultad", "Dirección Académica"].includes(editCareer) && editCareer ? (
+                      <option value={editCareer}>{editCareer}</option>
+                    ) : null}
+                    <option value="Jefa de Trayectoria Estudiantil">Jefa de Trayectoria Estudiantil</option>
+                    <option value="Coordinación de Tutorías">Coordinación de Tutorías</option>
+                    <option value="Profesional Psicoeducativo">Profesional Psicoeducativo</option>
+                    <option value="Docente Practicante">Docente Practicante</option>
+                    <option value="Practicante (Apoyo Psicoeducativo / Tutorías)">Practicante (Apoyo Psicoeducativo / Tutorías)</option>
+                    <option value="Docente Tutor de Facultad">Docente Tutor de Facultad</option>
+                    <option value="Dirección Académica">Dirección Académica</option>
+                  </select>
+                ) : (
+                  <CareerSelect
+                    value={editCareer}
+                    onChange={setEditCareer}
+                    className="w-full pl-9 pr-3.5 py-2 sm:py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs sm:text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-hidden bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+          {/* Correo Electrónico */}
+          <div>
+            <label className="block text-[11px] sm:text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+              Correo Electrónico
+            </label>
+            <div className="relative">
+              <Mail className="w-4 h-4 absolute left-3 top-2.5 sm:top-3 text-slate-400" />
+              <input
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                className="w-full pl-9 pr-3.5 py-2 sm:py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs sm:text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-hidden font-mono bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                required
+              />
+            </div>
+          </div>
+          </section>
 
+          <section className="md:col-start-2 md:row-span-2 rounded-2xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-800/40 p-3.5 sm:p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-[#3a9ad9]/15 text-[#3a9ad9] shrink-0"><Shield className="w-3.5 h-3.5" /></div>
+              <div className="min-w-0">
+                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider">Roles y portales</h4>
+                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-snug">El usuario podrá alternar entre los portales marcados.</p>
+              </div>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-2 gap-2 pt-1">
               <label className={`flex items-center gap-2 p-2 sm:p-2.5 rounded-xl border cursor-pointer transition text-xs font-semibold select-none ${
                 editRoles.includes('alumno') 
@@ -192,7 +274,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
                     Subroles de Tutor (Marca ambos si aplica)
                   </label>
                   {editTutorTypes.includes('tutor_par') && editTutorTypes.includes('tutor_de_tutores') && (
-                    <span className="text-[9px] bg-gradient-to-r from-emerald-500 to-indigo-600 text-white font-extrabold px-1.5 py-0.2 rounded-full shadow-xs">
+                    <span className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 font-bold px-1.5 py-0.5 rounded-md">
                       Doble Perfil
                     </span>
                   )}
@@ -248,111 +330,30 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
                 </div>
               </div>
             )}
-          </div>
+          </section>
 
-          {/* Nombre Completo */}
-          <div>
-            <label className="block text-[11px] sm:text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-              Nombre Completo
-            </label>
-            <input
-              type="text"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              className="w-full px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs sm:text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-hidden bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-              required
-            />
-          </div>
-
-          {/* RUT y Carrera en Grid adaptable */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] sm:text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                RUT (9 Caracteres)
-              </label>
-              <input
-                type="text"
-                value={editRut}
-                onChange={(e) => setEditRut(formatRut(e.target.value))}
-                className="w-full px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs sm:text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-hidden font-mono bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] sm:text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 truncate">
-                {editRoles.includes('docente') ? 'Cargo / Acompañamiento' : 'Carrera'}
-              </label>
-              <div className="relative">
-                <Briefcase className="w-4 h-4 absolute left-3 top-2.5 sm:top-3 text-slate-400 pointer-events-none" />
-                {editRoles.includes('docente') ? (
-                  <select
-                    value={editCareer || 'Coordinación de Tutorías'}
-                    onChange={(e) => setEditCareer(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 sm:py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs sm:text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-hidden bg-white dark:bg-slate-800 text-slate-800 dark:text-white cursor-pointer"
-                  >
-                    {!["Jefa de Trayectoria Estudiantil", "Coordinación de Tutorías", "Profesional Psicoeducativo", "Docente Practicante", "Practicante (Apoyo Psicoeducativo / Tutorías)", "Docente Tutor de Facultad", "Dirección Académica"].includes(editCareer) && editCareer ? (
-                      <option value={editCareer}>{editCareer}</option>
-                    ) : null}
-                    <option value="Jefa de Trayectoria Estudiantil">Jefa de Trayectoria Estudiantil</option>
-                    <option value="Coordinación de Tutorías">Coordinación de Tutorías</option>
-                    <option value="Profesional Psicoeducativo">Profesional Psicoeducativo</option>
-                    <option value="Docente Practicante">Docente Practicante</option>
-                    <option value="Practicante (Apoyo Psicoeducativo / Tutorías)">Practicante (Apoyo Psicoeducativo / Tutorías)</option>
-                    <option value="Docente Tutor de Facultad">Docente Tutor de Facultad</option>
-                    <option value="Dirección Académica">Dirección Académica</option>
-                  </select>
-                ) : (
-                  <CareerSelect
-                    value={editCareer}
-                    onChange={setEditCareer}
-                    className="w-full pl-9 pr-3.5 py-2 sm:py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs sm:text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-hidden bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                  />
-                )}
+          <section className="md:col-start-1 rounded-2xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-800/40 p-3.5 sm:p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-[#3a9ad9]/15 text-[#3a9ad9] shrink-0"><KeyRound className="w-3.5 h-3.5" /></div>
+              <div className="min-w-0">
+                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider">Acceso</h4>
+                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-snug">La contraseña no se escribe aquí: se envía por correo.</p>
               </div>
             </div>
+            <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Envía a <span className="font-mono font-semibold text-slate-800 dark:text-white">{editingUser.email || 'su correo'}</span> la contraseña inicial
+              (últimos 4 caracteres del RUT).
+            </p>
+            <SendInitialPasswordButton user={editingUser} />
+          </section>
           </div>
 
-          {/* Correo Electrónico */}
-          <div>
-            <label className="block text-[11px] sm:text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-              Correo Electrónico
-            </label>
-            <div className="relative">
-              <Mail className="w-4 h-4 absolute left-3 top-2.5 sm:top-3 text-slate-400" />
-              <input
-                type="email"
-                value={editEmail}
-                onChange={(e) => setEditEmail(e.target.value)}
-                className="w-full pl-9 pr-3.5 py-2 sm:py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs sm:text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-hidden font-mono bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                required
-              />
-            </div>
-          </div>
-
-          {/* Nueva Contraseña */}
-          <div>
-            <label className="block text-[11px] sm:text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center justify-between">
-              <span>Nueva Contraseña</span>
-              <span className="text-[10px] text-slate-400 lowercase font-normal">(Opcional)</span>
-            </label>
-            <div className="relative">
-              <Lock className="w-4 h-4 absolute left-3 top-2.5 sm:top-3 text-slate-400" />
-              <input
-                type="text"
-                value={editPassword}
-                onChange={(e) => setEditPassword(e.target.value)}
-                placeholder="Escribe para cambiar clave actual"
-                className="w-full pl-9 pr-3.5 py-2 sm:py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs sm:text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-hidden font-mono bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 placeholder:font-sans"
-              />
-            </div>
-          </div>
-
-          {/* Botones de Acción (Pegados al pie del modal) */}
-          <div className="pt-3 pb-1 flex gap-2.5 sticky bottom-0 bg-white dark:bg-slate-900 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 p-4 sm:p-6 border-t border-slate-100 dark:border-slate-800 shrink-0">
+          {/* Pie fijo */}
+          <div className="flex gap-2.5 px-4 sm:px-5 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 px-3 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs sm:text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer text-center"
+              className="flex-1 py-2.5 px-3 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs sm:text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
             >
               Cancelar
             </button>

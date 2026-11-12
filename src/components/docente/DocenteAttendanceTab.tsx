@@ -253,10 +253,10 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
-        <div id="docente-attendance-header" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <CheckSquare className="w-5 h-5 text-[#3a9ad9]" />
+        <div id="docente-attendance-header" className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <CheckSquare className="w-5 h-5 text-[#3a9ad9] shrink-0" />
               Pasar Lista y Registro de Asistencia
             </h2>
             <p className="text-xs text-slate-500 mt-1">
@@ -265,7 +265,7 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
           </div>
 
           {/* Selector de Fechas y Buscador: Responsivo sin desbordarse */}
-          <div id="docente-attendance-controls" className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
+          <div id="docente-attendance-controls" className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1 xl:shrink-0">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <button
                 type="button"

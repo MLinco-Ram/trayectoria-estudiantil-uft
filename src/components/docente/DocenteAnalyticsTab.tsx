@@ -1817,10 +1817,10 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
                         </div>
                       </div>
 
-                      {/* Barra con gradiente */}
+                      {/* Barra de progreso */}
                       <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden flex items-center">
                         <div
-                          className="h-full bg-gradient-to-r from-[#092c4c] via-[#3a9ad9] to-[#02c39a] rounded-full transition-all duration-500"
+                          className="h-full bg-[#3a9ad9] rounded-full transition-all duration-500"
                           style={{ width: `${barWidth}%` }}
                         />
                       </div>
@@ -1861,7 +1861,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
 
                   <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                     <div
-                      className="bg-gradient-to-r from-blue-600 to-emerald-500 h-full rounded-full transition-all duration-500"
+                      className="bg-blue-600 h-full rounded-full transition-all duration-500"
                       style={{ width: `${item.occupancy}%` }}
                     />
                   </div>
@@ -1988,7 +1988,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
 
                       <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
                         <div
-                          className="bg-gradient-to-r from-amber-400 to-rose-500 h-full rounded-full transition-all duration-500"
+                          className="bg-amber-500 h-full rounded-full transition-all duration-500"
                           style={{ width: `${widthPct}%` }}
                         />
                       </div>

@@ -47,7 +47,9 @@ html.dark #alumno-dashboard-wrapper {
 
 /* 2. Tarjetas, paneles y contenedores con fondo blanco o slate */
 html.dark .bg-white,
-html.dark [class*="bg-white"],
+/* Se excluyen los blancos translúcidos (bg-white/5…/30): son brillos sobre cabeceras oscuras
+   (íconos, botones de cerrar, badges de los tutoriales) y deben seguir siendo translúcidos */
+html.dark [class*="bg-white"]:not([class*="bg-white/5"]):not([class*="bg-white/10"]):not([class*="bg-white/15"]):not([class*="bg-white/20"]):not([class*="bg-white/30"]),
 html.dark [class*="bg-slate-50"],
 html.dark [class*="bg-[#f8fafc]"] {
   background-color: #0f1a30 !important;
@@ -248,9 +250,10 @@ html.dark .text-slate-400 {
   color: #64748b !important;
 }
 
-html.dark .text-brand-navy,
-html.dark .text-\[\#092c4c\],
-html.dark .text-\[\#061e34\] {
+/* El azul marino se aclara en modo oscuro, salvo cuando el propio elemento tiene un fondo sólido claro
+   (ámbar, amarillo, celeste): ahí debe seguir oscuro. Se usa ~= (clase exacta) para que variantes como
+   hover:bg-[#3a9ad9] no cuenten como fondo claro. */
+html.dark :is(.text-brand-navy, .text-\[\#092c4c\], .text-\[\#061e34\]):not([class~="bg-amber-300"]):not([class~="bg-amber-400"]):not([class~="bg-amber-500"]):not([class~="bg-yellow-300"]):not([class~="bg-yellow-400"]):not([class~="bg-[#3a9ad9]"]):not([class~="bg-brand-celeste"]):not([class~="bg-sky-300"]):not([class~="bg-sky-400"]) {
   color: #7bd6e0 !important;
 }
 

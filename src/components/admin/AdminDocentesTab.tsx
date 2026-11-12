@@ -1,6 +1,7 @@
 import React from 'react';
+import { RegisteredAt } from '../common/RegisteredAt';
 import { User } from '../../types';
-import { UserPlus, Briefcase, Mail, Lock, ShieldCheck, Search, Edit3, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { UserPlus, Briefcase, Mail, ShieldCheck, Search, Edit3, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { formatRut } from '../../data';
 
 interface AdminDocentesTabProps {
@@ -15,8 +16,6 @@ interface AdminDocentesTabProps {
   setNewDocEmail: (v: string) => void;
   newDocCareer: string;
   setNewDocCareer: (v: string) => void;
-  newDocPassword: string;
-  setNewDocPassword: (v: string) => void;
   docFeedback: { status: 'success' | 'error'; message: string } | null;
   isSubmittingDoc: boolean;
   handleCreateDocente: (e: React.FormEvent) => void;
@@ -36,8 +35,6 @@ export const AdminDocentesTab: React.FC<AdminDocentesTabProps> = ({
   setNewDocEmail,
   newDocCareer,
   setNewDocCareer,
-  newDocPassword,
-  setNewDocPassword,
   docFeedback,
   isSubmittingDoc,
   handleCreateDocente,
@@ -57,7 +54,7 @@ export const AdminDocentesTab: React.FC<AdminDocentesTabProps> = ({
     <div className="space-y-6">
       {/* Formulario de Registro de Nuevo Docente */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-[#092c4c] to-[#153a5c] px-6 py-4 flex items-center justify-between text-white">
+        <div className="bg-[#092c4c] px-6 py-4 flex items-center justify-between text-white">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/10 rounded-xl">
               <UserPlus className="w-5 h-5 text-[#3a9ad9]" />
@@ -149,23 +146,6 @@ export const AdminDocentesTab: React.FC<AdminDocentesTabProps> = ({
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Contraseña de Acceso
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Clave inicial (ej: 123)"
-                  value={newDocPassword}
-                  onChange={(e) => setNewDocPassword(e.target.value)}
-                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none font-mono placeholder:text-slate-400"
-                  required
-                />
-              </div>
-            </div>
-
             <div className="flex items-end">
               <button
                 type="submit"
@@ -205,6 +185,7 @@ export const AdminDocentesTab: React.FC<AdminDocentesTabProps> = ({
               <tr>
                 <th className="py-3.5 px-5">Nombre y Cargo</th>
                 <th className="py-3.5 px-4">RUT</th>
+                <th className="py-3.5 px-4">Registrado</th>
                 <th className="py-3.5 px-4">Rol en Sistema</th>
                 <th className="py-3.5 px-5 text-right">Acciones</th>
               </tr>
@@ -212,7 +193,7 @@ export const AdminDocentesTab: React.FC<AdminDocentesTabProps> = ({
             <tbody className="divide-y divide-slate-100">
               {filteredDocentes.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-slate-400 text-sm">
+                  <td colSpan={5} className="py-8 text-center text-slate-400 text-sm">
                     No se encontraron docentes con el criterio de búsqueda.
                   </td>
                 </tr>
@@ -229,6 +210,7 @@ export const AdminDocentesTab: React.FC<AdminDocentesTabProps> = ({
                     <td className="py-3.5 px-4 font-mono text-xs font-semibold text-slate-700">
                       {doc.rut}
                     </td>
+                    <td className="py-3.5 px-4 text-xs"><RegisteredAt iso={doc.createdAt} /></td>
                     <td className="py-3.5 px-4">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">

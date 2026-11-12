@@ -77,7 +77,7 @@ export const DocenteRoomsTab: React.FC<DocenteRoomsTabProps> = ({ rooms, session
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div id="docente-rooms-header" className="bg-gradient-to-r from-[#092c4c] to-[#153a5c] px-6 py-5 text-white flex items-center gap-3">
+        <div id="docente-rooms-header" className="bg-[#092c4c] px-6 py-5 text-white flex items-center gap-3">
           <div className="p-2 bg-white/10 rounded-xl text-[#3a9ad9]">
             <DoorOpen className="w-5 h-5" />
           </div>

@@ -27,7 +27,6 @@ interface StepItem {
   title: string;
   badge: string;
   icon: React.ComponentType<{ className?: string }>;
-  accentGradient: string;
   description: string;
   tips: string[];
   tab?: 'tutorias' | 'psicoeducativo' | 'comunidad' | 'my_bookings' | 'history' | 'inconvenientes';
@@ -53,7 +52,6 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         title: `¡Hola ${userName.split(' ')[0]}, bienvenido a tu Portal UFT!`,
         badge: '1. Tu Perfil y Métricas',
         icon: Sparkles,
-        accentGradient: 'from-[#092c4c] via-[#103a63] to-sky-900',
         tab: 'tutorias',
         description: 'En esta tarjeta superior puedes verificar tu carrera, RUT y el contador de reservas semanales activas y asistencias acumuladas.',
         tips: [
@@ -67,7 +65,6 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         title: 'Módulos de Apoyo y Navegación',
         badge: '2. Menú de Pestañas',
         icon: Award,
-        accentGradient: 'from-sky-900 to-indigo-950',
         tab: 'tutorias',
         description: 'Navega fácilmente entre todas las modalidades de aprendizaje que la UFT tiene para ti:',
         tips: [
@@ -82,7 +79,6 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         title: 'Selector de Días y Calendario',
         badge: '3. Fechas y Horarios',
         icon: Calendar,
-        accentGradient: 'from-[#092c4c] to-[#153a5c]',
         tab: 'tutorias',
         description: 'Elige qué día deseas consultar: pulsa directamente sobre los accesos rápidos (Hoy, Mañana, etc.) o elige una fecha específica en el calendario.',
         tips: [
@@ -96,7 +92,6 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         title: 'Módulos de Tutorías y Reserva Inmediata',
         badge: '4. Inscripción con 1 Clic',
         icon: GraduationCap,
-        accentGradient: 'from-emerald-900 via-[#092c4c] to-[#103a63]',
         tab: 'tutorias',
         description: 'Cada tarjeta muestra el horario, tutor responsable, cupos disponibles, aula y el temario/cronograma preparado para la sesión.',
         tips: [
@@ -114,7 +109,6 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
           title: 'Asistencia Digital con QR y PIN',
           badge: '5. Escáner QR de Asistencia',
           icon: QrCode,
-          accentGradient: 'from-indigo-900 to-[#092c4c]',
           tab: 'my_bookings',
           description: 'Al llegar a tu tutoría, utiliza el botón central de escaneo con cámara para leer el código QR que proyectará tu tutor y validar tu asistencia al instante.',
           tips: [
@@ -128,7 +122,6 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
           title: 'Mis Reservas y Seguimiento de Clases',
           badge: '5. Mis Reservas',
           icon: Grid,
-          accentGradient: 'from-indigo-900 to-[#092c4c]',
           tab: 'my_bookings',
           description: 'En esta pestaña podrás gestionar todas tus tutorías y talleres confirmados, consultar salas asignadas, enlaces, temarios y cancelar oportunamente.',
           tips: [
@@ -145,7 +138,6 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         title: 'Avisos de Inconveniente y Tope de Horario',
         badge: '6. Flexibilidad y Contacto',
         icon: AlertTriangle,
-        accentGradient: 'from-amber-900/90 via-[#092c4c] to-slate-900',
         tab: 'inconvenientes',
         description: '¿Tienes un tope de horario o problema de fuerza mayor? Envía un aviso formal a los docentes coordinadores para coordinar una sesión flexible individual.',
         tips: [
@@ -159,7 +151,6 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         title: 'Bandeja de Correo y Botón de Repetición (!)',
         badge: '7. Centro de Ayuda',
         icon: Bell,
-        accentGradient: 'from-emerald-800 to-[#092c4c]',
         description: 'En la esquina superior derecha tienes tu bandeja de comunicados, modo oscuro y el botón con signo de exclamación (!) para volver a abrir este tutorial.',
         tips: [
           'Revisa avisos importantes y cambios de horario en la campana.',
@@ -297,7 +288,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
         className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-amber-400/60 dark:border-amber-400/50 overflow-hidden flex flex-col will-change-transform"
       >
         {/* Cabecera del Paso con degradado */}
-        <div className={`bg-gradient-to-r ${activeStepData.accentGradient} p-3.5 sm:p-4 text-white relative transition-colors duration-400`}>
+        <div className="bg-[#092c4c] p-3.5 sm:p-4 text-white relative">
           {/* Botón de Parar / Cerrar tutorial */}
           <button
             type="button"
@@ -338,7 +329,7 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
               key={idx}
               className={`h-full flex-1 transition-all duration-500 ease-out ${
                 idx <= currentStep 
-                  ? 'bg-gradient-to-r from-amber-400 to-amber-500' 
+                  ? 'bg-amber-500' 
                   : 'bg-transparent'
               }`}
             />

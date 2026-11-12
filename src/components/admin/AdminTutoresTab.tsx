@@ -1,4 +1,5 @@
 import React from 'react';
+import { RegisteredAt } from '../common/RegisteredAt';
 import { User } from '../../types';
 import { BookOpen, Search, Edit3, Trash2, GraduationCap } from 'lucide-react';
 
@@ -51,6 +52,7 @@ export const AdminTutoresTab: React.FC<AdminTutoresTabProps> = ({
             <tr>
               <th className="py-3.5 px-5">Nombre y Carrera</th>
               <th className="py-3.5 px-4">RUT</th>
+              <th className="py-3.5 px-4">Registrado</th>
               <th className="py-3.5 px-4">Rol</th>
               <th className="py-3.5 px-5 text-right">Acciones</th>
             </tr>
@@ -58,7 +60,7 @@ export const AdminTutoresTab: React.FC<AdminTutoresTabProps> = ({
           <tbody className="divide-y divide-slate-100">
             {filteredTutores.length === 0 ? (
               <tr>
-                <td colSpan={4} className="py-8 text-center text-slate-400 text-sm">
+                <td colSpan={5} className="py-8 text-center text-slate-400 text-sm">
                   No se encontraron tutores con el criterio de búsqueda.
                 </td>
               </tr>
@@ -75,6 +77,7 @@ export const AdminTutoresTab: React.FC<AdminTutoresTabProps> = ({
                   <td className="py-3.5 px-4 font-mono text-xs font-semibold text-slate-700">
                     {tut.rut}
                   </td>
+                  <td className="py-3.5 px-4 text-xs"><RegisteredAt iso={tut.createdAt} /></td>
                   <td className="py-3.5 px-4">
                     <div className="flex flex-wrap items-center gap-1.5">
                       {Array.isArray(tut.tutorTypes) && tut.tutorTypes.length > 0 ? (

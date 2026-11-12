@@ -53,6 +53,7 @@ import {
   Layers
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTutorialSeen, legacyTutorialSeen } from '../hooks/useTutorialSeen';
 import { useAuth, getRoleHomePath } from '../context/AuthContext';
 import { ThemeToggle } from './common/ThemeToggle';
 import { NotificationModal } from './common/NotificationModal';
@@ -109,26 +110,22 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   
   // Guided Tutorial Tour State
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const { hasSeen: hasSeenTutorial, markSeen: markTutorialSeen } = useTutorialSeen();
 
-  // Trigger tutorial automatically the first time student enters the portal
+  // Mostrar el tutorial solo la primera vez que el estudiante entra al portal (registro en la BD)
   useEffect(() => {
-    if (user?.id) {
-      const tutorialKey = `uft_alumno_tutorial_shown_${user.id}`;
-      const alreadyShown = localStorage.getItem(tutorialKey);
-      if (!alreadyShown) {
-        const timer = setTimeout(() => {
-          setIsTutorialOpen(true);
-        }, 700);
-        return () => clearTimeout(timer);
-      }
+    if (!user?.id || hasSeenTutorial('alumno')) return;
+    if (legacyTutorialSeen(`uft_alumno_tutorial_shown_${user.id}`)) {
+      markTutorialSeen('alumno');
+      return;
     }
-  }, [user?.id]);
+    const timer = setTimeout(() => setIsTutorialOpen(true), 700);
+    return () => clearTimeout(timer);
+  }, [user?.id, hasSeenTutorial, markTutorialSeen]);
 
   const handleCloseTutorial = () => {
     setIsTutorialOpen(false);
-    if (user?.id) {
-      localStorage.setItem(`uft_alumno_tutorial_shown_${user.id}`, 'true');
-    }
+    markTutorialSeen('alumno');
   };
 
   const handleOpenTutorial = () => {
@@ -641,7 +638,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         listTitle: 'Actividades disponibles',
         emptyTitle: 'No hay actividades para la comunidad',
         emptyHint: 'Aún no hay actividades programadas. Revisa más adelante o atento a los comunicados.',
-        banner: 'bg-gradient-to-r from-rose-700 to-orange-600 border-rose-700',
+        banner: 'bg-rose-700 border-rose-700',
         badgeCls: 'bg-white/20 text-white',
         accentText: 'text-rose-700 dark:text-rose-300',
         emptyCard: 'border-rose-200 dark:border-rose-800 bg-rose-50/40 dark:bg-rose-950/20',
@@ -656,7 +653,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         listTitle: 'Talleres disponibles',
         emptyTitle: 'No hay talleres psicoeducativos',
         emptyHint: 'Aún no hay talleres programados. Si necesitas apoyo, puedes pedir una asesoría individual desde "Inconvenientes".',
-        banner: 'bg-gradient-to-r from-teal-700 to-emerald-600 border-teal-700',
+        banner: 'bg-teal-700 border-teal-700',
         badgeCls: 'bg-white/20 text-white',
         accentText: 'text-teal-700 dark:text-teal-300',
         emptyCard: 'border-teal-200 dark:border-teal-800 bg-teal-50/40 dark:bg-teal-950/20',
@@ -671,7 +668,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         listTitle: 'Actividades disponibles',
         emptyTitle: 'No hay actividades',
         emptyHint: 'Aún no hay actividades programadas en este programa.',
-        banner: 'bg-gradient-to-r from-indigo-700 to-violet-600 border-indigo-700',
+        banner: 'bg-indigo-700 border-indigo-700',
         badgeCls: 'bg-white/20 text-white',
         accentText: 'text-indigo-700 dark:text-indigo-300',
         emptyCard: 'border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/20',
@@ -685,7 +682,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         listTitle: 'Tutorías disponibles',
         emptyTitle: 'No hay tutorías colectivas',
         emptyHint: 'Aún no hay tutorías programadas. Si necesitas apoyo, puedes pedir una tutoría personalizada desde "Inconvenientes".',
-        banner: 'bg-gradient-to-r from-[#092c4c] to-[#1a4a75] border-[#092c4c]',
+        banner: 'bg-[#092c4c] border-[#092c4c]',
         badgeCls: 'bg-[#3a9ad9]/30 text-sky-100',
         accentText: 'text-[#092c4c] dark:text-sky-300',
         emptyCard: 'border-sky-200 dark:border-sky-900 bg-sky-50/40 dark:bg-sky-950/20',
@@ -1163,7 +1160,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
               )}
 
               {availableSchedules.length === 0 ? (
-                <div key={activeSegment} className={`p-8 sm:p-10 rounded-2xl border border-dashed text-center space-y-3 transition-colors animate-fade-in ${segmentInfo.emptyCard}`}>
+                <div key={activeSegment} id="academic-visual-slots-grid" className={`p-8 sm:p-10 rounded-2xl border border-dashed text-center space-y-3 transition-colors animate-fade-in ${segmentInfo.emptyCard}`}>
                   <div className={`mx-auto w-12 h-12 rounded-2xl flex items-center justify-center ${segmentInfo.emptyIcon}`}>
                     <SegmentIcon className="h-6 w-6" />
                   </div>
@@ -1546,7 +1543,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                               <button
                                 type="button"
                                 onClick={() => handleOpenEvaluationModal(s)}
-                                className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold rounded-xl shadow-xs hover:shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                                className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-xs hover:shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
                               >
                                 <Star className="w-3.5 h-3.5 fill-white" />
                                 <span>Responder Encuesta (12 Preguntas)</span>
@@ -1711,7 +1708,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; padding: 30px 15px; min-height: 100%;">
                         <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
                           <tr>
-                            <td style="background: linear-gradient(135deg, #092c4c 0%, #153a5c 100%); padding: 30px 25px; text-align: center;">
+                            <td style="background: #092c4c; padding: 30px 25px; text-align: center;">
                               <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">Trayectoria <span style="color: #3a9ad9;">UFT.</span></h1>
                               <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">Coordinación Docente</p>
                             </td>
@@ -2049,7 +2046,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-fade-in overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full max-h-[94vh] sm:max-h-[90vh] flex flex-col overflow-hidden my-auto animate-scale-up">
             {/* Header del Modal */}
-            <div className="bg-gradient-to-r from-[#092c4c] to-[#153a5c] text-white p-4 sm:p-5 relative shrink-0">
+            <div className="bg-[#092c4c] text-white p-4 sm:p-5 relative shrink-0">
               <div className="flex items-center gap-3 pr-8">
                 <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-amber-400/20 text-amber-300 flex items-center justify-center font-bold shrink-0">
                   <Sparkles className="w-5 h-5" />
@@ -2367,7 +2364,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
           <button
             type="button"
             onClick={() => setIsQRScannerOpen(true)}
-            className="flex items-center justify-center w-12 h-12 rounded-full text-white bg-gradient-to-tr from-[#3a9ad9] via-[#0284c7] to-[#38bdf8] shadow-lg shadow-sky-500/30 border-[3px] border-[#092c4c] dark:border-slate-900 active:scale-90 transition-all cursor-pointer hover:brightness-110"
+            className="flex items-center justify-center w-12 h-12 rounded-full text-white bg-[#3a9ad9] hover:bg-[#0284c7] shadow-lg shadow-sky-500/30 border-[3px] border-[#092c4c] dark:border-slate-900 active:scale-90 transition-all cursor-pointer hover:brightness-110"
             title="Escanear Código QR de Asistencia"
           >
             <QrCode className="w-6 h-6 text-white" />
