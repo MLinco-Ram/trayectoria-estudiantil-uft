@@ -519,9 +519,9 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       return;
     }
 
-    // Check 2-hour deadline limit before session start
+    // La inscripción se mantiene abierta hasta el inicio de la sesión
     if (isRegistrationWindowClosed(session.date, session.timeSlot)) {
-      setBookingFeedback('⚠️ Plazo de inscripción cerrado: Las inscripciones deben realizarse con al menos 1 hora de anticipación antes del inicio de la sesión.');
+      setBookingFeedback('⚠️ Plazo de inscripción cerrado: esta sesión ya comenzó. Puedes inscribirte hasta el momento en que inicia.');
       return;
     }
 
@@ -1343,9 +1343,9 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                         ) : isClosedDeadline ? (
                           <div 
                             className="bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-lg text-[9px] font-bold py-1.5 border border-slate-200 dark:border-slate-700 select-none cursor-not-allowed"
-                            title="El plazo de inscripción cerró porque falta menos de 1 hora para el inicio de la sesión."
+                            title="La inscripción cerró porque la sesión ya comenzó."
                           >
-                            Plazo Cerrado (&lt;1h)
+                            Ya comenzó
                           </div>
                         ) : targetWeekActiveBookings.length >= MAX_WEEKLY_ACTIVE_BOOKINGS ? (
                           <div 
