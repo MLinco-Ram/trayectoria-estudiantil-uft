@@ -122,11 +122,11 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
     }
 
     const newAttendance = { ...(session.attendance || {}), [studentId]: status };
-    const updatedSessions = sessions.map(s => s.id === sessionId ? { ...s, attendance: newAttendance, isCompleted: true } : s);
+    const updatedSessions = sessions.map(s => s.id === sessionId ? { ...s, attendance: newAttendance } : s  /* TEMPORAL: marcar asistencia no cierra la clase (ver contexto.md) */);
     setSessions(updatedSessions);
 
     try {
-      await sessionsApi.updateSession(sessionId, { attendance: newAttendance, isCompleted: true });
+      await sessionsApi.updateSession(sessionId, { attendance: newAttendance });
 
       // Si se marca ausente, enviar correo de alerta de inasistencia
       if (status === 'ausente') {

@@ -124,11 +124,11 @@ export const TutorAttendanceTab: React.FC<TutorAttendanceTabProps> = ({
     const newStatus: 'presente' | 'ausente' | 'pendiente' = currentStatus === status ? 'pendiente' : status;
 
     const newAttendance = { ...(session.attendance || {}), [studentId]: newStatus };
-    const updatedSessions = sessions.map(s => s.id === sessionId ? { ...s, attendance: newAttendance, isCompleted: true } : s);
+    const updatedSessions = sessions.map(s => s.id === sessionId ? { ...s, attendance: newAttendance } : s  /* TEMPORAL: marcar asistencia no cierra la clase (ver contexto.md) */);
     setSessions(updatedSessions);
 
     try {
-      await sessionsApi.updateSession(sessionId, { attendance: newAttendance, isCompleted: true });
+      await sessionsApi.updateSession(sessionId, { attendance: newAttendance });
 
       const student = allUsers.find(u => u.id === studentId);
       if (student && student.email) {
@@ -199,14 +199,14 @@ export const TutorAttendanceTab: React.FC<TutorAttendanceTabProps> = ({
       [studentId]: sessionStarted ? initialStatus : 'pendiente'
     };
 
-    const updatedSessions = sessions.map(s => s.id === sessionId ? { ...s, studentIds: newStudentIds, attendance: newAttendance, isCompleted: sessionStarted || !!s.isCompleted } : s);
+    const updatedSessions = sessions.map(s => s.id === sessionId ? { ...s, studentIds: newStudentIds, attendance: newAttendance, isCompleted: !!s.isCompleted } : s);
     setSessions(updatedSessions);
 
     try {
       await sessionsApi.updateSession(sessionId, {
         studentIds: newStudentIds,
         attendance: newAttendance,
-        isCompleted: sessionStarted || !!session.isCompleted
+        isCompleted: !!session.isCompleted
       });
 
       const studentObj = allUsers.find(u => u.id === studentId);
