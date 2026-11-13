@@ -166,7 +166,11 @@ export const sendEmail = async ({ to, toName, subject, text, html, fromName: cus
       name: displayName,
       address: config.user,
     },
-      replyTo: config.user,
+    headers: {
+      'From': `"${displayName}" <${config.user}>`,
+      'Sender': config.user,
+      'Reply-To': config.user
+    },
     to: toName ? `"${toName}" <${to}>` : to,
     subject: subject,
     text: `${textGreeting},\n\n${cleanText}\n\nIngresa a la plataforma para ver todos los detalles: ${targetUrl}`,
