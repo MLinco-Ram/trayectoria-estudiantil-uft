@@ -140,6 +140,18 @@ export const sessionsApi = {
     });
     return handleResponse<{ success: boolean; alreadyPresent?: boolean; session: Session; message: string }>(res);
   },
+  registerPinAttendance: async (pin: string) => {
+    const res = await fetch('/api/sessions/attendance-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin }),
+    });
+    return handleResponse<{ success: boolean; alreadyPresent?: boolean; session: Session; message: string }>(res);
+  },
+  getAttendancePin: async (sessionId: string) => {
+    const res = await fetch(`/api/sessions/${sessionId}/attendance-pin`);
+    return handleResponse<{ pin: string }>(res);
+  },
 };
 
 // --- SALAS ---

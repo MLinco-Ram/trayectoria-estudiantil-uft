@@ -466,3 +466,17 @@ export const findRoomConflict = (sessions: Session[], location: string, date: st
     return range[0] < other[1] && other[0] < range[1];
   });
 };
+
+// Colores de cada programa, iguales en todos los portales: Tutorías azul, Psicoeducativo verde (teal),
+// Comunidad morado y programas del Diccionario ámbar. Clases completas para que Tailwind las incluya.
+export const PROGRAM_COLORS = {
+  tutorias: { card: 'bg-blue-50/90 border-blue-200 text-blue-950 hover:bg-blue-100', chip: 'bg-blue-100 text-blue-800', chipStrong: 'bg-blue-200/80 text-blue-900', chipBorder: 'bg-blue-50 text-blue-800 border-blue-200', pill: 'bg-[#3a9ad9] text-[#092c4c]', statText: 'text-[#3a9ad9]' },
+  psicoeducativo: { card: 'bg-teal-50/90 border-teal-200 text-teal-950 hover:bg-teal-100', chip: 'bg-teal-100 text-teal-800', chipStrong: 'bg-teal-200/80 text-teal-900', chipBorder: 'bg-teal-50 text-teal-800 border-teal-200', pill: 'bg-teal-400 text-teal-950', statText: 'text-teal-300' },
+  comunidad: { card: 'bg-purple-50/90 border-purple-200 text-purple-950 hover:bg-purple-100', chip: 'bg-purple-100 text-purple-800', chipStrong: 'bg-purple-200/80 text-purple-900', chipBorder: 'bg-purple-50 text-purple-800 border-purple-200', pill: 'bg-purple-400 text-purple-950', statText: 'text-purple-300' },
+  otro: { card: 'bg-amber-50/90 border-amber-200 text-amber-950 hover:bg-amber-100', chip: 'bg-amber-100 text-amber-800', chipStrong: 'bg-amber-200/80 text-amber-900', chipBorder: 'bg-amber-50 text-amber-800 border-amber-200', pill: 'bg-amber-400 text-amber-950', statText: 'text-amber-300' },
+} as const;
+
+export function programColors(program?: string) {
+  if (program === 'tutorias' || program === 'psicoeducativo' || program === 'comunidad') return PROGRAM_COLORS[program];
+  return PROGRAM_COLORS.otro;
+}

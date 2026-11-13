@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
+import { ChangePasswordModal } from './common/ChangePasswordModal';
 import { User, Session, WebNotification, UserAvailability, StudentRequest } from '../types';
 import { 
   triggerNotification, 
@@ -22,7 +23,8 @@ import {
   Calendar, 
   Clock, 
   MapPin, 
-  LogOut, 
+  LogOut,
+  KeyRound, 
   CheckCircle2, 
   Bell, 
   BookOpen, 
@@ -57,6 +59,7 @@ import { useTutorialSeen, legacyTutorialSeen } from '../hooks/useTutorialSeen';
 import { useAuth, getRoleHomePath } from '../context/AuthContext';
 import { ThemeToggle } from './common/ThemeToggle';
 import { NotificationModal } from './common/NotificationModal';
+import { MonthCalendar } from './alumno/MonthCalendar';
 import { AlumnoTutorialModal } from './alumno/AlumnoTutorialModal';
 
 interface AlumnoDashboardProps {
@@ -113,6 +116,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   }, [bookingFeedback]);
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
   const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   
   // Guided Tutorial Tour State
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
@@ -659,11 +663,11 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         listTitle: 'Actividades disponibles',
         emptyTitle: 'No hay actividades para la comunidad',
         emptyHint: 'Aún no hay actividades programadas. Revisa más adelante o atento a los comunicados.',
-        banner: 'bg-rose-700 border-rose-700',
+        banner: 'bg-purple-700 border-purple-700',
         badgeCls: 'bg-white/20 text-white',
-        accentText: 'text-rose-700 dark:text-rose-300',
-        emptyCard: 'border-rose-200 dark:border-rose-800 bg-rose-50/40 dark:bg-rose-950/20',
-        emptyIcon: 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300',
+        accentText: 'text-purple-700 dark:text-purple-300',
+        emptyCard: 'border-purple-200 dark:border-purple-800 bg-purple-50/40 dark:bg-purple-950/20',
+        emptyIcon: 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300',
       }
     : activeSegment === 'psicoeducativo'
     ? {
@@ -689,11 +693,11 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         listTitle: 'Actividades disponibles',
         emptyTitle: 'No hay actividades',
         emptyHint: 'Aún no hay actividades programadas en este programa.',
-        banner: 'bg-indigo-700 border-indigo-700',
+        banner: 'bg-amber-700 border-amber-700',
         badgeCls: 'bg-white/20 text-white',
-        accentText: 'text-indigo-700 dark:text-indigo-300',
-        emptyCard: 'border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/20',
-        emptyIcon: 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300',
+        accentText: 'text-amber-700 dark:text-amber-300',
+        emptyCard: 'border-amber-200 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20',
+        emptyIcon: 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300',
       }
     : {
         icon: Award,
@@ -722,6 +726,18 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
     });
   }, [targetDate]);
+  const [showMonthCalendar, setShowMonthCalendar] = useState(false);
+  // Sesiones disponibles por fecha (para el calendario del mes) y fechas con reserva propia
+  const monthCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    sessions.forEach(s => {
+      if (s.program === activeSegment && !s.isCompleted && !isSessionPast(s) && canStudentAccessSession(s, user.id)) {
+        map[s.date] = (map[s.date] || 0) + 1;
+      }
+    });
+    return map;
+  }, [sessions, activeSegment, user.id]);
+  const bookedDates = useMemo(() => new Set(myActiveBookings.map(s => s.date)), [myActiveBookings]);
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
@@ -747,11 +763,12 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
             {/* Navegación Superior Principal: siempre visible. En pantallas angostas baja a una fila propia
                 y los botones se reparten en varias líneas en vez de quedar ocultos. */}
-            <nav id="alumno-desktop-nav-bar" className="order-3 w-full flex flex-wrap items-center gap-1.5 lg:gap-2 2xl:order-2 2xl:w-auto 2xl:flex-1 2xl:min-w-0 2xl:justify-center">
+            {/* En celular las pestañas que ya están en la barra inferior se ocultan; quedan Inconvenientes y los programas del Diccionario */}
+            <nav id="alumno-desktop-nav-bar" className={`order-3 w-full ${customProgramTabs.length ? 'flex' : 'hidden md:flex'} flex-wrap items-center gap-1.5 lg:gap-2 2xl:order-2 2xl:w-auto 2xl:flex-1 2xl:min-w-0 2xl:justify-center`}>
               <button
                 type="button"
                 onClick={() => setActiveSegment('tutorias')}
-                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`hidden md:flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                   activeSegment === 'tutorias'
                     ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
                     : 'text-slate-200 hover:bg-white/10 hover:text-white'
@@ -764,7 +781,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
               <button
                 type="button"
                 onClick={() => setActiveSegment('psicoeducativo')}
-                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`hidden md:flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                   activeSegment === 'psicoeducativo'
                     ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
                     : 'text-slate-200 hover:bg-white/10 hover:text-white'
@@ -777,7 +794,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
               <button
                 type="button"
                 onClick={() => setActiveSegment('comunidad')}
-                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`hidden md:flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                   activeSegment === 'comunidad'
                     ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
                     : 'text-slate-200 hover:bg-white/10 hover:text-white'
@@ -806,7 +823,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
               <button
                 type="button"
                 onClick={() => setActiveSegment('my_bookings')}
-                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap relative ${
+                className={`hidden md:flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap relative ${
                   activeSegment === 'my_bookings'
                     ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
                     : 'text-slate-200 hover:bg-white/10 hover:text-white'
@@ -826,7 +843,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
               <button
                 type="button"
                 onClick={() => setActiveSegment('history')}
-                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`hidden md:flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                   activeSegment === 'history'
                     ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
                     : 'text-slate-200 hover:bg-white/10 hover:text-white'
@@ -839,7 +856,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
               <button
                 type="button"
                 onClick={() => setActiveSegment('inconvenientes')}
-                className={`flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`hidden md:flex items-center gap-1.5 lg:gap-2 px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                   activeSegment === 'inconvenientes'
                     ? 'bg-[#3a9ad9] text-[#092c4c] shadow-sm font-black'
                     : 'text-slate-200 hover:bg-white/10 hover:text-white'
@@ -851,8 +868,8 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
             </nav>
 
             {/* Acciones Derecha (Bandeja, ThemeToggle, Perfil y Logout) */}
-            <div id="alumno-header-actions-group" className="order-2 flex items-center gap-2 shrink-0 2xl:order-3">
-              {/* Escáner QR en tablet y escritorio (en celular está en la barra inferior, que se oculta desde md) */}
+            <div id="alumno-header-actions-group" className="order-2 flex items-center gap-1.5 sm:gap-2 shrink-0 2xl:order-3">
+              {/* Escáner QR en tablet y escritorio (en celular es la burbuja flotante bajo el perfil) */}
               <button
                 type="button"
                 onClick={() => setIsQRScannerOpen(true)}
@@ -999,6 +1016,18 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                       type="button"
                       onClick={() => {
                         setShowLogoutDropdown(false);
+                        setShowChangePassword(true);
+                      }}
+                      className="w-full mb-2 bg-white/10 hover:bg-white/20 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <KeyRound className="h-3.5 w-3.5" />
+                      <span>Cambiar contraseña</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowLogoutDropdown(false);
                         onLogout();
                       }}
                       className="w-full bg-red-650 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
@@ -1012,6 +1041,18 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
             </div>
           </div>
         </div>
+
+        {/* Celular: QR como burbuja flotante bajo el perfil. Va dentro del header (sticky), así lo sigue al hacer scroll */}
+        <button
+          id="alumno-mobile-qr-section"
+          type="button"
+          onClick={() => setIsQRScannerOpen(true)}
+          aria-label="Escanear QR de asistencia"
+          title="Escanear Código QR de Asistencia"
+          className="md:hidden absolute right-4 top-full mt-3 w-12 h-12 rounded-full flex items-center justify-center bg-[#3a9ad9] text-white shadow-lg shadow-sky-500/40 border-[3px] border-white dark:border-slate-900 active:scale-90 transition-transform cursor-pointer"
+        >
+          <QrCode className="w-6 h-6" />
+        </button>
       </header>
 
       {/* Main Content Viewport */}
@@ -1113,26 +1154,23 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                     Selecciona una Fecha
                   </label>
                   <span className="text-[11px] text-slate-400 dark:text-slate-500">
-                    Navega por los días o elige una fecha específica en el calendario
+                    Navega por los días o abre el calendario del mes
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-[#3a9ad9]" />
-                    <span>Ir a fecha:</span>
-                  </span>
-                  <input
-                    type="date"
-                    value={targetDate}
-                    onChange={(e) => {
-                      // Al escribir con el teclado el navegador entrega fechas a medio escribir (año 0002): se ignoran
-                      const value = e.target.value;
-                      if (/^\d{4}-\d{2}-\d{2}$/.test(value) && Number(value.slice(0, 4)) >= 2020) setTargetDate(value);
-                    }}
-                    className="px-2.5 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-medium focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none"
-                  />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowMonthCalendar(v => !v)}
+                  aria-expanded={showMonthCalendar}
+                  className={`self-start sm:self-auto flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold transition cursor-pointer ${
+                    showMonthCalendar
+                      ? 'bg-[#092c4c] dark:bg-[#3a9ad9] border-[#092c4c] dark:border-[#3a9ad9] text-white dark:text-slate-900'
+                      : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-[#092c4c] dark:text-sky-300 hover:border-[#3a9ad9]'
+                  }`}
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>{showMonthCalendar ? 'Ocultar calendario' : 'Ver calendario del mes'}</span>
+                </button>
               </div>
               
               <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -1173,28 +1211,22 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                 })}
               </div>
 
-              {/* Fechas adicionales con sesiones fuera de los días predeterminados */}
-              {upcomingProgramDates.filter(d => !presetDates.includes(d)).length > 0 && (
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 flex-wrap text-xs">
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">
-                    Otras fechas con sesiones programadas:
-                  </span>
-                  {upcomingProgramDates.filter(d => !presetDates.includes(d)).map(d => (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => setTargetDate(d)}
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition flex items-center gap-1 cursor-pointer ${
-                        targetDate === d
-                          ? 'bg-[#3a9ad9] text-[#092c4c]'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-                      }`}
-                    >
-                      <Calendar className="w-3 h-3" />
-                      <span>{d}</span>
-                    </button>
-                  ))}
-                </div>
+              {showMonthCalendar ? (
+                <MonthCalendar
+                  selected={targetDate}
+                  today={getTodayDateStr()}
+                  onSelect={(d) => setTargetDate(d)}
+                  counts={monthCounts}
+                  booked={bookedDates}
+                />
+              ) : upcomingProgramDates.filter(d => !presetDates.includes(d)).length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowMonthCalendar(true)}
+                  className="w-full pt-2 border-t border-slate-100 dark:border-slate-800 text-left text-xs font-bold text-[#3a9ad9] hover:underline cursor-pointer"
+                >
+                  Hay más fechas con sesiones programadas: ver calendario del mes →
+                </button>
               )}
             </div>
           )}
@@ -1469,40 +1501,40 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                       <div key={s.id} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl p-4 shadow-xs space-y-3 transition-colors">
                         <div className="flex justify-between items-start">
                           <div>
-                            <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
+                            <span className="text-[11px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
                               {programLabel(s.program)}
                             </span>
-                            <h4 className="text-xs font-bold text-slate-800 dark:text-white leading-snug mt-0.5">{s.title}</h4>
+                            <h4 className="text-sm sm:text-base font-bold text-slate-800 dark:text-white leading-snug mt-0.5">{s.title}</h4>
                           </div>
 
-                          <span className="bg-blue-50 dark:bg-sky-950/60 text-brand-navy dark:text-sky-300 rounded font-mono font-bold text-[10px] px-2 py-0.5 whitespace-nowrap">
+                          <span className="bg-blue-50 dark:bg-sky-950/60 text-brand-navy dark:text-sky-300 rounded font-mono font-bold text-xs px-2 py-0.5 whitespace-nowrap">
                             {s.date}
                           </span>
                         </div>
 
-                        <div className="text-[10px] text-slate-500 dark:text-slate-400 space-y-0.5 pt-1 border-t border-slate-50 dark:border-slate-800">
+                        <div className="text-xs text-slate-500 dark:text-slate-400 space-y-0.5 pt-1 border-t border-slate-50 dark:border-slate-800">
                           <p className="flex items-center space-x-1.5">
-                            <Clock className="h-3 w-3 text-slate-400 inline mr-1" />
+                            <Clock className="h-3.5 w-3.5 text-slate-400 inline mr-1" />
                             <span>Horario: {s.timeSlot}</span>
                           </p>
                           <p className="flex items-center space-x-1.5">
-                            <MapPin className="h-3 w-3 text-slate-400 inline mr-1" />
+                            <MapPin className="h-3.5 w-3.5 text-slate-400 inline mr-1" />
                             <span>Ubicación: {s.location}</span>
                           </p>
                           {tutorObj && (
                             <div className="bg-indigo-50/70 dark:bg-indigo-950/40 p-2 rounded-lg border border-indigo-100/80 dark:border-indigo-900 space-y-0.5">
                               <p className="flex items-center space-x-1.5 text-indigo-900 dark:text-indigo-200 font-bold">
-                                <UserCheck className="h-3 w-3 text-indigo-600 inline mr-1 shrink-0" />
+                                <UserCheck className="h-3.5 w-3.5 text-indigo-600 inline mr-1 shrink-0" />
                                 <span>Tutor(a) asignado(a): {tutorObj.name}</span>
                               </p>
-                              <p className="text-[9.5px] text-indigo-700 dark:text-indigo-400 font-medium pl-4">
+                              <p className="text-xs text-indigo-700 dark:text-indigo-400 font-medium pl-4">
                                 🎓 {tutorObj.career || 'Tutor Par UFT'}
                               </p>
                             </div>
                           )}
                           {s.syllabus && (
                             <div className="bg-emerald-50/80 dark:bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-200/80 dark:border-emerald-800 mt-1.5 space-y-1">
-                              <span className="text-[10px] font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1 uppercase tracking-wider">
+                              <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1 uppercase tracking-wider">
                                 📋 Cronograma y Temas a Trabajar:
                               </span>
                               <p className="text-[11px] text-emerald-850 dark:text-emerald-200 font-normal whitespace-pre-line leading-relaxed pl-1">
@@ -1599,14 +1631,14 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                                     <Star
                                       key={starNum}
                                       className={`w-3.5 h-3.5 ${
-                                        starNum <= feedback.rating
+                                        starNum <= Math.round(feedback.rating)
                                           ? 'text-amber-400 fill-amber-400'
                                           : 'text-slate-300 dark:text-slate-600'
                                       }`}
                                     />
                                   ))}
                                   <span className="text-xs font-bold text-amber-900 dark:text-amber-300 ml-1">
-                                    {feedback.rating}.0
+                                    {Number(feedback.rating).toFixed(1)}
                                   </span>
                                 </div>
                                 <button
@@ -2109,7 +2141,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       </div>
 
         {/* Status Bar / Footer matching mockup */}
-        <footer className="h-10 bg-[#061e34] dark:bg-slate-950 border-t border-white/10 flex items-center justify-between px-6 md:px-8 text-[10px] text-slate-300 dark:text-slate-400 font-bold uppercase tracking-wider mt-auto shrink-0 select-none transition-colors">
+        <footer className="h-10 bg-[#061e34] dark:bg-slate-950 border-t border-white/10 flex items-center justify-between px-6 md:pl-8 md:pr-24 text-[10px] text-slate-300 dark:text-slate-400 font-bold uppercase tracking-wider mt-auto shrink-0 select-none transition-colors">
           <div>Portal del Estudiante | Trayectoria Estudiantil UFT</div>
           <div className="flex gap-4">
             <span className="flex items-center gap-1">
@@ -2452,19 +2484,6 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
           <span className="text-[10px] leading-tight">Comunidad</span>
         </button>
 
-        {/* 3. Escanear QR (Botón Central Destacado) */}
-        <div id="alumno-mobile-qr-section" className="flex flex-col items-center justify-center -mt-5 px-1.5 z-50">
-          <button
-            type="button"
-            onClick={() => setIsQRScannerOpen(true)}
-            className="flex items-center justify-center w-12 h-12 rounded-full text-white bg-[#3a9ad9] hover:bg-[#0284c7] shadow-lg shadow-sky-500/30 border-[3px] border-[#092c4c] dark:border-slate-900 active:scale-90 transition-all cursor-pointer hover:brightness-110"
-            title="Escanear Código QR de Asistencia"
-          >
-            <QrCode className="w-6 h-6 text-white" />
-          </button>
-          <span className="text-[9px] font-extrabold text-brand-celeste mt-0.5">QR</span>
-        </div>
-
         {/* 4. Mis Reservas */}
         <button
           type="button"
@@ -2509,6 +2528,25 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
           <History className={`w-4 h-4 mb-0.5 ${activeSegment === 'history' ? 'text-brand-celeste' : 'text-slate-400'}`} />
           <span className="text-[10px] leading-tight">Historial</span>
         </button>
+              {/* Inconvenientes (avisar un tope de horario) */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveSegment('inconvenientes');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            const mainElem = document.getElementById('student-main-panel-workspace');
+            if (mainElem) mainElem.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer flex-1 ${
+            activeSegment === 'inconvenientes'
+              ? 'text-brand-celeste font-bold'
+              : 'text-slate-400 hover:text-white font-medium'
+          }`}
+          title="Inconvenientes: avisar un tope de horario"
+        >
+          <AlertCircle className={`w-4 h-4 mb-0.5 ${activeSegment === 'inconvenientes' ? 'text-brand-celeste' : 'text-amber-300'}`} />
+          <span className="text-[10px] leading-tight">Avisos</span>
+        </button>
       </nav>
 
       {/* Modal de Escáner QR con Cámara para Celular */}
@@ -2537,6 +2575,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
           if (mainElem) mainElem.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
+      <ChangePasswordModal isOpen={showChangePassword} onClose={() => setShowChangePassword(false)} />
     </div>
   );
 }

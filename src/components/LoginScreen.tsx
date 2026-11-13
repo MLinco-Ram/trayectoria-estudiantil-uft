@@ -407,25 +407,25 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                       <h4 className="font-black text-xs uppercase tracking-wider leading-tight">
                         AVISO IMPORTANTE • USO DE DATOS PARA TESIS
                       </h4>
-                      <p className="text-[10px] text-red-100 font-semibold">
+                      <p className="text-xs text-red-100 font-semibold">
                         Ley N° 19.628 y Ley N° 21.719 sobre Protección de la Vida Privada (Chile)
                       </p>
                     </div>
                   </div>
-                  <p className="text-[11px] leading-snug text-red-50 bg-red-800/50 p-2.5 rounded-xl border border-red-400/40">
+                  <p className="text-xs leading-snug text-red-50 bg-red-800/50 p-2.5 rounded-xl border border-red-400/40">
                     Se informa expresamente a los usuarios que la información y los datos ingresados en esta plataforma serán utilizados con fines exclusivamente académicos, estadísticos y de investigación para el desarrollo de una <strong>Tesis de Grado</strong> de la Universidad Finis Terrae. El tratamiento de la información se rige en estricto cumplimiento con la legislación chilena vigente sobre protección y resguardo de datos personales, garantizando su anonimización y confidencialidad.
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">Nombre completo</label>
+                  <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-1">Nombre completo</label>
                   <div className="flex items-center bg-[#007ba7] dark:bg-[#083556] rounded-full p-1.5 border-2 border-slate-900 dark:border-slate-700 shadow-md overflow-hidden">
                     <div className="w-9 h-9 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-slate-800 dark:text-slate-200 shrink-0 border border-slate-200 dark:border-slate-700 shadow-inner">
                       <UserIcon className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                     </div>
                     <input
                       type="text"
-                      className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75"
+                      className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-sm font-bold text-white placeholder-white/75"
                       placeholder="Ej. Camila Linco"
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
@@ -434,14 +434,14 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">RUT</label>
+                  <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-1">RUT</label>
                   <div className="flex items-center bg-[#007ba7] dark:bg-[#083556] rounded-full p-1.5 border-2 border-slate-900 dark:border-slate-700 shadow-md overflow-hidden">
                     <div className="w-9 h-9 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-slate-800 dark:text-slate-200 shrink-0 border border-slate-200 dark:border-slate-700 shadow-inner">
                       <UserIcon className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                     </div>
                     <input
                       type="text"
-                      className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75 font-mono"
+                      className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-sm font-bold text-white placeholder-white/75 font-mono"
                       placeholder="12.345.678-9"
                       value={regRut}
                       onChange={(e) => setRegRut(formatRut(e.target.value))}
@@ -450,7 +450,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-red-600 dark:text-red-400 mb-1">
+                  <label className="block text-sm font-bold text-red-600 dark:text-red-400 mb-1">
                     Correo institucional (@uft.cl / @mail.uft.cl)
                   </label>
                   <div className="flex items-center bg-white dark:bg-slate-800 rounded-full p-1.5 border-2 border-slate-900 dark:border-slate-700 shadow-md overflow-hidden">
@@ -459,7 +459,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     </div>
                     <input
                       type="email"
-                      className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-xs font-bold text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"
+                      className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-sm font-bold text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"
                       placeholder="ejemplo@uft.cl"
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
@@ -468,21 +468,21 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">Carrera</label>
+                  <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-1">Carrera</label>
                   <CareerSearch
                     value={regCareer}
                     onChange={setRegCareer}
-                    inputClassName="w-full pl-4 pr-10 py-2.5 bg-[#0d2f52] dark:bg-slate-800 text-white placeholder:text-white/70 rounded-full border-2 border-slate-900 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-[#3a9ad9] text-xs font-bold shadow-md"
+                    inputClassName="w-full pl-4 pr-10 py-2.5 bg-[#0d2f52] dark:bg-slate-800 text-white placeholder:text-white/70 rounded-full border-2 border-slate-900 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-[#3a9ad9] text-sm font-bold shadow-md"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">Contraseña</label>
+                    <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-1">Contraseña</label>
                     <div className="flex items-center bg-[#007ba7] dark:bg-[#083556] rounded-full p-1.5 border-2 border-slate-900 dark:border-slate-700 shadow-md overflow-hidden">
                       <input
                         type={showRegPassword ? 'text' : 'password'}
-                        className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75"
+                        className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-sm font-bold text-white placeholder-white/75"
                         placeholder="Mínimo 6 caracteres"
                         autoComplete="new-password"
                         value={regPassword}
@@ -498,11 +498,11 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">Confirmar</label>
+                    <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-1">Confirmar</label>
                     <div className="flex items-center bg-[#007ba7] dark:bg-[#083556] rounded-full p-1.5 border-2 border-slate-900 dark:border-slate-700 shadow-md overflow-hidden">
                       <input
                         type={showRegConfirm ? 'text' : 'password'}
-                        className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75"
+                        className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-sm font-bold text-white placeholder-white/75"
                         placeholder="Repite"
                         autoComplete="new-password"
                         value={regConfirmPassword}
@@ -520,7 +520,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 </div>
 
                 {regFeedback && (
-                  <div className={`p-2.5 text-xs rounded-2xl border font-bold flex items-center space-x-1.5 ${regFeedback.status === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                  <div className={`p-2.5 text-sm rounded-2xl border font-bold flex items-center space-x-1.5 ${regFeedback.status === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
                     {regFeedback.status === 'success' && <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />}
                     <span>{regFeedback.message}</span>
                   </div>
