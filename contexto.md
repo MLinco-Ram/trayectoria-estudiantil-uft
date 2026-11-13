@@ -1014,6 +1014,7 @@ Prueba general del Portal Alumno con un curso (13 nov 2026, 24 respuestas, Ing. 
     - Sigue aceptando el formato JSON antiguo.
   - **Portal Alumno**: botón "Escanear QR" en la barra superior desde `md` (tablet y escritorio).
   - **Pantalla completa** del proyector: usa la Fullscreen API del navegador (`requestFullscreen`) y muestra solo el QR sobre fondo blanco y una X para cerrar. Esc vuelve al modal normal. En navegadores sin la API (iPhone) se ve igual dentro de la página.
+- **PIN de asistencia (para quien no puede escanear)**: junto al QR (modal y pantalla completa) se muestra un PIN de 6 dígitos. Se deriva del id de la sesión con HMAC (`HMAC_SECRET`), no se guarda en la BD y los alumnos no lo reciben en `/api/sessions`. `GET /api/sessions/:id/attendance-pin` (tutor/staff) lo entrega al proyector. El alumno lo escribe en el campo manual del escáner y va a `POST /api/sessions/attendance-pin { pin }`, que busca entre las sesiones **de hoy en que está inscrito** y sigue el mismo camino que el QR (`registerQRAttendance`). El campo manual sigue aceptando el id de la sesión o el texto del QR.
 - **Riesgo conocido (sin corregir)**: el id de la sesión es visible para los alumnos (lo usan para el ingreso manual), así que alguien podría marcar asistencia sin estar en la sala. Para evitarlo haría falta un código rotativo firmado por el servidor.
 
 ### 6. No se podía ver la contraseña al escribirla (alto)
@@ -1046,5 +1047,14 @@ Cuenta de prueba creada desde el registro: **Prueba**, RUT 11.111.112-K, prueba.
   - Recuperación y cambio de contraseña con mínimo 6.
   - Que Chrome ya no autocomplete la contraseña del registro: el cambio a `new-password` no se revisó tras recargar.
 
+### Cambios posteriores (13 nov 2026)
+- **Colores por programa** (`PROGRAM_COLORS` / `programColors()` en `src/data.ts`), iguales en todos los portales: Tutorías azul, Psicoeducativo verde (teal), Comunidad morado (antes rojo, parecía un error) y programas del Diccionario ámbar. Los usan el portal Alumno, el calendario del Docente (antes todo lo que no era tutoría salía morado) y las tarjetas del Tutor.
+- **Barras del alumno en celular**: la barra inferior tiene Tutorías, Talleres, Comunidad, Reservas, Historial y Avisos (Inconvenientes). En la barra superior esas pestañas se ocultan bajo `md` (solo quedan los programas del Diccionario) y el QR es una burbuja flotante bajo el perfil (`#alumno-mobile-qr-section`, dentro del header sticky, solo en celular); desde `md` sigue el botón "Escanear QR" del header. Ya no hay botón QR central abajo.
+- **Letra más grande**: el formulario de registro (etiquetas y campos de `text-xs` a `text-sm`) y las tarjetas de "Mis Reservas" (título `text-sm sm:text-base`, detalles `text-xs`).
+- **Calendario del mes** (`src/components/alumno/MonthCalendar.tsx`): en Tutorías/Talleres/Comunidad el selector nativo `type="date"` se reemplazó por el botón "Ver calendario del mes", que despliega una grilla mensual (lunes primero) con la cantidad de sesiones disponibles por día, un punto verde en días con reserva propia, hoy marcado y "Volver a hoy". Reemplaza también los chips de "Otras fechas con sesiones". La tira de 5 días se mantiene.
+- **Burbuja de accesibilidad** (`src/components/common/AccessibilityWidget.tsx`, montada en `App.tsx`, presente en todas las páginas): botón flotante abajo a la derecha (sobre la barra inferior en alumno/tutor en celular) con tamaño de texto (100/115/130/150 %), alto contraste, resaltar enlaces y botones, fuente legible, espaciado de texto y detener animaciones. Se guarda en `localStorage` (`uft-a11y`) por navegador y se aplica con clases `a11y-*` y `--a11y-scale` en `<html>`; los estilos están al final de `index.css`. El tamaño escala la base rem y, por selectores de atributo, los tamaños fijos `text-[Npx]`. El alto contraste redefine las variables `--color-slate-*` de Tailwind.
+- **Cambiar contraseña desde el portal** (`src/components/common/ChangePasswordModal.tsx`): en el menú del perfil de alumno y tutor, sobre "Cerrar Sesión". Pide contraseña actual, nueva y confirmación (cada una con mostrar/ocultar) y usa `POST /api/change-password` (`authApi.changePassword`), con las mismas reglas del servidor.
+- **Nota de la encuesta en Historial**: se mostraba "4.3.0" (`{rating}.0`); ahora `toFixed(1)` y las estrellas se redondean.
+
 ### Pendientes de la prueba (aún no corregidos)
-- **Diseño**: el rojo de Comunidad, contraste del modo oscuro, interfaz móvil, ajustes de usuario (contraseña, tamaño de letra, apagar los correos).
+- Descartados: modo oscuro, apagar correos, confirmación de correo (se da por confirmado al recibir la contraseña y entrar) y horario de asignaturas.

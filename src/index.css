@@ -352,3 +352,79 @@ html.dark .shadow-2xl {
   caret-color: #fff;
   transition: background-color 600000s 0s;
 }
+
+/* ==========================================
+   Accesibilidad (AccessibilityWidget.tsx)
+   ========================================== */
+
+/* Tamaño de texto: la base rem escala todo lo hecho en rem (textos, botones, espacios) */
+html.a11y-scaled { font-size: calc(100% * var(--a11y-scale, 1)); }
+/* Los tamaños fijos en px (text-[10px], etc.) no siguen al rem: se escalan aquí */
+html.a11y-scaled [class~="text-[8px]"] { font-size: calc(8px * var(--a11y-scale)); }
+html.a11y-scaled [class~="text-[8.5px]"] { font-size: calc(8.5px * var(--a11y-scale)); }
+html.a11y-scaled [class~="text-[9px]"] { font-size: calc(9px * var(--a11y-scale)); }
+html.a11y-scaled [class~="text-[9.5px]"] { font-size: calc(9.5px * var(--a11y-scale)); }
+html.a11y-scaled [class~="text-[10px]"] { font-size: calc(10px * var(--a11y-scale)); }
+html.a11y-scaled [class~="text-[10.5px]"] { font-size: calc(10.5px * var(--a11y-scale)); }
+html.a11y-scaled [class~="text-[11px]"] { font-size: calc(11px * var(--a11y-scale)); }
+html.a11y-scaled [class~="text-[11.5px]"] { font-size: calc(11.5px * var(--a11y-scale)); }
+@media (min-width: 40rem) {
+  html.a11y-scaled [class~="sm:text-[9px]"] { font-size: calc(9px * var(--a11y-scale)); }
+  html.a11y-scaled [class~="sm:text-[10px]"] { font-size: calc(10px * var(--a11y-scale)); }
+  html.a11y-scaled [class~="sm:text-[11px]"] { font-size: calc(11px * var(--a11y-scale)); }
+  html.a11y-scaled [class~="sm:text-[13px]"] { font-size: calc(13px * var(--a11y-scale)); }
+  html.a11y-scaled [class~="sm:text-xs"] { font-size: var(--text-xs); }
+  html.a11y-scaled [class~="sm:text-sm"] { font-size: var(--text-sm); }
+  html.a11y-scaled [class~="sm:text-base"] { font-size: var(--text-base); }
+}
+
+/* Alto contraste: los grises claros de texto y borde pasan a tonos más oscuros (o más claros en modo oscuro) */
+html.a11y-contrast {
+  --color-slate-300: #64748b;
+  --color-slate-400: #334155;
+  --color-slate-500: #1e293b;
+  --color-slate-600: #0f172a;
+  --color-slate-200: #94a3b8;
+  --color-slate-100: #cbd5e1;
+}
+html.dark.a11y-contrast {
+  --color-slate-300: #f8fafc;
+  --color-slate-400: #f1f5f9;
+  --color-slate-500: #e2e8f0;
+  --color-slate-600: #cbd5e1;
+  --color-slate-700: #94a3b8;
+  --color-slate-800: #475569;
+  --color-slate-100: #cbd5e1;
+  --color-slate-200: #94a3b8;
+}
+
+/* Resaltar enlaces y botones */
+html.a11y-links a { text-decoration: underline !important; text-underline-offset: 3px; }
+html.a11y-links :is(a, button, input, select, textarea, [role="button"]):focus-visible {
+  outline: 3px solid #f59e0b !important;
+  outline-offset: 2px !important;
+}
+html.a11y-links button:not(:disabled):hover { outline: 2px dashed #3a9ad9; outline-offset: 2px; }
+
+/* Fuente legible */
+html.a11y-readable body,
+html.a11y-readable body :not(svg):not(svg *) {
+  font-family: Verdana, Tahoma, "Segoe UI", Arial, sans-serif !important;
+}
+
+/* Espaciado de texto (WCAG 1.4.12) */
+html.a11y-spacing body :not(svg):not(svg *) {
+  letter-spacing: 0.06em !important;
+  word-spacing: 0.12em !important;
+  line-height: 1.6 !important;
+}
+
+/* Detener animaciones */
+html.a11y-no-motion *,
+html.a11y-no-motion *::before,
+html.a11y-no-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}

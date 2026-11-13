@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { ChangePasswordModal } from './common/ChangePasswordModal';
 import { User, Session, IssueReport, UserAvailability, SessionFeedback, WebNotification } from '../types';
-import { triggerNotification, TIME_SLOTS } from '../data';
+import { triggerNotification, TIME_SLOTS, programColors } from '../data';
 import { useDictionary } from '../hooks/useDictionary';
 import { getSocket } from '../services/socket';
 import { 
@@ -11,7 +12,8 @@ import {
   MapPin, 
   Users, 
   User as UserIcon, 
-  LogOut, 
+  LogOut,
+  KeyRound, 
   CheckCircle,
   HelpCircle,
   Megaphone,
@@ -138,6 +140,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
   const [allAvailabilities, setAllAvailabilities] = useState<UserAvailability[]>([]);
   const [activeQRModalSession, setActiveQRModalSession] = useState<Session | null>(null);
   const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   // Evita que una recarga en segundo plano (disparada por cambios en OTRA pestaña, ej. el panel del docente)
   // sobrescriba bloques de disponibilidad que el tutor recién marcó y aún no ha guardado.
   const availabilityDirtyRef = useRef(false);
@@ -860,6 +863,18 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                       type="button"
                       onClick={() => {
                         setShowLogoutDropdown(false);
+                        setShowChangePassword(true);
+                      }}
+                      className="w-full mb-2 bg-white/10 hover:bg-white/20 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <KeyRound className="h-3.5 w-3.5" />
+                      <span>Cambiar contraseña</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowLogoutDropdown(false);
                         onLogout();
                       }}
                       className="w-full bg-red-650 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
@@ -958,11 +973,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                       >
                         <div className="flex justify-between items-start">
                           <span className={`font-bold text-[9px] uppercase tracking-wider px-2 py-0.5 rounded border ${
-                            s.type === 'tutoria_general'
-                              ? 'bg-blue-50 text-blue-800 border-blue-200'
-                              : s.type === 'psico_taller' || s.type === 'psico_asesoria_individual'
-                              ? 'bg-purple-50 text-purple-800 border-purple-200'
-                              : 'bg-sky-50 text-sky-800 border-sky-200'
+                            programColors(s.program).chipBorder
                           }`}>
                             {s.type === 'tutoria_general' ? 'Tutoría Grupal' : s.type === 'psico_taller' ? 'Taller Psicoeducativo' : s.type === 'psico_asesoria_individual' ? 'Asesoría Psicoeducativa' : s.type === 'actividad_comunidad' ? 'Actividad Comunidad' : 'Tutoría Personalizada'}
                           </span>
@@ -2542,7 +2553,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
         </div>
 
         {/* Status Bar / Footer matching mockup */}
-        <footer className="h-10 bg-[#061e34] dark:bg-slate-950 border-t border-white/10 flex items-center justify-between px-6 md:px-8 text-[10px] text-slate-300 dark:text-slate-400 font-bold uppercase tracking-wider mt-auto shrink-0 select-none transition-colors">
+        <footer className="h-10 bg-[#061e34] dark:bg-slate-950 border-t border-white/10 flex items-center justify-between px-6 md:pl-8 md:pr-24 text-[10px] text-slate-300 dark:text-slate-400 font-bold uppercase tracking-wider mt-auto shrink-0 select-none transition-colors">
           <div>Portal del {isLeadTutor ? 'Tutor de Tutores' : 'Tutor Par'}</div>
           <div className="flex gap-4">
             <span className="flex items-center gap-1">
@@ -2588,6 +2599,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
           if (mainElem) mainElem.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
+      <ChangePasswordModal isOpen={showChangePassword} onClose={() => setShowChangePassword(false)} />
     </div>
   );
 }

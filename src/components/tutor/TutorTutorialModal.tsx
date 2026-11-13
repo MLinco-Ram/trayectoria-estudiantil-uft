@@ -103,7 +103,7 @@ export const TutorTutorialModal: React.FC<TutorTutorialModalProps> = ({
         tab: 'attendance',
         description: 'Pasa lista de manera digital marcando a los alumnos como Presente, Ausente o Justificado en segundos.',
         tips: [
-          'Proyecta el código QR o comparte el PIN de 4 dígitos para que los alumnos marquen con su celular.',
+          'Proyecta el código QR o comparte el PIN de 6 dígitos para que los alumnos marquen con su celular.',
           'La asistencia queda sincronizada de inmediato en los registros centrales de la universidad.'
         ]
       },

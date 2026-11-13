@@ -20,7 +20,7 @@ import {
   X,
   AlertCircle
 } from 'lucide-react';
-import { TIME_SLOTS, programLabel, getCustomPrograms } from '../../data';
+import { TIME_SLOTS, programLabel, getCustomPrograms, programColors } from '../../data';
 import { sessionsApi } from '../../services/api';
 import { TutorBlocksCalendar } from './tutorAvailability';
 
@@ -224,13 +224,13 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
               </div>
               <div className="bg-white/10 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/15 text-center">
                 <span className="text-[10px] uppercase font-bold text-slate-300 block">Psicoeducativo</span>
-                <span className="text-lg font-black text-purple-300">
+                <span className="text-lg font-black text-teal-300">
                   {filteredSessions.filter(s => s.program === 'psicoeducativo').length}
                 </span>
               </div>
               <div className="bg-white/10 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/15 text-center">
                 <span className="text-[10px] uppercase font-bold text-slate-300 block">Comunidad</span>
-                <span className="text-lg font-black text-rose-300">
+                <span className="text-lg font-black text-purple-300">
                   {filteredSessions.filter(s => s.program === 'comunidad').length}
                 </span>
               </div>
@@ -429,15 +429,13 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
                                       key={sess.id}
                                       onClick={() => setSelectedSessionDetail(sess)}
                                       className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md ${
-                                        isTutorias
-                                          ? 'bg-blue-50/90 border-blue-200 text-blue-950 hover:bg-blue-100'
-                                          : 'bg-purple-50/90 border-purple-200 text-purple-950 hover:bg-purple-100'
+                                        programColors(sess.program).card
                                       }`}
                                     >
                                       {/* Header de la tarjeta */}
                                       <div className="flex items-center justify-between gap-1 mb-1">
                                         <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded ${
-                                          isTutorias ? 'bg-blue-200/80 text-blue-900' : 'bg-purple-200/80 text-purple-900'
+                                          programColors(sess.program).chipStrong
                                         }`}>
                                           {isTutorias ? 'Tutoría' : sess.program === 'psicoeducativo' ? 'Psico' : programLabel(sess.program, 'short').slice(0, 8)}
                                         </span>
@@ -569,9 +567,7 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
                             key={sess.id}
                             onClick={() => setSelectedSessionDetail(sess)}
                             className={`text-[10px] p-1 rounded-md font-semibold truncate cursor-pointer transition ${
-                              sess.program === 'tutorias'
-                                ? 'bg-blue-100 text-blue-900 hover:bg-blue-200'
-                                : 'bg-purple-100 text-purple-900 hover:bg-purple-200'
+                              programColors(sess.program).chip
                             }`}
                             title={`${sess.timeSlot} - ${sess.title}`}
                           >
@@ -617,7 +613,7 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
                       <div>
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
-                            isTutorias ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                            programColors(sess.program).chip
                           }`}>
                             {programLabel(sess.program, 'short')}
                           </span>
@@ -687,7 +683,7 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
             <div className="bg-[#092c4c] text-white p-6 flex items-start justify-between">
               <div className="space-y-1">
                 <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
-                  selectedSessionDetail.program === 'tutorias' ? 'bg-[#3a9ad9] text-[#092c4c]' : 'bg-purple-400 text-purple-950'
+                  programColors(selectedSessionDetail.program).pill
                 }`}>
                   {programLabel(selectedSessionDetail.program)}
                 </span>

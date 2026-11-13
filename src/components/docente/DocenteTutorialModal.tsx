@@ -164,7 +164,7 @@ export const DocenteTutorialModal: React.FC<DocenteTutorialModalProps> = ({
         title: 'Proyección de QR y PIN en Vivo',
         badge: 'Paso 2 de 3 • Auto-Check-in Alumnos',
         icon: Sparkles,
-        description: 'Abre el modal interactivo de Código QR para proyectarlo en pantalla completa en la sala. Los alumnos pueden escanearlo o ingresar el PIN de 4 dígitos.',
+        description: 'Abre el modal interactivo de Código QR para proyectarlo en pantalla completa en la sala. Los alumnos pueden escanearlo o ingresar el PIN de 6 dígitos.',
         tips: [
           'El registro de los estudiantes que escanean se refleja inmediatamente en tiempo real.',
           'Incluye botón para copiar el enlace de asistencia rápida.'

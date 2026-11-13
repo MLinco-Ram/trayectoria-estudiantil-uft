@@ -7,6 +7,7 @@ import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth, getRoleHomePath } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { AccessibilityWidget } from './components/common/AccessibilityWidget';
 import { ProtectedRoute } from './components/routes/ProtectedRoute';
 import LoginScreen from './components/LoginScreen';
 
@@ -67,12 +68,12 @@ function LoginRouteWrapper() {
   return <LoginScreen />;
 }
 
-// Versión desplegada en la esquina; los portales de alumno y tutor la muestran en su barra inferior
+// Versión desplegada abajo a la derecha, a la izquierda de la burbuja de accesibilidad; los portales de alumno y tutor la muestran en su barra inferior
 function FloatingVersion() {
   const { pathname } = useLocation();
   if (pathname.startsWith('/alumno') || pathname.startsWith('/tutor')) return null;
   return (
-    <div className="fixed bottom-1 right-2 z-[9999] pointer-events-none select-none text-[10px] font-mono text-slate-400/70" aria-hidden="true">
+    <div className="fixed bottom-1 right-20 z-[9999] pointer-events-none select-none text-[10px] font-mono text-slate-400/70" aria-hidden="true">
       v {__APP_VERSION__}
     </div>
   );
@@ -132,6 +133,7 @@ export default function App() {
           </Routes>
           </Suspense>
           <FloatingVersion />
+          <AccessibilityWidget />
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

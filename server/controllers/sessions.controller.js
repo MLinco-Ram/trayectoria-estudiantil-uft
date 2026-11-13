@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { emitEvent } from '../services/socket.service.js';
 import { sendServerError } from '../utils/errors.js';
 import { normalizeRoomCode } from './rooms.controller.js';
@@ -282,6 +283,45 @@ export const unenrollSession = async (req, res) => {
     if (!updated) return res.status(404).json({ error: 'La sesión no existe.' });
     emitEvent('sessions:changed', { action: 'update', sessionId: id, session: updated });
     res.json({ success: true, session: sessionForRequester(req, updated) });
+  } catch (err) {
+    sendServerError(res, err);
+  }
+};
+
+// PIN de asistencia de 6 dígitos para quien no puede escanear el QR. Se deriva del id de la sesión con
+// HMAC_SECRET (no se guarda en la BD) y solo lo ven tutores y coordinación, en el proyector junto al QR.
+const attendancePinFor = (sessionId) => {
+  const secret = process.env.HMAC_SECRET || process.env.SESSION_SECRET || 'trayectoria-uft';
+  const n = crypto.createHmac('sha256', secret).update(`pin:${sessionId}`).digest().readUInt32BE(0);
+  return String(n % 1000000).padStart(6, '0');
+};
+
+// GET /api/sessions/:id/attendance-pin — tutores y coordinación
+export const getAttendancePin = async (req, res) => {
+  try {
+    const session = await req.db.collection('sessions').findOne({ id: req.params.id }, { projection: { id: 1 } });
+    if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
+    res.json({ pin: attendancePinFor(session.id) });
+  } catch (err) {
+    sendServerError(res, err);
+  }
+};
+
+// POST /api/sessions/attendance-pin { pin } — el alumno marca asistencia con el PIN. Se busca entre
+// las sesiones de hoy en las que está inscrito, y luego sigue el mismo camino que el QR.
+export const registerPinAttendance = async (req, res, next) => {
+  try {
+    const pin = String(req.body?.pin || '').replace(/\D/g, '');
+    if (pin.length !== 6) return res.status(400).json({ error: 'El PIN tiene 6 dígitos.' });
+    const today = nowInSantiago().date;
+    const candidates = await req.db.collection('sessions')
+      .find({ date: today, studentIds: req.user.id }, { projection: { id: 1 } })
+      .toArray();
+    const match = candidates.find(s => attendancePinFor(s.id) === pin);
+    if (!match) return res.status(404).json({ error: 'PIN incorrecto, o no estás inscrito en una sesión de hoy con ese PIN.' });
+    req.params.id = match.id;
+    req.body = {};
+    return registerQRAttendance(req, res, next);
   } catch (err) {
     sendServerError(res, err);
   }

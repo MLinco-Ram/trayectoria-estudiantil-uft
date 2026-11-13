@@ -110,10 +110,10 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
           badge: '5. Escáner QR de Asistencia',
           icon: QrCode,
           tab: 'my_bookings',
-          description: 'Al llegar a tu tutoría, utiliza el botón central de escaneo con cámara para leer el código QR que proyectará tu tutor y validar tu asistencia al instante.',
+          description: 'Al llegar a tu tutoría, pulsa la burbuja QR flotante (arriba a la derecha, bajo tu perfil) para leer el código QR que proyectará tu tutor y validar tu asistencia al instante.',
           tips: [
-            'Usa el botón central de la cámara para escanear el código QR.',
-            'También puedes ingresar el PIN de 4 dígitos si no dispones de cámara.'
+            'La burbuja QR te sigue al bajar por la página.',
+            'También puedes ingresar el PIN de 6 dígitos que aparece junto al QR si no puedes escanear.'
           ]
         }
       : {

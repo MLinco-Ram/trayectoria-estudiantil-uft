@@ -136,7 +136,7 @@ export const MobileQRScannerModal: React.FC<MobileQRScannerModalProps> = ({
     }
   };
 
-  const handleSuccessfulScan = async (rawDecodedText: string) => {
+  const handleSuccessfulScan = async (rawDecodedText: string, viaPin = false) => {
     if (processingRef.current) return;
     processingRef.current = true;
     setIsProcessing(true);
@@ -163,7 +163,9 @@ export const MobileQRScannerModal: React.FC<MobileQRScannerModalProps> = ({
         // Raw sessionId string fallback
       }
 
-      const response = await sessionsApi.registerQRAttendance(sessionId, currentUser.id);
+      const response = viaPin
+        ? await sessionsApi.registerPinAttendance(sessionId)
+        : await sessionsApi.registerQRAttendance(sessionId, currentUser.id);
 
       if (response && response.success) {
         await stopScanner();
@@ -191,8 +193,12 @@ export const MobileQRScannerModal: React.FC<MobileQRScannerModalProps> = ({
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!manualCode.trim()) return;
-    handleSuccessfulScan(manualCode.trim());
+    const code = manualCode.trim();
+    if (!code) return;
+    // 6 dígitos = PIN mostrado junto al QR; cualquier otra cosa se trata como id de sesión o texto del QR
+    const digits = code.replace(/[\s-]/g, '');
+    if (/^\d{6}$/.test(digits)) handleSuccessfulScan(digits, true);
+    else handleSuccessfulScan(code);
   };
 
   if (!isOpen) return null;
@@ -319,15 +325,17 @@ export const MobileQRScannerModal: React.FC<MobileQRScannerModalProps> = ({
               <div className="pt-2 border-t border-slate-100">
                 <form onSubmit={handleManualSubmit} className="space-y-2">
                   <label className="block text-[11px] font-bold text-slate-600">
-                    ¿Problemas con la cámara? Ingresa el ID de la sesión:
+                    ¿No puedes escanear? Ingresa el PIN que aparece junto al QR:
                   </label>
                   <div className="flex gap-2">
                     <input
                       type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
                       value={manualCode}
                       onChange={(e) => setManualCode(e.target.value)}
-                      placeholder="Ej: sess-12345 o pega el texto QR"
-                      className="flex-1 text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3a9ad9]"
+                      placeholder="Ej: 123 456"
+                      className="flex-1 min-w-0 text-base tracking-widest font-mono px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3a9ad9]"
                     />
                     <button
                       type="submit"

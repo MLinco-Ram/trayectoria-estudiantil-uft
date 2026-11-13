@@ -363,6 +363,16 @@ export const deleteUser = async (req, res) => {
       return res.status(404).json({ error: "Usuario no encontrado para eliminar." });
     }
 
+    // Quitarlo de las sesiones donde estaba inscrito (si no, queda como un inscrito fantasma que ocupa cupo)
+    const affected = await db.collection('sessions').find({ $or: [{ studentIds: id }, { [`attendance.${id}`]: { $exists: true } }, { [`ratings.${id}`]: { $exists: true } }] }, { projection: { id: 1 } }).toArray();
+    if (affected.length > 0) {
+      await db.collection('sessions').updateMany(
+        { id: { $in: affected.map(s => s.id) } },
+        { $pull: { studentIds: id }, $unset: { [`attendance.${id}`]: '', [`ratings.${id}`]: '' } }
+      );
+      affected.forEach(s => emitEvent('sessions:changed', { action: 'update', sessionId: s.id }));
+    }
+
     emitEvent('users:changed', { action: 'delete', userId: id });
 
     res.json({ success: true, message: `Usuario ${id} eliminado exitosamente de MongoDB Atlas.` });

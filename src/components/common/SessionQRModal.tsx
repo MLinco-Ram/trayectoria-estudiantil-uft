@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Session, User } from '../../types';
-import { X, QrCode, Calendar, Clock, MapPin, Sparkles, CheckCircle2, Maximize2, Minimize2, Tv } from 'lucide-react';
+import { sessionsApi } from '../../services/api';
+import { X, QrCode, Calendar, Clock, MapPin, CheckCircle2, Maximize2, Minimize2, Tv } from 'lucide-react';
 
 interface SessionQRModalProps {
   session: Session | null;
@@ -12,6 +13,18 @@ interface SessionQRModalProps {
 export const SessionQRModal: React.FC<SessionQRModalProps> = ({ session, onClose, allUsers = [] }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  // PIN de 6 dígitos para quien no puede escanear: se muestra al lado del QR
+  const [pin, setPin] = useState<string | null>(null);
+  const sessionId = session?.id;
+  useEffect(() => {
+    setPin(null);
+    if (!sessionId) return;
+    let cancelled = false;
+    sessionsApi.getAttendancePin(sessionId)
+      .then(r => { if (!cancelled) setPin(r.pin); })
+      .catch(err => console.warn('No se pudo obtener el PIN de asistencia:', err));
+    return () => { cancelled = true; };
+  }, [sessionId]);
 
   // Pantalla completa real del navegador (Fullscreen API), no solo agrandar el modal.
   // El estado se sincroniza con el navegador: salir con Esc también lo actualiza.
@@ -42,6 +55,21 @@ export const SessionQRModal: React.FC<SessionQRModalProps> = ({ session, onClose
 
   if (!session) return null;
 
+  const pinBlock = (big: boolean) => pin && (
+    <div className="flex flex-col items-center justify-center text-center shrink-0">
+      <span className={`font-extrabold uppercase tracking-widest text-slate-500 ${big ? 'text-base sm:text-xl' : 'text-[11px] sm:text-xs'}`}>PIN</span>
+      <span
+        className={`font-mono font-black text-[#092c4c] leading-none tracking-[0.12em] ${big ? 'text-6xl sm:text-8xl' : 'text-4xl sm:text-5xl'}`}
+        aria-label={`PIN de asistencia ${pin.split('').join(' ')}`}
+      >
+        {pin.slice(0, 3)}<br />{pin.slice(3)}
+      </span>
+      <span className={`font-semibold text-slate-500 mt-2 max-w-[11rem] ${big ? 'text-sm sm:text-base' : 'text-[10px] sm:text-[11px]'}`}>
+        ¿No puedes escanear? Ingresa este PIN en "Escanear QR"
+      </span>
+    </div>
+  );
+
   const tutor = allUsers.find(u => u.id === session.tutorId);
   const docente = allUsers.find(u => u.id === session.docenteId);
 
@@ -53,8 +81,12 @@ export const SessionQRModal: React.FC<SessionQRModalProps> = ({ session, onClose
   // Pantalla completa: solo el QR, lo más grande posible sobre fondo blanco, y la X para salir
   if (isFullscreen) {
     return (
-      <div ref={containerRef} className="fixed inset-0 z-50 bg-white flex items-center justify-center">
-        <QRCodeSVG value={qrPayload} level="M" marginSize={2} style={{ width: 'min(96vh, 96vw)', height: 'min(96vh, 96vw)' }} />
+      <div ref={containerRef} className="fixed inset-0 z-50 bg-white flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-10 p-4">
+        {/* Con PIN al lado, el QR deja ~22rem de ancho para el PIN (en pantallas angostas va debajo) */}
+        <div className={`aspect-square shrink-0 ${pin ? 'w-[min(70vh,92vw)] sm:w-[min(92vh,calc(100vw-22rem))]' : 'w-[min(96vh,96vw)]'}`}>
+          <QRCodeSVG value={qrPayload} level="M" marginSize={2} style={{ width: '100%', height: '100%' }} />
+        </div>
+        {pinBlock(true)}
         <button
           type="button"
           onClick={handleClose}
@@ -72,7 +104,7 @@ export const SessionQRModal: React.FC<SessionQRModalProps> = ({ session, onClose
       <div className={`bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col transition-all duration-300 ${
         isFullscreen 
           ? 'w-screen h-screen rounded-none max-w-none' 
-          : 'w-full max-w-2xl max-h-[92vh]'
+          : 'w-full max-w-4xl h-[92vh]'
       }`}>
         
         {/* Modal Header */}
@@ -117,10 +149,12 @@ export const SessionQRModal: React.FC<SessionQRModalProps> = ({ session, onClose
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 sm:p-8 flex-1 overflow-y-auto flex flex-col items-center justify-center text-center space-y-6">
+        <div className="p-4 sm:p-6 flex-1 min-h-0 overflow-hidden flex flex-col text-center">
+          {/* El QR toma todo el alto que queda (sin desplazamiento), sea cual sea el tamaño de la ventana */}
+          <div className="flex-1 min-h-0 w-full flex flex-col items-center gap-4">
           
           {/* Info pill with large high contrast font */}
-          <div className="flex flex-wrap items-center justify-center gap-3 text-sm sm:text-base font-extrabold text-slate-700 bg-slate-100 px-6 py-2.5 rounded-2xl border border-slate-200 shadow-xs">
+          <div className="shrink-0 flex flex-wrap items-center justify-center gap-3 text-sm sm:text-base font-extrabold text-slate-700 bg-slate-100 px-6 py-2.5 rounded-2xl border border-slate-200 shadow-xs">
             <span className="flex items-center gap-1.5 text-[#092c4c]">
               <Calendar className="w-4 h-4 text-[#3a9ad9]" />
               {session.date}
@@ -134,27 +168,13 @@ export const SessionQRModal: React.FC<SessionQRModalProps> = ({ session, onClose
 
           {/* Massive QR Code Container optimized for projection distance */}
           {/* Ocupa todo el alto disponible: en pantalla completa casi toda la pantalla del proyector */}
-          <div className="bg-white p-3 rounded-2xl border-2 border-slate-200 shadow-xl flex items-center justify-center">
-            <QRCodeSVG
-              value={qrPayload}
-              level="M"
-              marginSize={2}
-              style={{
-                width: isFullscreen ? 'min(78vh, 92vw)' : 'min(58vh, 80vw)',
-                height: isFullscreen ? 'min(78vh, 92vw)' : 'min(58vh, 80vw)',
-              }}
-            />
+          <div className="flex-1 min-h-0 w-full bg-white p-3 rounded-2xl border-2 border-slate-200 shadow-xl flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
+            <div className="flex-1 sm:flex-none sm:h-full min-h-0 max-w-full aspect-square">
+              <QRCodeSVG value={qrPayload} level="M" marginSize={2} style={{ width: '100%', height: '100%' }} />
+            </div>
+            {pinBlock(false)}
           </div>
 
-          {/* Student scan notice */}
-          <div className="max-w-xl w-full bg-sky-50 border-2 border-sky-200 rounded-2xl p-4 text-center space-y-1 shadow-sm">
-            <p className="text-xs sm:text-sm font-extrabold text-[#092c4c] flex items-center justify-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-[#3a9ad9]" />
-              Abre la app en tu celular y pulsa el botón "Escanear QR" abajo
-            </p>
-            <p className="text-[11px] sm:text-xs text-sky-800 font-medium">
-              La asistencia se marcará al instante y en tiempo real en la lista del docente/tutor.
-            </p>
           </div>
         </div>
 
