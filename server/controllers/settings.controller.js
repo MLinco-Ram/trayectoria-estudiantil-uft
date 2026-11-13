@@ -96,11 +96,7 @@ export const testSmtp = async (req, res) => {
         name: displayName,
         address: config.user,
       },
-      headers: {
-        'From': `"${displayName}" <${config.user}>`,
-        'Sender': config.user,
-        'Reply-To': config.user
-      },
+      replyTo: config.user,
       to: testEmail,
       subject: "Prueba de Servidor de Correos - Trayectoria Estudiantil UFT",
       text: `¡Hola!\n\nEste es un correo de prueba enviado desde el Panel de Administración de Trayectoria Estudiantil UFT.\n\nLa conexión con el servidor SMTP de Google (${config.user}) está funcionando al 100% con el nombre de remitente: "${displayName}".\n\nFecha: ${new Date().toLocaleString('es-CL')}`,

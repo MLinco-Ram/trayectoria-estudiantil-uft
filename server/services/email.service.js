@@ -90,6 +90,8 @@ export const formatMinimalEmail = ({
   <title>${subject}</title>
 </head>
 <body style="margin: 0; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; color: #1e293b;">
+  <!-- Texto de vista previa (bandeja y notificaciones); oculto en el cuerpo -->
+  <div style="display: none; max-height: 0; overflow: hidden; opacity: 0; mso-hide: all;">${cleanSummary}&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;</div>
   <div style="max-width: 480px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
     
     <!-- Header simple institucional -->
@@ -164,11 +166,7 @@ export const sendEmail = async ({ to, toName, subject, text, html, fromName: cus
       name: displayName,
       address: config.user,
     },
-    headers: {
-      'From': `"${displayName}" <${config.user}>`,
-      'Sender': config.user,
-      'Reply-To': config.user
-    },
+      replyTo: config.user,
     to: toName ? `"${toName}" <${to}>` : to,
     subject: subject,
     text: `${textGreeting},\n\n${cleanText}\n\nIngresa a la plataforma para ver todos los detalles: ${targetUrl}`,
