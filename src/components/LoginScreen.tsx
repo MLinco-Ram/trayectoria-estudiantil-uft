@@ -116,7 +116,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     setError(null);
 
     if (!rutInput.trim()) {
-      setError('Por favor, ingresa tu RUT.');
+      setError('Por favor, ingresa tu RUT o correo.');
       return;
     }
 
@@ -128,10 +128,11 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     // La cuenta de administrador se valida en el servidor como cualquier otro usuario
     const cleanEntered = rutInput.replace(/[\.\-]/g, '').trim().toLowerCase();
     const isAdminLogin = cleanEntered === 'admin';
+    const isEmailLogin = rutInput.includes('@');
 
     // Validar largo de RUT (debe tener exactamente 9 dígitos/caracteres ignorando puntos y guión)
-    if (!isAdminLogin && cleanEntered.length !== 9) {
-      setError('El RUT debe tener exactamente 9 caracteres (ej: 123456789 o 12.345.678-9).');
+    if (!isAdminLogin && !isEmailLogin && cleanEntered.length !== 9) {
+      setError('Ingresa un RUT de 9 caracteres (ej: 12.345.678-9) o tu correo institucional.');
       return;
     }
 
@@ -309,11 +310,13 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     autoComplete="username"
                     autoCapitalize="none"
                     spellCheck={false}
-                    aria-label="RUT o usuario"
+                    aria-label="RUT o correo"
                     className="flex-1 bg-transparent px-4 text-sm font-bold text-white placeholder-white/75 focus:outline-none font-mono"
-                    placeholder="11.111.111-1"
+                    placeholder="RUT o correo"
                     value={rutInput}
-                    onChange={(e) => setRutInput(formatRut(e.target.value))}
+                    onChange={(e) => setRutInput(e.target.value)}
+                    // Al salir del campo se formatea como RUT solo si lo es (un correo puede empezar con números)
+                    onBlur={() => { if (/^[\d.\-\s]+[\dkK]$/.test(rutInput.trim())) setRutInput(formatRut(rutInput)); }}
                   />
                 </div>
 

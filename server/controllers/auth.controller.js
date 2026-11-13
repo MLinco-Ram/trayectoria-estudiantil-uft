@@ -4,19 +4,24 @@ import { createTransporter } from '../services/email.service.js';
 import { hashRut, decryptField, sanitizeUserOutput, normalizeRut } from '../services/crypto.service.js';
 import { setSessionCookie, clearSessionCookie } from '../services/session.service.js';
 import { sendServerError } from '../utils/errors.js';
+import { findUserByEmail } from './users.controller.js';
 
-const INVALID_CREDENTIALS = 'RUT o contraseña incorrectos.';
+const INVALID_CREDENTIALS = 'Usuario o contraseña incorrectos.';
 
 export const login = async (req, res) => {
   const { rut, password } = req.body;
   const db = req.db;
   try {
-    const cleanEnteredRut = normalizeRut(rut);
-    
-    const rutBlindIndex = hashRut(cleanEnteredRut);
-    
-    // Búsqueda eficiente en MongoDB Atlas usando Blind Index (rutHash)
-    let user = await db.collection('users').findOne({ rutHash: rutBlindIndex });
+    // El identificador puede ser un RUT o un correo (las cuentas creadas desde Pendientes no tienen RUT)
+    const identifier = typeof rut === 'string' ? rut.trim() : '';
+    const isEmail = identifier.includes('@');
+    const cleanEnteredRut = isEmail ? '' : normalizeRut(identifier);
+    const rutBlindIndex = cleanEnteredRut ? hashRut(cleanEnteredRut) : '';
+
+    let user = isEmail
+      ? await findUserByEmail(db, identifier)
+      // Búsqueda eficiente en MongoDB Atlas usando Blind Index (rutHash)
+      : (rutBlindIndex ? await db.collection('users').findOne({ rutHash: rutBlindIndex }) : null);
     
     // Compatibilidad con cuentas antiguas sin rutHash (p. ej. las del seed): solo se revisan esas,
     // y al encontrarla se le guarda el rutHash para que la próxima vez use el índice

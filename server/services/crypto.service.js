@@ -107,6 +107,6 @@ export function sanitizeUserOutput(user) {
 
   return {
     ...cleanUser,
-    rut: decryptedRut || user.rut
+    rut: decryptedRut || user.rut || ''
   };
 }

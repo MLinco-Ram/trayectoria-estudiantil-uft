@@ -52,7 +52,8 @@ const cellText = (v: unknown): string => {
 };
 
 // Lee el primer hoja del .xlsx: columnas Nombre, Apellido, RUT, Correo y (opcional) Carrera.
-// La columna Contraseña se ignora: la contraseña siempre son los últimos 4 caracteres del RUT.
+// La columna Contraseña se ignora: la contraseña son los últimos 4 caracteres del RUT. El RUT no se
+// guarda; la cuenta se crea sin RUT y la persona ingresa con su correo.
 async function parseExcel(file: File) {
   const { default: ExcelJS } = await import('exceljs');
   const workbook = new ExcelJS.Workbook();
@@ -132,7 +133,7 @@ export const AdminPendingTab: React.FC<{ onRegistered?: () => void }> = ({ onReg
     const q = search.trim().toLowerCase();
     if (!q) return pending;
     return pending.filter(p =>
-      p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q) || p.rut.toLowerCase().includes(q)
+      p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q)
     );
   }, [pending, search]);
 
@@ -226,7 +227,7 @@ export const AdminPendingTab: React.FC<{ onRegistered?: () => void }> = ({ onReg
     }
     const missing = targets.length - ready.length;
     const ok = window.confirm(
-      `Se crearán ${ready.length} cuenta(s) y cada persona recibirá un correo con su contraseña (últimos 4 caracteres del RUT).` +
+      `Se crearán ${ready.length} cuenta(s) y cada persona recibirá un correo con su contraseña (últimos 4 caracteres del RUT). Ingresarán con su correo.` +
         (missing ? `\n\n${missing} seleccionado(s) sin rol se omitirán.` : '') +
         '\n\n¿Continuar?'
     );
@@ -310,7 +311,7 @@ export const AdminPendingTab: React.FC<{ onRegistered?: () => void }> = ({ onReg
                 <input id="pm-name" required value={manual.name} onChange={(e) => setManual({ ...manual, name: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none" placeholder="Nombre y apellidos" />
               </div>
               <div>
-                <label htmlFor="pm-rut" className="block text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">RUT</label>
+                <label htmlFor="pm-rut" className="block text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1" title="Solo se usan sus últimos 4 caracteres como contraseña; el RUT no se guarda">RUT <span className="normal-case font-normal">(no se guarda)</span></label>
                 <input id="pm-rut" required value={manual.rut} onChange={(e) => setManual({ ...manual, rut: formatRut(e.target.value) })} className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none font-mono" placeholder="20.123.456-7" />
               </div>
               <div className="lg:col-span-2">
@@ -377,7 +378,7 @@ export const AdminPendingTab: React.FC<{ onRegistered?: () => void }> = ({ onReg
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nombre, RUT o correo..."
+              placeholder="Buscar por nombre o correo..."
               className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none"
             />
           </div>
@@ -440,7 +441,6 @@ export const AdminPendingTab: React.FC<{ onRegistered?: () => void }> = ({ onReg
                     <input type="checkbox" checked={allFilteredSelected} onChange={toggleAll} aria-label="Seleccionar todos" className="cursor-pointer" />
                   </th>
                   <th className="p-3 text-left">Nombre</th>
-                  <th className="p-3 text-left">RUT</th>
                   <th className="p-3 text-left">Correo</th>
                   <th className="p-3 text-left">Rol</th>
                   <th className="p-3 text-left">Carrera / Cargo</th>
@@ -454,7 +454,6 @@ export const AdminPendingTab: React.FC<{ onRegistered?: () => void }> = ({ onReg
                       <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} aria-label={`Seleccionar a ${p.name}`} className="cursor-pointer" />
                     </td>
                     <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">{p.name}</td>
-                    <td className="p-3 font-mono text-slate-600 dark:text-slate-300 whitespace-nowrap">{formatRut(p.rut)}</td>
                     <td className="p-3 font-mono text-slate-600 dark:text-slate-300">{p.email}</td>
                     <td className="p-3">
                       <select
