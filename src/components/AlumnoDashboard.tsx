@@ -568,11 +568,19 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
     setSessions(prev => prev.map(s => s.id === session.id ? { ...s, ...bookedFields } : s));
 
     // Notificar al alumno de forma minimalista protegiendo datos sensibles
+    const kindLabel = session.type?.includes('taller') ? 'el taller'
+      : session.type?.startsWith('tutoria') ? 'la tutoría'
+      : 'la actividad';
+    const [yy, mm, dd] = (session.date || '').split('-').map(Number);
+    const prettyDate = yy && mm && dd
+      ? new Date(yy, mm - 1, dd).toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })
+      : session.date;
+    const timeText = session.timeSlot ? ` a las ${session.timeSlot.split('-')[0].trim()}` : '';
     triggerNotification(
       user.email,
       user.name,
-      `Confirmación de Reserva: ${session.title}`,
-      `has reservado tu cupo en la tutoria "${session.title}" del día ${session.date}. Ingresa a la plataforma para revisar los detalles completos.`
+      `Reserva confirmada: ${session.title}`,
+      `Tu cupo en ${kindLabel} "${session.title}" quedó reservado para el ${prettyDate}${timeText}. Revisa los detalles en la plataforma.`
     );
 
     setBookingFeedback("¡Inscripción confirmada! Te hemos enviado el comprobante a tu correo institucional.");
