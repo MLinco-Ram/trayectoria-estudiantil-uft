@@ -4,19 +4,16 @@ import path from 'path';
 import {defineConfig} from 'vite';
 import {execSync} from 'child_process';
 
-// Versión visible en la app: commit corto + fecha/hora de compilación (hora de Chile)
+// Versión visible en la app: commit corto del build
 const commitSha = (process.env.VERCEL_GIT_COMMIT_SHA || (() => {
   try { return execSync('git rev-parse HEAD').toString().trim(); } catch { return 'dev'; }
 })()).slice(0, 7);
-const buildTime = new Intl.DateTimeFormat('es-CL', {
-  timeZone: 'America/Santiago', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
-}).format(new Date());
 
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
     define: {
-      __APP_VERSION__: JSON.stringify(`${commitSha} · ${buildTime}`),
+      __APP_VERSION__: JSON.stringify(commitSha),
     },
     resolve: {
       alias: {

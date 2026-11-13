@@ -2543,13 +2543,14 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
 
         {/* Status Bar / Footer matching mockup */}
         <footer className="h-10 bg-[#061e34] dark:bg-slate-950 border-t border-white/10 flex items-center justify-between px-6 md:px-8 text-[10px] text-slate-300 dark:text-slate-400 font-bold uppercase tracking-wider mt-auto shrink-0 select-none transition-colors">
-          <div>Portal del {isLeadTutor ? 'Tutor de Tutores' : 'Tutor Par'} | V 2.4</div>
+          <div>Portal del {isLeadTutor ? 'Tutor de Tutores' : 'Tutor Par'}</div>
           <div className="flex gap-4">
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-[#10b981]"></span>
               Sincronizado
             </span>
             <span className="hidden sm:inline">Inasistencias Notificadas Directo</span>
+            <span className="font-mono normal-case tracking-normal text-slate-400/80">v{__APP_VERSION__}</span>
           </div>
         </footer>
       </main>
