@@ -1,14 +1,19 @@
 import { emitEvent } from '../services/socket.service.js';
 import { sendServerError } from '../utils/errors.js';
+import { isStaff, canSendTo } from '../middlewares/auth.js';
+
+const escapeRegex = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const emailQuery = (email) => ({ $regex: new RegExp(`^${escapeRegex(String(email).trim())}$`, 'i') });
+// Quien no es coordinación solo ve y marca sus propias notificaciones, sin importar el correo que pida
+const ownEmailOr = (req, email) => (isStaff(req) ? email : req.user?.email);
 
 export const getNotifications = async (req, res) => {
-  const { email } = req.query;
+  const email = ownEmailOr(req, req.query.email);
   const db = req.db;
   try {
     const query = {};
-    if (email) {
-      query.toEmail = { $regex: new RegExp(`^${email.toString().trim()}$`, 'i') };
-    }
+    if (email) query.toEmail = emailQuery(email);
+    else if (!isStaff(req)) return res.json([]);
     const notifs = await db.collection('notifications').find(query).sort({ timestamp: -1 }).toArray();
     res.json(notifs);
   } catch (err) {
@@ -19,6 +24,9 @@ export const getNotifications = async (req, res) => {
 export const createNotification = async (req, res) => {
   const db = req.db;
   try {
+    if (!(await canSendTo(req, req.body.toEmail))) {
+      return res.status(403).json({ error: 'No puedes enviar notificaciones a ese destinatario.' });
+    }
     const newNotif = {
       id: req.body.id || `notif_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       toEmail: req.body.toEmail,
@@ -28,7 +36,7 @@ export const createNotification = async (req, res) => {
       timestamp: req.body.timestamp || new Date().toISOString(),
       read: req.body.read || false,
       priority: req.body.priority || 'normal',
-      fromName: req.body.fromName || 'Trayectoria UFT'
+      fromName: isStaff(req) ? (req.body.fromName || 'Trayectoria UFT') : 'Trayectoria UFT'
     };
 
     await db.collection('notifications').insertOne(newNotif);
@@ -47,7 +55,7 @@ export const markAsRead = async (req, res) => {
   const db = req.db;
   try {
     await db.collection('notifications').updateOne(
-      { id },
+      isStaff(req) ? { id } : { id, toEmail: emailQuery(req.user.email) },
       { $set: { read: true } }
     );
     
@@ -60,13 +68,12 @@ export const markAsRead = async (req, res) => {
 };
 
 export const markAllAsRead = async (req, res) => {
-  const { email } = req.body;
+  const email = ownEmailOr(req, req.body.email);
   const db = req.db;
   try {
     const query = {};
-    if (email) {
-      query.toEmail = { $regex: new RegExp(`^${email.trim()}$`, 'i') };
-    }
+    if (email) query.toEmail = emailQuery(email);
+    else if (!isStaff(req)) return res.json({ success: true });
     await db.collection('notifications').updateMany(
       query,
       { $set: { read: true } }

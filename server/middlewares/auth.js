@@ -44,3 +44,24 @@ export const requireRole = (...allowed) => (req, res, next) => {
   }
   next();
 };
+
+// Coordinación (admin o docente): ve y gestiona todos los datos
+export const isStaff = (req) => (req.userRoles || []).some(r => r === 'admin' || r === 'docente');
+
+// Tutores además de coordinación: pasan lista y necesitan los datos de sus alumnos
+export const isTutorOrStaff = (req) => isStaff(req) || (req.userRoles || []).includes('tutor');
+
+// Correos a los que puede escribir un alumno (sin rol de tutor ni coordinación): el suyo y los de
+// coordinación. Evita que se use la plataforma para mandar correos a terceros a nombre de la UFT.
+export async function canSendTo(req, toEmail) {
+  if (isTutorOrStaff(req)) return true;
+  const to = String(toEmail || '').trim().toLowerCase();
+  if (!to) return false;
+  if (to === String(req.user?.email || '').trim().toLowerCase()) return true;
+  const escaped = to.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const target = await req.db.collection('users').findOne(
+    { email: { $regex: new RegExp(`^${escaped}$`, 'i') } },
+    { projection: { role: 1, roles: 1 } }
+  );
+  return getUserRoles(target).some(r => r === 'admin' || r === 'docente');
+}

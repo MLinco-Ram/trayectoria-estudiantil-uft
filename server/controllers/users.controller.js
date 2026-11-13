@@ -3,7 +3,7 @@ import { isPasswordChangeRequired } from '../config/features.js';
 import { encryptField, decryptField, hashRut, sanitizeUserOutput } from '../services/crypto.service.js';
 import { emitEvent } from '../services/socket.service.js';
 import { setSessionCookie } from '../services/session.service.js';
-import { getUserRoles } from '../middlewares/auth.js';
+import { getUserRoles, isTutorOrStaff } from '../middlewares/auth.js';
 import { sendServerError } from '../utils/errors.js';
 import { sendEmail } from '../services/email.service.js';
 
@@ -30,8 +30,20 @@ export const getUsers = async (req, res) => {
   const db = req.db;
   try {
     const users = await db.collection('users').find({}).toArray();
-    const safeUsers = users.map(u => sanitizeUserOutput(u));
-    res.json(safeUsers);
+    if (isTutorOrStaff(req)) {
+      res.json(users.map(u => sanitizeUserOutput(u)));
+      return;
+    }
+    // Un alumno solo necesita sus propios datos y el nombre de tutores y coordinación
+    // (y el correo de coordinación para avisarle inconvenientes). Nunca RUT ni datos de otros alumnos.
+    const visible = users.flatMap(u => {
+      if (u.id === req.user.id) return [sanitizeUserOutput(u)];
+      const roles = getUserRoles(u);
+      const isCoord = roles.includes('docente');
+      if (!isCoord && !roles.includes('tutor')) return [];
+      return [{ id: u.id, name: u.name, role: u.role, roles: u.roles, tutorTypes: u.tutorTypes, tutorType: u.tutorType, ...(isCoord ? { email: u.email } : {}) }];
+    });
+    res.json(visible);
   } catch (err) {
     sendServerError(res, err);
   }
@@ -72,10 +84,42 @@ async function insertUserWithoutRut(db, newUser) {
   return { user: safeResult };
 }
 
+// Completa una cuenta importada sin RUT con los datos del registro (ver registerStudent)
+async function claimImportedAccount(db, account, { name, rut, career, password }) {
+  const alreadyRegistered = 'Ya existe una cuenta con este correo. Ingresa con tu correo y contraseña, o usa "¿Olvidaste tu contraseña?".';
+  const roles = getUserRoles(account);
+  if (account.rutHash || roles.some(r => r !== 'alumno')) return { error: alreadyRegistered, status: 409 };
+
+  const cleanRut = rut.replace(/[\.\-\s]/g, '').trim();
+  if (cleanRut.length !== 9) {
+    return { error: 'El RUT debe tener exactamente 9 dígitos/caracteres (ej: 123456789 o 12.345.678-9).' };
+  }
+  const rutBlindIndex = hashRut(cleanRut);
+  if (await db.collection('users').findOne({ rutHash: rutBlindIndex })) {
+    return { error: 'El RUT ya se encuentra registrado en el sistema.' };
+  }
+  const matchesInitial = account.password && await bcrypt.compare(initialPasswordFromRut(cleanRut), account.password);
+  if (!matchesInitial) return { error: alreadyRegistered, status: 409 };
+
+  const update = {
+    name: name.trim() || account.name,
+    rut: encryptField(rut.trim()),
+    rutHash: rutBlindIndex,
+    password: await bcrypt.hash(password.trim(), await bcrypt.genSalt(10)),
+    ...(typeof career === 'string' && career.trim() ? { career: career.trim() } : {}),
+  };
+  await db.collection('users').updateOne({ _id: account._id }, { $set: update, $unset: { mustChangePassword: '' } });
+  const user = sanitizeUserOutput({ ...account, ...update, rut: rut.trim() });
+  emitEvent('users:changed', { action: 'update', user });
+  return { user };
+}
+
 export function findUserByEmail(db, email) {
   const escaped = String(email || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return db.collection('users').findOne({ email: { $regex: new RegExp(`^${escaped}$`, 'i') } });
 }
+
+const EMAIL_TAKEN = 'El correo ya se encuentra registrado en el sistema.';
 
 async function insertUser(db, newUser) {
   // Validación de seguridad de RUT (exactamente 9 caracteres ignorando puntos y guión)
@@ -90,6 +134,12 @@ async function insertUser(db, newUser) {
   const existing = await db.collection('users').findOne({ rutHash: rutBlindIndex });
   if (existing) {
     return { error: "El RUT ya se encuentra registrado en el sistema." };
+  }
+
+  // Un correo = una cuenta (el índice único email_unique lo garantiza también en la BD)
+  if (newUser.email) {
+    newUser.email = newUser.email.trim().toLowerCase();
+    if (await findUserByEmail(db, newUser.email)) return { error: EMAIL_TAKEN };
   }
 
   if (newUser.password) {
@@ -165,6 +215,17 @@ export const registerStudent = async (req, res) => {
       return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres.' });
     }
 
+    // Si el correo ya tiene una cuenta importada desde Pendientes (sin RUT), el registro la completa
+    // en vez de crear otra. Para no permitir que alguien tome la cuenta de otro sabiendo solo su correo,
+    // el RUT ingresado debe calzar con la contraseña inicial (sus 4 últimos caracteres) que aún tiene.
+    const existingByEmail = await findUserByEmail(req.db, cleanEmail);
+    if (existingByEmail) {
+      const claim = await claimImportedAccount(req.db, existingByEmail, { name, rut, career, password });
+      if (claim.error) return res.status(claim.status || 400).json({ error: claim.error });
+      setSessionCookie(res, claim.user.id);
+      return res.status(200).json(claim.user);
+    }
+
     const result = await insertUser(req.db, {
       id: `alumno_${Date.now()}`,
       name: name.trim(),
@@ -227,7 +288,13 @@ export const updateUser = async (req, res) => {
     if (rejectAdminChangeByNonAdmin(req, res, { targetUser, role, roles })) return;
 
     const updateData = {};
-    if (email !== undefined) updateData.email = email.trim().toLowerCase();
+    if (email !== undefined) {
+      updateData.email = email.trim().toLowerCase();
+      const owner = updateData.email ? await findUserByEmail(db, updateData.email) : null;
+      if (owner && owner.id !== targetUser.id) {
+        return res.status(400).json({ error: 'Ese correo ya pertenece a otra cuenta.' });
+      }
+    }
     if (name !== undefined) updateData.name = name.trim();
     if (career !== undefined) updateData.career = career.trim();
     if (tutorType !== undefined) updateData.tutorType = tutorType;
@@ -243,6 +310,10 @@ export const updateUser = async (req, res) => {
       }
       updateData.rut = encryptField(rut.trim());
       updateData.rutHash = hashRut(cleanRut);
+      const rutOwner = await db.collection('users').findOne({ rutHash: updateData.rutHash }, { projection: { id: 1 } });
+      if (rutOwner && rutOwner.id !== targetUser.id) {
+        return res.status(400).json({ error: 'Ese RUT ya pertenece a otra cuenta.' });
+      }
     }
 
     if (password !== undefined && password.trim()) {

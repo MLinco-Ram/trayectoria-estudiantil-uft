@@ -16,13 +16,13 @@ import systemRoutes from './system.routes.js';
 import pendingUsersRoutes from './pendingUsers.routes.js';
 import { requireAuth, requireRole, requirePasswordChanged } from '../middlewares/auth.js';
 import { registerStudent } from '../controllers/users.controller.js';
-import { loginLimiter } from '../middlewares/rateLimiters.js';
+import { registerLimiter } from '../middlewares/rateLimiters.js';
 
 const apiRouter = Router();
 
 // Rutas públicas: login, recuperación de contraseña y registro de alumnos
 apiRouter.use('/', authRoutes);
-apiRouter.post('/register', loginLimiter, registerStudent);
+apiRouter.post('/register', registerLimiter, registerStudent);
 
 // Todo lo que sigue exige una sesión válida
 apiRouter.use(requireAuth);
