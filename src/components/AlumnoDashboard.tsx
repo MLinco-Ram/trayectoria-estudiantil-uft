@@ -823,6 +823,17 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
             {/* Acciones Derecha (Bandeja, ThemeToggle, Perfil y Logout) */}
             <div id="alumno-header-actions-group" className="order-2 flex items-center gap-2 shrink-0 2xl:order-3">
+              {/* Escáner QR en tablet y escritorio (en celular está en la barra inferior, que se oculta desde md) */}
+              <button
+                type="button"
+                onClick={() => setIsQRScannerOpen(true)}
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-[#3a9ad9] hover:brightness-110 text-[#092c4c] text-xs font-extrabold transition-all cursor-pointer"
+                title="Escanear Código QR de Asistencia"
+              >
+                <QrCode className="h-4 w-4" />
+                <span>Escanear QR</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setShowNotifInbox(prev => !prev)}

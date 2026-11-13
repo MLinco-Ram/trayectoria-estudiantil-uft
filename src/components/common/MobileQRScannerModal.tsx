@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { User, Session } from '../../types';
 import { sessionsApi } from '../../services/api';
-import { X, QrCode, Camera, CheckCircle2, AlertTriangle, RefreshCw, Sparkles } from 'lucide-react';
+import { X, QrCode, Camera, CheckCircle2, AlertTriangle, RefreshCw, Sparkles, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface MobileQRScannerModalProps {
   isOpen: boolean;
@@ -25,6 +25,23 @@ export const MobileQRScannerModal: React.FC<MobileQRScannerModalProps> = ({
 
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const isStartedRef = useRef(false);
+  // La cámara entrega varios cuadros por segundo con el mismo QR: solo se procesa la primera lectura
+  // (con estado de React el valor llegaba desactualizado y se enviaban varias, de ahí el "ya estabas presente")
+  const processingRef = useRef(false);
+  // Zoom óptico/digital de la cámara (no de la página), si el dispositivo lo permite
+  const [zoomRange, setZoomRange] = useState<{ min: number; max: number; step: number } | null>(null);
+  const [zoom, setZoom] = useState(1);
+
+  const applyZoom = async (value: number) => {
+    if (!zoomRange || !html5QrCodeRef.current) return;
+    const next = Math.min(zoomRange.max, Math.max(zoomRange.min, value));
+    setZoom(next);
+    try {
+      await html5QrCodeRef.current.applyVideoConstraints({ advanced: [{ zoom: next } as MediaTrackConstraintSet] } as MediaTrackConstraints);
+    } catch (err) {
+      console.warn('No se pudo aplicar el zoom:', err);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) {
@@ -50,13 +67,25 @@ export const MobileQRScannerModal: React.FC<MobileQRScannerModalProps> = ({
       const element = document.getElementById('uft-qr-reader');
       if (!element) return;
 
-      const html5QrCode = new Html5Qrcode('uft-qr-reader');
+      // Solo QR y, si el navegador lo trae (Chrome/Android), el detector nativo, mucho más rápido
+      const html5QrCode = new Html5Qrcode('uft-qr-reader', {
+        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+        verbose: false,
+      });
       html5QrCodeRef.current = html5QrCode;
 
+      // Sin recuadro (qrbox): se analiza el cuadro completo, así un QR lejano y pequeño también se lee.
+      // Se pide resolución alta y enfoque continuo para distinguir los módulos a distancia.
       const config = {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
+        fps: 15,
         aspectRatio: 1.0,
+        videoConstraints: {
+          facingMode: 'environment',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet],
+        } as MediaTrackConstraints,
       };
 
       await html5QrCode.start(
@@ -72,6 +101,18 @@ export const MobileQRScannerModal: React.FC<MobileQRScannerModalProps> = ({
 
       isStartedRef.current = true;
       setIsScanning(true);
+
+      try {
+        const caps = html5QrCode.getRunningTrackCapabilities() as MediaTrackCapabilities & { zoom?: { min: number; max: number; step?: number } };
+        if (caps.zoom && caps.zoom.max > caps.zoom.min) {
+          setZoomRange({ min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 });
+          setZoom(caps.zoom.min);
+        } else {
+          setZoomRange(null);
+        }
+      } catch {
+        setZoomRange(null);
+      }
     } catch (err: any) {
       console.warn('Error al iniciar cámara:', err);
       setIsScanning(false);
@@ -88,6 +129,7 @@ export const MobileQRScannerModal: React.FC<MobileQRScannerModalProps> = ({
         html5QrCodeRef.current.clear();
         isStartedRef.current = false;
         setIsScanning(false);
+        setZoomRange(null);
       }
     } catch (err) {
       console.warn('Error al detener escáner:', err);
@@ -95,7 +137,8 @@ export const MobileQRScannerModal: React.FC<MobileQRScannerModalProps> = ({
   };
 
   const handleSuccessfulScan = async (rawDecodedText: string) => {
-    if (isProcessing) return;
+    if (processingRef.current) return;
+    processingRef.current = true;
     setIsProcessing(true);
     setErrorMessage(null);
 
@@ -140,6 +183,8 @@ export const MobileQRScannerModal: React.FC<MobileQRScannerModalProps> = ({
       console.error('Error al registrar asistencia QR:', err);
       setErrorMessage(err.message || 'Error al validar el código QR de la sesión.');
     } finally {
+      // Pausa breve antes de aceptar otra lectura, para no reenviar el mismo QR tras un error
+      setTimeout(() => { processingRef.current = false; }, 1500);
       setIsProcessing(false);
     }
   };
@@ -231,6 +276,28 @@ export const MobileQRScannerModal: React.FC<MobileQRScannerModalProps> = ({
                   </div>
                 )}
               </div>
+
+              {zoomRange && (
+                <div className="flex items-center gap-2 px-1">
+                  <button type="button" onClick={() => applyZoom(zoom - Math.max(zoomRange.step, 0.5))} className="p-2 rounded-lg bg-slate-100 text-[#092c4c] cursor-pointer" aria-label="Alejar">
+                    <ZoomOut className="w-4 h-4" />
+                  </button>
+                  <input
+                    type="range"
+                    min={zoomRange.min}
+                    max={zoomRange.max}
+                    step={zoomRange.step}
+                    value={zoom}
+                    onChange={(e) => applyZoom(Number(e.target.value))}
+                    className="flex-1 accent-[#3a9ad9]"
+                    aria-label="Zoom de la cámara"
+                  />
+                  <button type="button" onClick={() => applyZoom(zoom + Math.max(zoomRange.step, 0.5))} className="p-2 rounded-lg bg-slate-100 text-[#092c4c] cursor-pointer" aria-label="Acercar">
+                    <ZoomIn className="w-4 h-4" />
+                  </button>
+                  <span className="text-[11px] font-bold text-slate-500 w-10 text-right">{zoom.toFixed(1)}x</span>
+                </div>
+              )}
 
               {errorMessage && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">

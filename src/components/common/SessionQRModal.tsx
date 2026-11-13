@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Session, User } from '../../types';
 import { X, QrCode, Calendar, Clock, MapPin, Sparkles, CheckCircle2, Maximize2, Minimize2, Tv } from 'lucide-react';
@@ -11,24 +11,64 @@ interface SessionQRModalProps {
 
 export const SessionQRModal: React.FC<SessionQRModalProps> = ({ session, onClose, allUsers = [] }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Pantalla completa real del navegador (Fullscreen API), no solo agrandar el modal.
+  // El estado se sincroniza con el navegador: salir con Esc también lo actualiza.
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current && !!containerRef.current);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    };
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else if (containerRef.current?.requestFullscreen) await containerRef.current.requestFullscreen();
+      else setIsFullscreen(v => !v); // navegadores sin la API (iPhone): se agranda dentro de la página
+    } catch {
+      setIsFullscreen(v => !v);
+    }
+  };
+
+  const handleClose = () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    setIsFullscreen(false);
+    onClose();
+  };
 
   if (!session) return null;
 
   const tutor = allUsers.find(u => u.id === session.tutorId);
   const docente = allUsers.find(u => u.id === session.docenteId);
 
-  // Formato del payload escaneable por el alumno
-  const qrPayload = JSON.stringify({
-    type: 'UFT_ATTENDANCE',
-    sessionId: session.id,
-    title: session.title,
-    date: session.date,
-    timeSlot: session.timeSlot,
-    timestamp: Date.now()
-  });
+  // Solo el id de la sesión, sin logo y con corrección de errores M: el QR queda con 25 módulos por lado
+  // (antes un JSON con título, fecha y hora, nivel H y logo: 69 módulos). Cada cuadrito es ~3 veces más
+  // grande, así se lee desde el fondo de la sala. El escáner del alumno acepta el id directo.
+  const qrPayload = session.id;
+
+  // Pantalla completa: solo el QR, lo más grande posible sobre fondo blanco, y la X para salir
+  if (isFullscreen) {
+    return (
+      <div ref={containerRef} className="fixed inset-0 z-50 bg-white flex items-center justify-center">
+        <QRCodeSVG value={qrPayload} level="M" marginSize={2} style={{ width: 'min(96vh, 96vw)', height: 'min(96vh, 96vw)' }} />
+        <button
+          type="button"
+          onClick={handleClose}
+          className="absolute top-4 right-4 p-3 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white cursor-pointer"
+          aria-label="Cerrar"
+        >
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md animate-fade-in ${isFullscreen ? 'p-0' : ''}`}>
+    <div ref={containerRef} className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md animate-fade-in">
       <div className={`bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col transition-all duration-300 ${
         isFullscreen 
           ? 'w-screen h-screen rounded-none max-w-none' 
@@ -46,7 +86,7 @@ export const SessionQRModal: React.FC<SessionQRModalProps> = ({ session, onClose
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setIsFullscreen(!isFullscreen)}
+                onClick={toggleFullscreen}
                 className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold"
                 title={isFullscreen ? 'Salir de pantalla completa' : 'Expandir a pantalla completa para proyector'}
               >
@@ -56,10 +96,7 @@ export const SessionQRModal: React.FC<SessionQRModalProps> = ({ session, onClose
 
               <button
                 type="button"
-                onClick={() => {
-                  setIsFullscreen(false);
-                  onClose();
-                }}
+                onClick={handleClose}
                 className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
                 aria-label="Cerrar modal"
               >
@@ -96,21 +133,15 @@ export const SessionQRModal: React.FC<SessionQRModalProps> = ({ session, onClose
           </div>
 
           {/* Massive QR Code Container optimized for projection distance */}
-          <div className={`p-6 sm:p-8 bg-white rounded-3xl border-4 border-slate-200 shadow-xl flex items-center justify-center transition-all ${
-            isFullscreen ? 'p-10' : ''
-          }`}>
+          {/* Ocupa todo el alto disponible: en pantalla completa casi toda la pantalla del proyector */}
+          <div className="bg-white p-3 rounded-2xl border-2 border-slate-200 shadow-xl flex items-center justify-center">
             <QRCodeSVG
               value={qrPayload}
-              size={isFullscreen ? 460 : 360}
-              level="H"
-              includeMargin={true}
-              imageSettings={{
-                src: "/logo-uft-oficial.png",
-                x: undefined,
-                y: undefined,
-                height: isFullscreen ? 54 : 44,
-                width: isFullscreen ? 54 : 44,
-                excavate: true,
+              level="M"
+              marginSize={2}
+              style={{
+                width: isFullscreen ? 'min(78vh, 92vw)' : 'min(58vh, 80vw)',
+                height: isFullscreen ? 'min(78vh, 92vw)' : 'min(58vh, 80vw)',
               }}
             />
           </div>
@@ -134,10 +165,7 @@ export const SessionQRModal: React.FC<SessionQRModalProps> = ({ session, onClose
             Sincronización en vivo activa
           </span>
           <button
-            onClick={() => {
-              setIsFullscreen(false);
-              onClose();
-            }}
+            onClick={handleClose}
             className="py-2.5 px-6 rounded-xl bg-[#092c4c] hover:bg-[#153a5c] text-white text-xs sm:text-sm font-bold transition-all shadow-sm cursor-pointer"
           >
             Cerrar Proyector QR
