@@ -2037,7 +2037,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
               UFT Conectado
             </span>
             <span className="hidden sm:inline">Notaría Instantánea Estudiantil</span>
-            <span className="font-mono normal-case tracking-normal text-slate-400/80">v{__APP_VERSION__}</span>
+            <span className="font-mono normal-case tracking-normal text-slate-400/80">v {__APP_VERSION__}</span>
           </div>
         </footer>
       </main>

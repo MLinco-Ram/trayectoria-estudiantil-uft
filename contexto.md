@@ -546,6 +546,7 @@ flowchart TD
 - **Capa de Servicios**: Clientes API tipados en `src/services/api.ts`.
 - **Rendimiento de Carga**:
   - **Code splitting por ruta** (`React.lazy` + `Suspense` en `App.tsx`): cada portal (`/docente`, `/tutor`, `/alumno`, `/admin`) y la pantalla de restablecer contraseña se descargan solo al entrar. El login no carga código de los paneles.
+  - **Versión visible**: `vite.config.ts` lee `version` de `package.json` y la inyecta como `__APP_VERSION__` (declarada en `src/vite-env.d.ts`). Se muestra "v 1.0.x" en la barra inferior de alumno y tutor, y en la esquina inferior derecha en el resto (`FloatingVersion` en `App.tsx`). En cada commit se sube el último número (1.0.1 → 1.0.2) en `package.json` y `package-lock.json` para comprobar qué versión desplegó Vercel.
   - **Librerías pesadas bajo demanda**: `exceljs` se importa dinámicamente al exportar, `html5-qrcode` al abrir el escáner QR del alumno, y `DocenteAnalyticsTab` al abrir Métricas.
   - **Vendor chunks** (`vite.config.ts` → `manualChunks`): `vendor-react`, `vendor-realtime`, `vendor-icons`, para que el navegador los conserve en caché entre despliegues.
   - **Fuentes**: Google Fonts se enlaza desde `index.html` con `preconnect` (no vía `@import` en CSS, que bloqueaba el primer pintado).

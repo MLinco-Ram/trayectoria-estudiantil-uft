@@ -73,7 +73,7 @@ function FloatingVersion() {
   if (pathname.startsWith('/alumno') || pathname.startsWith('/tutor')) return null;
   return (
     <div className="fixed bottom-1 right-2 z-[9999] pointer-events-none select-none text-[10px] font-mono text-slate-400/70" aria-hidden="true">
-      v{__APP_VERSION__}
+      v {__APP_VERSION__}
     </div>
   );
 }
