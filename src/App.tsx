@@ -120,6 +120,13 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           </Suspense>
+          {/* Versión desplegada (commit + fecha de compilación) para comprobar actualizaciones */}
+          <div
+            className="fixed bottom-1 right-2 z-[9999] pointer-events-none select-none text-[10px] font-mono text-slate-400/70"
+            aria-hidden="true"
+          >
+            v {__APP_VERSION__}
+          </div>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>
