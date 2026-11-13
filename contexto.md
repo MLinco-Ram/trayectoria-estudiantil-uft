@@ -846,7 +846,7 @@ trayectoria-estudiantil-uft/
 | Método | Endpoint | Descripción |
 | :--- | :--- | :--- |
 | `GET` | `/api/health` | Estado de conexión y recuento de documentos en MongoDB Atlas |
-| `POST` | `/api/login` | Autenticación con verificación `bcrypt` y búsqueda por `rutHash` |
+| `POST` | `/api/login` | Autenticación con verificación `bcrypt`; el identificador es RUT (búsqueda por `rutHash`) o correo |
 | `POST` | `/api/forgot-password` | Solicitud de restablecimiento de contraseña vía correo SMTP |
 | `GET` | `/api/verify-reset-token` | Validación de vigencia de token de recuperación |
 | `POST` | `/api/reset-password` | Actualización de contraseña con hash `bcrypt` |
