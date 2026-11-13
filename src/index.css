@@ -343,3 +343,12 @@ html.dark .shadow-2xl {
 .animate-step-in {
   animation: uft-step-in 0.28s cubic-bezier(0.25, 1, 0.5, 1);
 }
+
+/* Login: el autocompletado del navegador no pinta un fondo gris dentro de los campos píldora */
+.login-pill-input:-webkit-autofill,
+.login-pill-input:-webkit-autofill:hover,
+.login-pill-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #fff;
+  caret-color: #fff;
+  transition: background-color 600000s 0s;
+}

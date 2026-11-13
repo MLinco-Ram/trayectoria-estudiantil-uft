@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Role, TutorType } from '../types';
-import { usersApi, settingsApi } from '../services/api';
+import { usersApi, settingsApi, pendingUsersApi } from '../services/api';
 import { getSocket } from '../services/socket';
 import { 
   ShieldCheck, 
@@ -72,6 +72,14 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
   const [docentes, setDocentes] = useState<User[]>([]);
   const [tutores, setTutores] = useState<User[]>([]);
   const [alumnos, setAlumnos] = useState<User[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const loadPendingCount = async () => {
+    try {
+      setPendingCount((await pendingUsersApi.list()).length);
+    } catch {
+      // El contador es informativo: si falla, la pestaña Pendientes muestra el error
+    }
+  };
   const [userSearch, setUserSearch] = useState('');
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
@@ -163,6 +171,7 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
   useEffect(() => {
     loadUsers();
     loadSmtpSettings();
+    loadPendingCount();
 
     // Sincronización en tiempo real vía WebSockets
     const socket = getSocket();
@@ -171,9 +180,11 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
     };
 
     socket.on('users:changed', handleUsersUpdate);
+    socket.on('pending_users:changed', loadPendingCount);
 
     return () => {
       socket.off('users:changed', handleUsersUpdate);
+      socket.off('pending_users:changed', loadPendingCount);
     };
   }, []);
 
@@ -494,162 +505,184 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
     }
   });
 
-  return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans flex flex-col transition-colors duration-200" id="admin-dashboard-wrapper">
-      {/* Header Institucional */}
-      <header className="bg-[#092c4c] text-white sticky top-0 z-40 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 lg:gap-4 min-w-0">
-            <img 
-              src="/UFT_LogoHorizontal_Blanco.png" 
-              alt="Universidad Finis Terrae" 
-              className="h-9 lg:h-10 w-auto object-contain select-none pointer-events-none shrink-0"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
-            <div className="border-l border-slate-600 pl-3 lg:pl-4 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-lg lg:text-xl tracking-tight whitespace-nowrap">Trayectoria <span className="text-[#3a9ad9]">UFT.</span></span>
-                <span className="hidden lg:inline-block whitespace-nowrap bg-[#3a9ad9]/20 text-[#3a9ad9] text-[10px] font-bold px-2 py-0.5 rounded border border-[#3a9ad9]/40 uppercase tracking-wider">
-                  Admin Panel
-                </span>
-              </div>
-              <p className="hidden xl:block text-xs text-slate-300 font-light truncate">Panel Central de Administración y Configuración TI</p>
-            </div>
-          </div>
+  // Menú lateral (propuesta A): grupos Personas / Sistema con contadores
+  const navGroups: { label: string; items: { key: AdminTab; label: string; icon: React.ElementType; count?: number; danger?: boolean }[] }[] = [
+    {
+      label: 'Personas',
+      items: [
+        { key: 'docentes', label: 'Docentes', icon: UserPlus, count: docentes.length },
+        { key: 'tutores', label: 'Tutores', icon: BookOpen, count: tutores.length },
+        { key: 'alumnos', label: 'Estudiantes', icon: GraduationCap, count: alumnos.length },
+        { key: 'pendientes', label: 'Pendientes', icon: ClipboardList, count: pendingCount },
+      ],
+    },
+    {
+      label: 'Sistema',
+      items: [
+        { key: 'smtp', label: 'Correo SMTP', icon: Mail },
+        { key: 'maintenance', label: 'Mantenimiento', icon: Database, danger: true },
+      ],
+    },
+  ];
 
-          <div className="flex items-center gap-2 lg:gap-3 shrink-0">
-            <div className="hidden xl:flex flex-col text-right">
-              <span className="text-sm font-semibold whitespace-nowrap">{user.name}</span>
-              <span className="text-xs text-[#3a9ad9] font-mono">admin_root</span>
-            </div>
-            {portalOptions.length > 0 && (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowPortalSwitcher(!showPortalSwitcher)}
-                  aria-expanded={showPortalSwitcher}
-                  className="flex items-center gap-2 bg-[#3a9ad9]/20 text-white hover:bg-[#3a9ad9] px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition border border-[#3a9ad9]/40"
-                >
-                  <ArrowLeftRight className="w-4 h-4" />
-                  <span className="hidden lg:inline">Cambiar de portal</span>
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showPortalSwitcher ? 'rotate-180' : ''}`} />
-                </button>
-                {showPortalSwitcher && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 p-1.5 space-y-1 z-50">
-                    {portalOptions.map(option => {
-                      const OptionIcon = option.icon;
-                      return (
-                        <button
-                          key={option.key}
-                          type="button"
-                          onClick={() => {
-                            setShowPortalSwitcher(false);
-                            auth.login(option.target);
-                            navigate(option.path);
-                          }}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-brand-navy text-xs font-semibold hover:bg-[#3a9ad9] hover:text-white transition-colors"
-                        >
-                          <OptionIcon className="w-3.5 h-3.5 shrink-0" />
-                          <span className="truncate">{option.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
+  const TAB_INFO: Record<AdminTab, { title: string; subtitle: string }> = {
+    docentes: { title: 'Docentes', subtitle: 'Coordinadores y practicantes con acceso al portal docente.' },
+    tutores: { title: 'Tutores', subtitle: 'Tutores pares y tutores de tutores registrados.' },
+    alumnos: { title: 'Estudiantes', subtitle: 'Estudiantes con cuenta en la plataforma.' },
+    pendientes: { title: 'Pendientes', subtitle: 'Personas importadas que aún no tienen cuenta ni han recibido correo.' },
+    smtp: { title: 'Correo SMTP', subtitle: 'Servidor de correo y pruebas de envío.' },
+    maintenance: { title: 'Mantenimiento', subtitle: 'Vaciado de datos para el inicio de un nuevo semestre.' },
+  };
+
+  // Indicadores de la nómina activa (solo en las pestañas de personas)
+  const peopleList = activeTab === 'docentes' ? docentes : activeTab === 'tutores' ? tutores : activeTab === 'alumnos' ? alumnos : null;
+  const monthAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const kpis = peopleList
+    ? [
+        { label: `${TAB_INFO[activeTab].title} registrados`, value: peopleList.length },
+        { label: 'Nuevos en los últimos 30 días', value: peopleList.filter(u => u.createdAt && new Date(u.createdAt).getTime() >= monthAgo).length },
+        { label: 'Con más de un rol', value: peopleList.filter(u => Array.isArray(u.roles) && u.roles.length > 1).length },
+        { label: 'Sin correo registrado', value: peopleList.filter(u => !u.email).length, warn: true },
+      ]
+    : [];
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans flex flex-col lg:flex-row transition-colors duration-200" id="admin-dashboard-wrapper">
+      {/* Menú lateral institucional */}
+      <aside className="bg-[#092c4c] text-slate-200 lg:w-64 lg:shrink-0 lg:sticky lg:top-0 lg:h-screen flex flex-col z-40">
+        <div className="px-5 pt-5 pb-4 flex items-center justify-between gap-3 lg:block">
+          <div>
+            <img
+              src="/UFT_LogoHorizontal_Blanco.png"
+              alt="Universidad Finis Terrae"
+              className="h-8 w-auto object-contain select-none pointer-events-none mb-3 hidden lg:block"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+            <span className="font-extrabold text-lg tracking-tight text-white whitespace-nowrap">Trayectoria <span className="text-[#3a9ad9]">UFT.</span></span>
+            <p className="text-[10px] font-mono uppercase tracking-widest text-[#7fb4de]">Administración TI</p>
+          </div>
+          <div className="flex items-center gap-2 lg:hidden">
             <ThemeToggle className="bg-[#061e34] text-amber-300 border-slate-700 hover:bg-[#0c2a47]" />
-            <button
-              onClick={onLogout}
-              className="flex items-center gap-2 bg-rose-500/20 text-rose-200 hover:bg-rose-500 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition border border-rose-500/30"
-              title="Cerrar sesión"
-              aria-label="Cerrar sesión"
-            >
+            <button onClick={onLogout} className="p-2 rounded-xl bg-rose-500/20 text-rose-200 border border-rose-500/30" title="Cerrar sesión" aria-label="Cerrar sesión">
               <LogOut className="w-4 h-4" />
-              <span className="hidden lg:inline">Cerrar Sesión</span>
             </button>
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Navigation Tabs */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-4 mb-8">
-          <button
-            onClick={() => setActiveTab('docentes')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition ${
-              activeTab === 'docentes'
-                ? 'bg-[#092c4c] text-white shadow-md'
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Gestión de Docentes ({docentes.length})</span>
-          </button>
+        <nav className="px-3 pb-3 flex flex-col gap-4 lg:flex-1 lg:overflow-y-auto" aria-label="Secciones del administrador">
+          {navGroups.map(group => (
+            <div key={group.label} className="flex flex-col gap-0.5">
+              <span className="px-3 pb-1 text-[10px] font-mono font-semibold uppercase tracking-widest text-[#6f97bd]">{group.label}</span>
+              <div className="flex flex-wrap lg:flex-col gap-1 lg:gap-0.5">
+                {group.items.map(item => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => setActiveTab(item.key)}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3a9ad9] ${
+                        isActive
+                          ? 'bg-[#3a9ad9]/25 text-white shadow-[inset_3px_0_0_#3a9ad9]'
+                          : item.danger
+                            ? 'text-rose-200 hover:bg-white/5'
+                            : 'text-slate-200 hover:bg-white/5'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span className="flex-1">{item.label}</span>
+                      {item.count !== undefined && (
+                        <span className={`text-[11px] font-mono px-1.5 rounded-full ${
+                          item.key === 'pendientes' && item.count > 0 ? 'bg-[#3a9ad9] text-white' : 'text-slate-400'
+                        }`}>{item.count}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
 
-          <button
-            onClick={() => setActiveTab('tutores')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition ${
-              activeTab === 'tutores'
-                ? 'bg-[#092c4c] text-white shadow-md'
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            <span>Tutores Pares ({tutores.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('alumnos')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition ${
-              activeTab === 'alumnos'
-                ? 'bg-[#092c4c] text-white shadow-md'
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Estudiantes ({alumnos.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('pendientes')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition ${
-              activeTab === 'pendientes'
-                ? 'bg-[#092c4c] text-white shadow-md'
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            <ClipboardList className="w-4 h-4" />
-            <span>Pendientes</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('smtp')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition ${
-              activeTab === 'smtp'
-                ? 'bg-[#092c4c] text-white shadow-md'
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            <Mail className="w-4 h-4" />
-            <span>Configuración SMTP & Pruebas</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('maintenance')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition ${
-              activeTab === 'maintenance'
-                ? 'bg-rose-700 text-white shadow-md'
-                : 'bg-white text-rose-700 hover:bg-rose-50 border border-rose-200'
-            }`}
-          >
-            <Database className="w-4 h-4" />
-            <span>Limpieza & Vaciado Académico</span>
-          </button>
+        {/* Perfil, cambio de portal y cierre de sesión */}
+        <div className="hidden lg:flex flex-col gap-2 border-t border-white/10 p-3">
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-9 h-9 rounded-full bg-[#3a9ad9] text-white flex items-center justify-center font-bold text-xs shrink-0">
+              {user.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white truncate">{user.name}</p>
+              <p className="text-[11px] text-[#7fb4de] font-mono">Administrador</p>
+            </div>
+          </div>
+          {portalOptions.length > 0 && (
+            <div className="rounded-lg bg-white/5">
+              <button
+                type="button"
+                onClick={() => setShowPortalSwitcher(!showPortalSwitcher)}
+                aria-expanded={showPortalSwitcher}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-200 hover:text-white"
+              >
+                <ArrowLeftRight className="w-4 h-4" />
+                <span className="flex-1 text-left">Cambiar de portal</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showPortalSwitcher ? 'rotate-180' : ''}`} />
+              </button>
+              {showPortalSwitcher && (
+                <div className="px-1.5 pb-1.5 space-y-0.5">
+                  {portalOptions.map(option => {
+                    const OptionIcon = option.icon;
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => {
+                          setShowPortalSwitcher(false);
+                          auth.login(option.target);
+                          navigate(option.path);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-left text-xs font-semibold text-slate-200 hover:bg-[#3a9ad9] hover:text-white transition-colors"
+                      >
+                        <OptionIcon className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{option.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <ThemeToggle className="bg-[#061e34] text-amber-300 border-slate-700 hover:bg-[#0c2a47]" />
+            <button
+              onClick={onLogout}
+              className="flex-1 flex items-center justify-center gap-2 bg-rose-500/20 text-rose-200 hover:bg-rose-500 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold transition border border-rose-500/30"
+            >
+              <LogOut className="w-4 h-4" />
+              Cerrar Sesión
+            </button>
+          </div>
         </div>
+      </aside>
+
+      <div className="flex-1 min-w-0 flex flex-col">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">{TAB_INFO[activeTab].title}</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{TAB_INFO[activeTab].subtitle}</p>
+        </div>
+
+        {kpis.length > 0 && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+            {kpis.map(k => (
+              <div key={k.label} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3">
+                <p className={`text-2xl font-extrabold tabular-nums ${k.warn && k.value > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-white'}`}>{k.value}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{k.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Tab Content Views */}
         {activeTab === 'docentes' && (
@@ -693,7 +726,7 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
           />
         )}
 
-        {activeTab === 'pendientes' && <AdminPendingTab onRegistered={loadUsers} />}
+        {activeTab === 'pendientes' && <AdminPendingTab onRegistered={() => { loadUsers(); loadPendingCount(); }} />}
 
         {activeTab === 'smtp' && (
           <AdminSmtpTab
@@ -764,10 +797,10 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="bg-[#061e34] dark:bg-slate-950 border-t border-white/10 py-5 text-center text-xs text-slate-300 dark:text-slate-400 transition-colors">
+      <footer className="border-t border-slate-200 dark:border-slate-800 py-4 text-center text-xs text-slate-500 dark:text-slate-400">
         <p>Centro de Apoyo al Aprendizaje • Trayectoria Estudiantil UFT — Universidad Finis Terrae</p>
       </footer>
+      </div>
     </div>
   );
 }
