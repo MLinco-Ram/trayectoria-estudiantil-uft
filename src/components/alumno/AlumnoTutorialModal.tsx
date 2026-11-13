@@ -234,23 +234,40 @@ export const AlumnoTutorialModal: React.FC<AlumnoTutorialModalProps> = ({
       };
     }
 
-    const popoverWidth = 470;
     const padding = 16;
-    const popoverEstimatedHeight = 280;
+    const gap = 14;
+    const vw = windowDimensions.width;
+    const vh = windowDimensions.height;
+    const popoverWidth = Math.min(470, vw - 32);
+    // Alto real de la tarjeta (varía según el texto del paso); 280 solo antes de la primera medición
+    const popoverHeight = popoverRef.current?.offsetHeight || 280;
+    const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), Math.max(min, max));
+    const centeredLeft = clamp(targetRect.left + targetRect.width / 2 - popoverWidth / 2, padding, vw - popoverWidth - padding);
+    const centeredTop = clamp(targetRect.top + targetRect.height / 2 - popoverHeight / 2, padding, vh - popoverHeight - padding);
 
-    let top = targetRect.bottom + 14;
-    let left = targetRect.left + (targetRect.width / 2) - (popoverWidth / 2);
-
-    if (left + popoverWidth > windowDimensions.width - padding) {
-      left = windowDimensions.width - popoverWidth - padding;
-    }
-    if (left < padding) {
-      left = padding;
-    }
-
-    if (top + popoverEstimatedHeight > windowDimensions.height - padding) {
-      top = Math.max(padding, windowDimensions.height - popoverEstimatedHeight - padding);
-    }
+    // Se prueba debajo, arriba, a la derecha y a la izquierda del elemento; la primera que cabe
+    // completa sin taparlo. Antes, si no cabía debajo, se subía encima del propio elemento (pasos 4 y 6).
+    const candidates = [
+      { left: centeredLeft, top: targetRect.bottom + gap },
+      { left: centeredLeft, top: targetRect.top - gap - popoverHeight },
+      { left: targetRect.right + gap, top: centeredTop },
+      { left: targetRect.left - gap - popoverWidth, top: centeredTop },
+    ];
+    const fits = (c: { left: number; top: number }) =>
+      c.left >= padding && c.top >= padding && c.left + popoverWidth <= vw - padding && c.top + popoverHeight <= vh - padding;
+    // Si ninguna cabe (elemento casi del alto de la pantalla), la que menos lo tape dentro de la pantalla
+    const overlapArea = (c: { left: number; top: number }) => {
+      const x = Math.max(0, Math.min(c.left + popoverWidth, targetRect.right) - Math.max(c.left, targetRect.left));
+      const y = Math.max(0, Math.min(c.top + popoverHeight, targetRect.bottom) - Math.max(c.top, targetRect.top));
+      return x * y;
+    };
+    const inScreen = candidates.map(c => ({
+      left: clamp(c.left, padding, vw - popoverWidth - padding),
+      top: clamp(c.top, padding, vh - popoverHeight - padding),
+    }));
+    const chosen = candidates.find(fits) || inScreen.reduce((best, c) => (overlapArea(c) < overlapArea(best) ? c : best));
+    const left = chosen.left;
+    const top = chosen.top;
 
     return {
       position: 'fixed',

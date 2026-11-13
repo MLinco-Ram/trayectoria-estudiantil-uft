@@ -1019,13 +1019,32 @@ Prueba general del Portal Alumno con un curso (13 nov 2026, 24 respuestas, Ing. 
 ### 6. No se podía ver la contraseña al escribirla (alto)
 - `ResetPasswordScreen` (enlace del correo de recuperación) ahora tiene un botón para mostrar u ocultar. Login, registro y `ForceChangePasswordScreen` ya lo tenían.
 
+### 7. Prioridad media (corregidos)
+- **Largo mínimo de contraseña**: el registro decía "Mínimo 4", y la recuperación aceptaba 3 en el cliente y en el servidor (`resetPassword`). Ahora todo pide 6: registro, recuperación, cambio de contraseña y servidor. **El manual del alumno (externo al repo) también dice 4 y hay que corregirlo.**
+- **Selector de fecha (Tutorías Colectivas)**: la tira de 5 días siempre partía hoy, así que una fecha elegida en el calendario quedaba sin marcar y parecía que no cambiaba. Ahora `presetDates` se mueve para incluir la fecha elegida. El campo de fecha ignora fechas a medio escribir (año menor a 2020).
+- **Aviso al reservar o cancelar**: `bookingFeedback` es un aviso flotante (abajo, sobre la barra móvil), verde o ámbar si empieza con ⚠️, que se cierra a los 6 s o con la X. Cancelar ahora muestra "Reserva cancelada…" (antes no mostraba nada y los errores usaban `alert`).
+- **Avisar inconveniente**:
+  - Las reservas listadas son solo las del área elegida (`reqAreaBookings`; `bookingArea`: tutorías, o psicoeducativo para talleres, comunidad y otros programas). Cambiar de área suelta una reserva de la otra área, y el envío valida que calcen.
+  - Los botones de área tenían clases inválidas (`text-slate-650`, `border-slate-205`) y casi no cambiaban de aspecto; ahora tienen `aria-pressed` y un texto que explica a quién llega el aviso.
+  - "Ninguna de mis reservas" pasó a "No es por una reserva: solo necesito otro horario", con su explicación.
+- **Motivo visible al no poder inscribirse**: bajo cada tarjeta se muestra en texto por qué no se puede (terminó, sin cupos, ya comenzó, límite semanal). Antes estaba solo en el `title`, que no se ve en el celular.
+- **Modales tapados por la barra inferior móvil**: la encuesta, la bandeja de notificaciones y el escáner QR estaban en `z-50`, igual que la barra inferior (que se dibuja después) y que tapaba el botón "Enviar Evaluación" (al girar el celular la barra se ocultaba). Ahora están en `z-[70]`.
+- **Tutorial del alumno (pasos 4 y 6)**: `getPopoverStyle` prueba abajo, arriba, derecha e izquierda del elemento con el alto real de la tarjeta, y si nada cabe, elige la posición que menos lo tapa. Antes, si no cabía abajo, se subía encima del propio elemento.
+- **Selector de carrera del registro**: reemplazado por `CareerSearch` (`src/components/common/CareerSearch.tsx`), un buscador que ignora tildes y mayúsculas, agrupado por facultad y usable con teclado. En el `<select>` nativo la rueda del mouse cambiaba la carrera sin abrir la lista.
+- **RUT en el perfil del alumno**: se muestra en el menú de usuario (o el correo, si la cuenta no tiene RUT) y en la tarjeta de bienvenida.
+
+- **Autocompletado de Chrome en el registro**: Chrome ignora `autoComplete="off"` y escribía el RUT guardado del login en el buscador de carrera ("No hay carreras que coincidan con 20.783.960-4"). `CareerSearch` solo acepta texto cuando el campo tiene el foco. Contraseña y Confirmar del registro llevan `autoComplete="new-password"` para que Chrome no ponga la clave guardada.
+
+### Verificación en navegador (13 nov 2026, local contra Atlas)
+Cuenta de prueba creada desde el registro: **Prueba**, RUT 11.111.112-K, prueba.claude@uft.cl (carrera Ing. Civil Informática y Telecomunicaciones). **Hay que borrarla de la base cuando termine la verificación.**
+- **Probado y funciona**: buscador de carrera (sin tildes, Enter selecciona); "Mínimo 6 caracteres" en el registro; creación de cuenta y entrada directa al portal; RUT en la tarjeta de bienvenida; tutorial paso 4 (queda sobre las tarjetas sin taparlas); selector de fecha (al elegir el 25/11 la tira se mueve y lo marca); motivo bajo tarjetas terminadas ("Esta sesión ya terminó."); botones de área y texto explicativo en "Avisar inconveniente"; el buscador de carrera ya no recibe el RUT autocompletado.
+- **Aceptable**: tutorial paso 6. El formulario de inconvenientes es más alto que la pantalla, así que la tarjeta tapa la parte baja (horarios); es el caso "nada cabe, elige lo que menos tapa".
+- **No probado**:
+  - Aviso flotante al reservar o cancelar: no había tutorías futuras abiertas.
+  - Vista de celular: la ventana no se pudo achicar, así que tampoco se probaron la encuesta, las notificaciones y el escáner QR sobre la barra inferior.
+  - Envío de "Avisar inconveniente": no se envió para no generar avisos reales.
+  - Recuperación y cambio de contraseña con mínimo 6.
+  - Que Chrome ya no autocomplete la contraseña del registro: el cambio a `new-password` no se revisó tras recargar.
+
 ### Pendientes de la prueba (aún no corregidos)
-- **Medio**:
-  - El registro dice "mínimo 4" pero exige 6.
-  - El selector de fecha de Tutorías Colectivas no se actualiza.
-  - Falta un aviso al cancelar.
-  - Validaciones del formulario de inconvenientes.
-  - Botón de la encuesta en el celular.
-  - El tutorial tapa elementos.
-  - Selector de carrera demasiado sensible a la rueda del mouse.
 - **Diseño**: el rojo de Comunidad, contraste del modo oscuro, interfaz móvil, ajustes de usuario (contraseña, tamaño de letra, apagar los correos).

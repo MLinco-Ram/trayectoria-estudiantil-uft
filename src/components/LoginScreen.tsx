@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { CareerSearch } from './common/CareerSearch';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { User, Role } from '../types';
-import { formatRut, UFT_CAREERS } from '../data';
+import { formatRut } from '../data';
 import { 
   LogIn, 
   UserPlus, 
@@ -468,21 +469,11 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">Carrera</label>
-                  <div className="relative">
-                    <select
-                      className="w-full appearance-none pl-4 pr-10 py-2.5 bg-[#0d2f52] dark:bg-slate-800 text-white rounded-full border-2 border-slate-900 dark:border-slate-700 focus:outline-none text-xs font-bold cursor-pointer shadow-md"
-                      value={regCareer}
-                      onChange={(e) => setRegCareer(e.target.value)}
-                    >
-                      <option value="" disabled>Selecciona tu carrera</option>
-                      {UFT_CAREERS.map(group => (
-                        <optgroup key={group.faculty} label={`Facultad de ${group.faculty}`}>
-                          {group.careers.map(c => <option key={c} value={c}>{c}</option>)}
-                        </optgroup>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-white absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
+                  <CareerSearch
+                    value={regCareer}
+                    onChange={setRegCareer}
+                    inputClassName="w-full pl-4 pr-10 py-2.5 bg-[#0d2f52] dark:bg-slate-800 text-white placeholder:text-white/70 rounded-full border-2 border-slate-900 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-[#3a9ad9] text-xs font-bold shadow-md"
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -492,7 +483,8 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                       <input
                         type={showRegPassword ? 'text' : 'password'}
                         className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75"
-                        placeholder="Mínimo 4"
+                        placeholder="Mínimo 6 caracteres"
+                        autoComplete="new-password"
                         value={regPassword}
                         onChange={(e) => setRegPassword(e.target.value)}
                       />
@@ -512,6 +504,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                         type={showRegConfirm ? 'text' : 'password'}
                         className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-xs font-bold text-white placeholder-white/75"
                         placeholder="Repite"
+                        autoComplete="new-password"
                         value={regConfirmPassword}
                         onChange={(e) => setRegConfirmPassword(e.target.value)}
                       />

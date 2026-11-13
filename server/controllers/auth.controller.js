@@ -212,8 +212,8 @@ export const resetPassword = async (req, res) => {
     if (!token) {
       return res.status(400).json({ error: "Token de restablecimiento no proporcionado." });
     }
-    if (!newPassword || newPassword.trim().length < 3) {
-      return res.status(400).json({ error: "La contraseña debe tener al menos 3 caracteres." });
+    if (!newPassword || newPassword.trim().length < 6) {
+      return res.status(400).json({ error: "La contraseña debe tener al menos 6 caracteres." });
     }
 
     const resetRecord = await db.collection('password_resets').findOne({ token });
