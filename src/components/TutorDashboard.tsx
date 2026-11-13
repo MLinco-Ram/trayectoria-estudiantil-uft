@@ -2550,7 +2550,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
               Sincronizado
             </span>
             <span className="hidden sm:inline">Inasistencias Notificadas Directo</span>
-            <span className="font-mono normal-case tracking-normal text-slate-400/80">v{__APP_VERSION__}</span>
+            <span className="font-mono normal-case tracking-normal text-slate-400/80">v {__APP_VERSION__}</span>
           </div>
         </footer>
       </main>
