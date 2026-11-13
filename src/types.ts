@@ -160,10 +160,10 @@ export interface Room {
 }
 
 // Usuario importado (p. ej. desde Excel) que todavía no tiene cuenta ni ha recibido correo
+// No guarda el RUT: solo su contraseña inicial (últimos 4 del RUT) cifrada en el servidor
 export interface PendingUser {
   id: string;
   name: string;
-  rut: string;
   email: string;
   career: string;
   role: 'alumno' | 'tutor' | 'docente' | null;

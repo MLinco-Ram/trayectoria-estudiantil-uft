@@ -42,14 +42,39 @@ const initialPasswordFromRut = (rut) => (rut || '').replace(/[\.\-\s]/g, '').sli
 
 // Envía la contraseña inicial por correo. Devuelve true solo si salió por SMTP real (no simulado).
 async function sendInitialPasswordEmail(user, initialPassword) {
+  const loginHint = user.rut
+    ? `(los últimos 4 caracteres de tu RUT, sin puntos ni guión). Ingresa con tu RUT o tu correo (${user.email}) y esta contraseña.`
+    : `(los últimos 4 caracteres de tu RUT, sin puntos ni guión). Ingresa con tu correo (${user.email}) y esta contraseña.`;
   const mail = await sendEmail({
     to: user.email,
     toName: user.name,
     subject: 'Tu contraseña de acceso a Trayectoria Estudiantil UFT',
-    text: `Tu contraseña de acceso a Trayectoria Estudiantil UFT es: ${initialPassword} (los últimos 4 caracteres de tu RUT, sin puntos ni guión). Ingresa con tu RUT y esta contraseña. ${isPasswordChangeRequired() ? 'Se te pedirá cambiarla en tu primer ingreso.' : 'Te recomendamos cambiarla después de ingresar.'}`,
+    text: `Tu contraseña de acceso a Trayectoria Estudiantil UFT es: ${initialPassword} ${loginHint} ${isPasswordChangeRequired() ? 'Se te pedirá cambiarla en tu primer ingreso.' : 'Te recomendamos cambiarla después de ingresar.'}`,
     actionText: 'Ingresar a la Plataforma'
   });
   return !mail?.simulated;
+}
+
+// Cuentas sin RUT (registradas desde Pendientes): se identifican y entran solo con su correo
+async function insertUserWithoutRut(db, newUser) {
+  const email = (newUser.email || '').trim().toLowerCase();
+  if (!email) return { error: 'La cuenta necesita un correo para poder ingresar.' };
+  newUser.email = email;
+  if (await findUserByEmail(db, email)) {
+    return { error: 'El correo ya se encuentra registrado en el sistema.' };
+  }
+  delete newUser.rut;
+  newUser.password = await bcrypt.hash(newUser.password, await bcrypt.genSalt(10));
+  if (!newUser.createdAt) newUser.createdAt = new Date().toISOString();
+  await db.collection('users').insertOne(newUser);
+  const safeResult = sanitizeUserOutput(newUser);
+  emitEvent('users:changed', { action: 'create', user: safeResult });
+  return { user: safeResult };
+}
+
+export function findUserByEmail(db, email) {
+  const escaped = String(email || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return db.collection('users').findOne({ email: { $regex: new RegExp(`^${escaped}$`, 'i') } });
 }
 
 async function insertUser(db, newUser) {
@@ -88,16 +113,17 @@ async function insertUser(db, newUser) {
 
 // Crea una cuenta con la contraseña inicial (últimos 4 caracteres del RUT) y se la envía por correo.
 // La usan el alta manual (Docente/Admin) y el registro de pendientes importados desde Excel.
-export async function createAccountWithInitialPassword(db, data) {
+// Con `presetInitialPassword` (uso interno desde Pendientes) la cuenta se crea sin RUT y entra con su correo.
+export async function createAccountWithInitialPassword(db, data, presetInitialPassword) {
   const { _id, rutHash, password, mustChangePassword, ...newUser } = data || {};
   if (!newUser.id) newUser.id = `${newUser.role || 'user'}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
   // Nunca se acepta ni se devuelve una contraseña desde el cliente; se comunica solo por correo.
-  const initialPassword = initialPasswordFromRut(newUser.rut);
+  const initialPassword = presetInitialPassword || initialPasswordFromRut(newUser.rut);
   newUser.password = initialPassword;
   if (isPasswordChangeRequired()) newUser.mustChangePassword = true;
 
-  const result = await insertUser(db, newUser);
+  const result = presetInitialPassword ? await insertUserWithoutRut(db, newUser) : await insertUser(db, newUser);
   if (result.error) return { error: result.error };
 
   let emailSent = false;

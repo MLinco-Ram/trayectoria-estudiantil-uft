@@ -265,13 +265,14 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
     if (!editingUser) return;
     setEditFeedback(null);
 
-    if (!editName.trim() || !editRut.trim() || !editEmail.trim()) {
-      setEditFeedback({ status: 'error', message: 'Nombre, RUT y Correo son obligatorios.' });
+    // El RUT es opcional: las cuentas registradas desde Pendientes no lo tienen y entran con su correo
+    if (!editName.trim() || !editEmail.trim()) {
+      setEditFeedback({ status: 'error', message: 'Nombre y Correo son obligatorios.' });
       return;
     }
 
     const cleanRut = editRut.replace(/[\.\-]/g, '').trim();
-    if (cleanRut.length !== 9) {
+    if (cleanRut && cleanRut.length !== 9) {
       setEditFeedback({ status: 'error', message: 'El RUT debe tener exactamente 9 caracteres.' });
       return;
     }

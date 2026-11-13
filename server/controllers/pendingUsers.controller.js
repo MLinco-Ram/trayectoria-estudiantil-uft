@@ -1,7 +1,9 @@
-import { encryptField, decryptField, hashRut } from '../services/crypto.service.js';
+import { encryptField, decryptField } from '../services/crypto.service.js';
 import { emitEvent } from '../services/socket.service.js';
 import { sendServerError } from '../utils/errors.js';
 import { createAccountWithInitialPassword } from './users.controller.js';
+// El RUT no se guarda: del RUT del Excel solo se toman sus últimos 4 caracteres (contraseña inicial),
+// que se guardan cifrados hasta registrar la cuenta. Las cuentas creadas desde aquí entran con su correo.
 
 // Usuarios importados (p. ej. desde Excel) que aún NO tienen cuenta: no reciben correo
 // hasta que el administrador les asigna un rol y los registra.
@@ -12,18 +14,11 @@ const MAX_IMPORT = 2000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const cleanRut = (rut) => String(rut || '').replace(/[.\-\s]/g, '').toUpperCase();
-// 210564934 -> 21.056.493-4 (mismo formato que usan las altas desde la interfaz)
-const formatRut = (rut) => {
-  const c = cleanRut(rut);
-  if (c.length < 2) return c;
-  return `${c.slice(0, -1).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}-${c.slice(-1)}`;
-};
 const str = (v, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
 const toOutput = (doc) => ({
   id: doc.id,
   name: doc.name,
-  rut: decryptField(doc.rut) || doc.rut,
   email: doc.email,
   career: doc.career || '',
   role: doc.role || null,
@@ -66,16 +61,13 @@ export const importPendingUsers = async (req, res) => {
       if (rut.length !== 9) { skipped.push({ label, reason: 'RUT inválido (debe tener 9 caracteres con dígito verificador).' }); continue; }
       if (!EMAIL_RE.test(email)) { skipped.push({ label, reason: 'Correo inválido.' }); continue; }
 
-      const rawRut = str(String(row?.rut ?? ''), 20);
-      const rutHash = hashRut(rut);
-      if (seen.has(rutHash)) { skipped.push({ label, reason: 'RUT repetido en el archivo.' }); continue; }
-      seen.add(rutHash);
+      if (seen.has(email)) { skipped.push({ label, reason: 'Correo repetido en el archivo.' }); continue; }
+      seen.add(email);
 
       toInsert.push({
         id: `pending_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 7)}`,
         name,
-        rut: encryptField(rawRut),
-        rutHash,
+        initialPassword: encryptField(rut.slice(-4)),
         email,
         career: str(row?.career),
         // Rol opcional (alta manual); desde Excel llega vacío y se asigna después
@@ -89,17 +81,17 @@ export const importPendingUsers = async (req, res) => {
       });
     }
 
-    const hashes = toInsert.map(d => d.rutHash);
+    const emails = toInsert.map(d => d.email);
     const [existingUsers, existingPending] = await Promise.all([
-      db.collection('users').find({ rutHash: { $in: hashes } }, { projection: { rutHash: 1 } }).toArray(),
-      db.collection(COLLECTION).find({ rutHash: { $in: hashes } }, { projection: { rutHash: 1 } }).toArray(),
+      db.collection('users').find({ email: { $exists: true } }, { projection: { email: 1 } }).toArray(),
+      db.collection(COLLECTION).find({ email: { $in: emails } }, { projection: { email: 1 } }).toArray(),
     ]);
-    const userHashes = new Set(existingUsers.map(u => u.rutHash));
-    const pendingHashes = new Set(existingPending.map(u => u.rutHash));
+    const userEmails = new Set(existingUsers.map(u => String(u.email || '').toLowerCase()));
+    const pendingEmails = new Set(existingPending.map(u => u.email));
 
     const fresh = toInsert.filter(d => {
-      if (userHashes.has(d.rutHash)) { skipped.push({ label: d.name, reason: 'Ya tiene cuenta en el sistema.' }); return false; }
-      if (pendingHashes.has(d.rutHash)) { skipped.push({ label: d.name, reason: 'Ya estaba en pendientes.' }); return false; }
+      if (userEmails.has(d.email)) { skipped.push({ label: d.name, reason: 'Ya tiene cuenta en el sistema.' }); return false; }
+      if (pendingEmails.has(d.email)) { skipped.push({ label: d.name, reason: 'Ya estaba en pendientes.' }); return false; }
       return true;
     });
 
@@ -185,15 +177,22 @@ export const registerPendingUsers = async (req, res) => {
       }
       const isTutor = doc.role === 'tutor';
       const tutorTypes = isTutor ? (doc.tutorTypes?.length ? doc.tutorTypes : ['tutor_par']) : undefined;
+      // Pendientes antiguos guardaban el RUT cifrado: se usa solo para obtener los 4 caracteres
+      const initialPassword = doc.initialPassword
+        ? decryptField(doc.initialPassword)
+        : cleanRut(decryptField(doc.rut) || doc.rut).slice(-4);
+      if (!initialPassword || initialPassword.length !== 4) {
+        failed.push({ id: doc.id, name: doc.name, reason: 'No hay contraseña inicial (falta el RUT de origen).' });
+        continue;
+      }
       const result = await createAccountWithInitialPassword(db, {
         name: doc.name,
-        rut: formatRut(decryptField(doc.rut) || doc.rut),
         email: doc.email,
         role: doc.role,
         roles: [doc.role],
         career: doc.career || (doc.role === 'docente' ? 'Coordinación Docente' : ''),
         ...(isTutor ? { tutorType: tutorTypes[0], tutorTypes, assignedTutorIds: tutorTypes.includes('tutor_de_tutores') ? [] : undefined } : {}),
-      });
+      }, initialPassword);
       if (result.error) {
         failed.push({ id: doc.id, name: doc.name, reason: result.error });
         continue;
