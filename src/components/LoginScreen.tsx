@@ -340,7 +340,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                       className="pr-3.5 text-white/85 hover:text-white cursor-pointer"
                       aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                     >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                     </button>
                   </div>
                   <div className="text-right mt-1.5">
@@ -477,7 +477,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                         onClick={() => setShowRegPassword((v) => !v)}
                         className="shrink-0 pr-2 text-white/80 hover:text-white cursor-pointer"
                       >
-                        {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        {showRegPassword ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                       </button>
                     </div>
                   </div>
@@ -496,7 +496,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                         onClick={() => setShowRegConfirm((v) => !v)}
                         className="shrink-0 pr-2 text-white/80 hover:text-white cursor-pointer"
                       >
-                        {showRegConfirm ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        {showRegConfirm ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                       </button>
                     </div>
                   </div>

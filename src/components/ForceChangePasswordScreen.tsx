@@ -78,7 +78,7 @@ export default function ForceChangePasswordScreen() {
 
           <button type="button" onClick={() => setShowPasswords((v) => !v)}
             className="flex items-center space-x-1.5 text-[11px] font-bold text-slate-500 hover:text-brand-navy cursor-pointer">
-            {showPasswords ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            {showPasswords ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
             <span>{showPasswords ? 'Ocultar contraseñas' : 'Mostrar contraseñas'}</span>
           </button>
 

@@ -277,11 +277,11 @@ export function isSessionActive(session: { date: string; timeSlot?: string; isCo
 }
 
 /**
- * La asistencia solo se puede pasar el mismo día de la clase (a cualquier hora de ese día).
- * Evita que una sesión futura quede marcada como finalizada/archivada al tomar asistencia antes de tiempo.
+ * Tutores y docentes pueden marcar Presente/Ausente en cualquier momento (antes, durante o después de la clase).
+ * El check-in QR del estudiante sigue limitado al día de la clase (validado en el servidor).
  */
 export function canTakeAttendance(session: { date: string; timeSlot?: string }): boolean {
-  return !!session?.date && session.date === getTodayDateStr();
+  return !!session?.date;
 }
 
 /** Horas de anticipación con que cierra la inscripción de los estudiantes (0 = hasta el inicio de la sesión). */
