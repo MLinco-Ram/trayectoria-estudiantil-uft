@@ -321,6 +321,12 @@ export const registerQRAttendance = async (req, res) => {
     const wasAlreadyPresent = session.attendance?.[studentId] === 'presente';
     const isEnrolled = (session.studentIds || []).includes(studentId);
 
+    // El QR solo confirma la asistencia de quien tiene reserva. Si alguien llega sin inscribirse,
+    // el tutor lo agrega desde "Pasar lista" (+ Agregar Alumno).
+    if (!isEnrolled && !isTutorOrStaff(req)) {
+      return res.status(403).json({ error: `No estás inscrito en "${session.title}". Inscríbete antes de la clase o pide a tu tutor que te agregue a la lista.` });
+    }
+
     if (isEnrolled) {
       await db.collection('sessions').updateOne({ id }, { $set: { [`attendance.${studentId}`]: 'presente' } });
     } else {
