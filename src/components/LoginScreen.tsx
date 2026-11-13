@@ -111,6 +111,12 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     handleSuccessfulAuth(userObj);
   };
 
+  // Tipo de identificador escrito, para la etiqueta del campo (null mientras no se sabe)
+  const trimmedId = rutInput.trim();
+  const loginIdKind: 'correo' | 'rut' | null = trimmedId.includes('@')
+    ? 'correo'
+    : /^[\d.\-\s]{6,}[\dkK]?$/.test(trimmedId) ? 'rut' : null;
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -240,8 +246,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       {/* Botón en la esquina para alternar Modo Claro / Modo Oscuro */}
       <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-30">
         <ThemeToggle
-          showLabel={true}
-          className="bg-white/95 dark:bg-slate-900/95 shadow-lg border-2 border-slate-900/20 dark:border-slate-700 px-3.5 py-2 rounded-2xl backdrop-blur-xs hover:scale-105 transition-all text-xs font-bold"
+          className="bg-white/95 dark:bg-slate-900/95 shadow-lg border-2 border-slate-900/20 dark:border-slate-700 p-2.5 rounded-full backdrop-blur-xs hover:scale-105 transition-all"
         />
       </div>
 
@@ -301,7 +306,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 {/* Input RUT con recuadro redondeado */}
                 <div className="flex items-center bg-[#007ba7] dark:bg-[#083556] rounded-full p-1.5 border-2 border-slate-900 dark:border-slate-700 shadow-md">
                   <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-slate-800 dark:text-slate-200 shrink-0 border border-slate-200 dark:border-slate-700 shadow-inner">
-                    <UserIcon className="w-5 h-5 text-slate-700 dark:text-slate-300" />
+                    {loginIdKind === 'correo'
+                      ? <Mail className="w-5 h-5 text-slate-700 dark:text-slate-300" />
+                      : <UserIcon className="w-5 h-5 text-slate-700 dark:text-slate-300" />}
                   </div>
                   <input
                     type="text"
@@ -311,13 +318,18 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     autoCapitalize="none"
                     spellCheck={false}
                     aria-label="RUT o correo"
-                    className="flex-1 bg-transparent px-4 text-sm font-bold text-white placeholder-white/75 focus:outline-none font-mono"
+                    className="login-pill-input flex-1 min-w-0 bg-transparent px-4 text-sm font-bold text-white placeholder-white/75 focus:outline-none font-mono"
                     placeholder="RUT o correo"
                     value={rutInput}
                     onChange={(e) => setRutInput(e.target.value)}
                     // Al salir del campo se formatea como RUT solo si lo es (un correo puede empezar con números)
                     onBlur={() => { if (/^[\d.\-\s]+[\dkK]$/.test(rutInput.trim())) setRutInput(formatRut(rutInput)); }}
                   />
+                  {loginIdKind && (
+                    <span className="mr-2 shrink-0 rounded-full bg-white dark:bg-slate-900 px-2.5 py-1 text-[9px] font-black font-mono tracking-wider text-[#007ba7] dark:text-brand-celeste" aria-hidden="true">
+                      {loginIdKind === 'correo' ? 'CORREO' : 'RUT'}
+                    </span>
+                  )}
                 </div>
 
                 {/* Input Contraseña con recuadro redondeado */}
@@ -332,8 +344,8 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                       id="password"
                       autoComplete="current-password"
                       aria-label="Contraseña"
-                      className="flex-1 bg-transparent px-4 text-sm font-bold text-white placeholder-white/75 focus:outline-none"
-                      placeholder="••••••••••••"
+                      className="login-pill-input flex-1 min-w-0 bg-transparent px-4 text-sm font-bold text-white placeholder-white/75 focus:outline-none"
+                      placeholder="Contraseña"
                       value={passwordInput}
                       onChange={(e) => setPasswordInput(e.target.value)}
                     />
@@ -355,6 +367,15 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                       ¿Olvidaste tu contraseña?
                     </button>
                   </div>
+                </div>
+
+                {/* Pista para cuentas creadas desde Pendientes (entran con correo y los 4 últimos del RUT) */}
+                <div className="flex gap-2.5 rounded-2xl border-2 border-dashed border-[#007ba7]/40 dark:border-[#2f5a85] bg-sky-50 dark:bg-[#0b2742] px-3.5 py-2.5 text-[11px] leading-snug text-slate-600 dark:text-slate-300">
+                  <Mail className="w-4 h-4 shrink-0 mt-0.5 text-[#007ba7] dark:text-brand-celeste" />
+                  <p>
+                    <strong className="block text-slate-900 dark:text-white">¿Recibiste un correo de bienvenida?</strong>
+                    Ingresa con ese correo. Tu contraseña son los últimos 4 caracteres de tu RUT, sin puntos ni guión.
+                  </p>
                 </div>
 
                 {error && (
@@ -525,12 +546,12 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         </div>
       </div>
 
-      {/* Logo oficial fijo abajo a la izquierda (blanco en modo oscuro, negro en modo claro) */}
-      <div className="fixed bottom-4 left-6 md:bottom-6 md:left-8 z-20 pointer-events-none select-none flex items-center gap-3">
+      {/* Logo oficial bajo la tarjeta (blanco en modo oscuro, negro en modo claro) */}
+      <div className="relative z-10 mt-2 pointer-events-none select-none flex justify-center">
         <img 
           src={isDark ? "/UFT_LogoHorizontal_Blanco.png" : "/UFT_LogoHorizontal_Negro.png"} 
           alt="Universidad Finis Terrae" 
-          className="h-10 md:h-14 w-auto object-contain transition-all duration-200" 
+          className="h-11 md:h-12 w-auto object-contain transition-all duration-200" 
         />
       </div>
 
