@@ -105,6 +105,12 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   const [showNotifInbox, setShowNotifInbox] = useState(false);
   const [notifTimeframe, setNotifTimeframe] = useState<'week' | 'all'>('week');
   const [bookingFeedback, setBookingFeedback] = useState<string | null>(null);
+  // Todo aviso se cierra solo a los 6 s (los de error antes quedaban pegados)
+  useEffect(() => {
+    if (!bookingFeedback) return;
+    const t = setTimeout(() => setBookingFeedback(null), 6000);
+    return () => clearTimeout(t);
+  }, [bookingFeedback]);
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
   const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
   
@@ -169,6 +175,16 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
     .map(day => `${day}: ${TIME_SLOTS.filter(slot => reqSlots[day].includes(slot)).join(', ')}`)
     .join(' | ');
   const [reqProgram, setReqProgram] = useState<'tutorias' | 'psicoeducativo'>('tutorias');
+  // Área a la que pertenece una reserva: Tutorías, o el equipo psicoeducativo para talleres, comunidad y otros programas
+  const bookingArea = (s: Session): 'tutorias' | 'psicoeducativo' => (s.program === 'tutorias' ? 'tutorias' : 'psicoeducativo');
+  // Al cambiar de área se suelta la reserva elegida si era de la otra área (antes se podía mezclar)
+  const selectReqProgram = (area: 'tutorias' | 'psicoeducativo') => {
+    setReqProgram(area);
+    setReqConflictSessionId(prev => {
+      const chosen = sessions.find(s => s.id === prev);
+      return chosen && bookingArea(chosen) !== area ? '' : prev;
+    });
+  };
   const [formFeedback, setFormFeedback] = useState<string | null>(null);
 
   // Feedback & Satisfaction state (Encuesta de Satisfacción de 12 preguntas)
@@ -481,6 +497,8 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
     s.attendance?.[user.id] !== 'presente' && 
     s.attendance?.[user.id] !== 'ausente'
   );
+  // Reservas del área elegida en "Avisar inconveniente"
+  const reqAreaBookings = myActiveBookings.filter(s => bookingArea(s) === reqProgram);
   
   // Weekly active bookings for the current week (from Monday to Sunday)
   const currentWeekActiveBookings = sessions.filter(s => {
@@ -604,7 +622,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         savedSession = data?.session;
       } catch (err) {
         console.error('Error cancelando reserva:', err);
-        alert('No se pudo cancelar tu reserva en el servidor. Intenta nuevamente.');
+        setBookingFeedback('⚠️ No se pudo cancelar tu reserva en el servidor. Intenta nuevamente.');
         return;
       }
 
@@ -620,6 +638,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
           `Cancelación de Reserva: ${targetSession.title}`,
           `has liberado tu cupo en la tutoria "${targetSession.title}" del día ${targetSession.date}.`
         );
+        setBookingFeedback(`Reserva cancelada: "${targetSession.title}" (${targetSession.date}). Tu cupo quedó liberado.`);
       }
 
       reloadData();
@@ -692,7 +711,17 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       };
   const SegmentIcon = segmentInfo.icon;
 
-  const presetDates = getDynamicPresetDates(5);
+  // Tira de 5 días: parte hoy, pero si se eligió en el calendario una fecha fuera de esos días, la tira
+  // se mueve para incluirla y marcarla (antes quedaba sin marcar y parecía que la fecha no cambiaba)
+  const presetDates = useMemo(() => {
+    const todayWindow = getDynamicPresetDates(5);
+    if (todayWindow.includes(targetDate)) return todayWindow;
+    const [y, m, d] = targetDate.split('-').map(Number);
+    return Array.from({ length: 5 }, (_, i) => {
+      const day = new Date(y, m - 1, d + i);
+      return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+    });
+  }, [targetDate]);
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
@@ -883,7 +912,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                     <div className="pb-2 border-b border-white/10 text-[11px] text-slate-300 space-y-0.5">
                       <p className="font-extrabold text-white truncate">{user.name}</p>
                       <p className="text-[10px] text-[#3a9ad9] truncate">{user.career || 'Estudiante UFT'}</p>
-                      <p className="text-[9px] text-slate-400 font-mono mt-0.5">RUT: {user.rut}</p>
+                      <p className="text-[9px] text-slate-400 font-mono mt-0.5 truncate">{user.rut ? `RUT: ${user.rut}` : user.email}</p>
                     </div>
 
                     {Array.isArray(user.roles) && user.roles.length > 1 && (
@@ -1003,7 +1032,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                 {user.name}
               </h2>
               <p className="text-xs text-brand-celeste font-bold truncate">{user.career}</p>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">RUT: {user.rut}</p>
+              {user.rut && <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">RUT: {user.rut}</p>}
             </div>
           </div>
 
@@ -1030,12 +1059,30 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         {/* Dynamic Booking Screen Section */}
         <div className="mt-4 sm:mt-5 space-y-4" id="alumno-segment-body">
           
-          {bookingFeedback && (
-            <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-semibold animate-fade-in flex items-center space-x-1.5">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-              <span>{bookingFeedback}</span>
-            </div>
-          )}
+          {/* Aviso flotante de reservas y cancelaciones: siempre visible aunque se haya hecho scroll
+              (antes estaba arriba de la página y al cancelar desde "Mis reservas" no se veía nada) */}
+          {bookingFeedback && (() => {
+            const isWarning = bookingFeedback.startsWith('⚠️');
+            return (
+              <div
+                role="status"
+                aria-live="polite"
+                className={`fixed left-1/2 -translate-x-1/2 bottom-24 md:bottom-6 z-[60] w-[calc(100%-2rem)] max-w-md p-3.5 rounded-xl text-xs font-semibold shadow-xl animate-fade-in flex items-start gap-2 border ${
+                  isWarning
+                    ? 'bg-amber-50 dark:bg-amber-950 text-amber-900 dark:text-amber-100 border-amber-300 dark:border-amber-800'
+                    : 'bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-100 border-emerald-300 dark:border-emerald-800'
+                }`}
+              >
+                {isWarning
+                  ? <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  : <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />}
+                <span className="flex-1">{bookingFeedback.replace(/^⚠️\s*/, '')}</span>
+                <button type="button" onClick={() => setBookingFeedback(null)} className="shrink-0 opacity-60 hover:opacity-100 cursor-pointer" aria-label="Cerrar aviso">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            );
+          })()}
 
           {/* Encabezado del programa activo (color, ícono y texto propios de cada uno) */}
           {isProgramSegment && (
@@ -1079,7 +1126,9 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                     type="date"
                     value={targetDate}
                     onChange={(e) => {
-                      if (e.target.value) setTargetDate(e.target.value);
+                      // Al escribir con el teclado el navegador entrega fechas a medio escribir (año 0002): se ignoran
+                      const value = e.target.value;
+                      if (/^\d{4}-\d{2}-\d{2}$/.test(value) && Number(value.slice(0, 4)) >= 2020) setTargetDate(value);
                     }}
                     className="px-2.5 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-medium focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none"
                   />
@@ -1375,6 +1424,22 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                             Inscribirse
                           </button>
                         )}
+
+                        {/* Motivo visible cuando no se puede inscribir (antes solo estaba en el tooltip, que en el celular no se ve) */}
+                        {!isRegistered && (() => {
+                          const reason = (isPast || isCompleted)
+                            ? 'Esta sesión ya terminó.'
+                            : isFull
+                            ? `No quedan cupos (${enrolledCount}/${session.maxSpots}).`
+                            : isClosedDeadline
+                            ? 'La inscripción cerró porque la sesión ya comenzó.'
+                            : targetWeekActiveBookings.length >= MAX_WEEKLY_ACTIVE_BOOKINGS
+                            ? `Ya tienes ${MAX_WEEKLY_ACTIVE_BOOKINGS} reservas activas esta semana. Cancela una en "Mis reservas" para inscribirte.`
+                            : null;
+                          return reason ? (
+                            <p className="text-[10px] leading-snug text-slate-500 dark:text-slate-400 text-center">{reason}</p>
+                          ) : null;
+                        })()}
                       </div>
                     );
                   })}
@@ -1662,7 +1727,12 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                 <form onSubmit={async (e) => {
                   e.preventDefault();
                   if (!reqMessage.trim()) return;
-                  const conflictSession = myActiveBookings.find(s => s.id === reqConflictSessionId);
+                  const conflictSession = reqAreaBookings.find(s => s.id === reqConflictSessionId);
+                  if (reqConflictSessionId && !conflictSession) {
+                    setFormFeedback('No se pudo enviar: la reserva elegida no corresponde al área seleccionada.');
+                    setTimeout(() => setFormFeedback(null), 5000);
+                    return;
+                  }
                   const conflictLabel = conflictSession
                     ? `${conflictSession.title} (${conflictSession.date}, ${conflictSession.timeSlot})`
                     : '';
@@ -1800,30 +1870,37 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
-                        onClick={() => setReqProgram('tutorias')}
-                        className={`py-2 px-3 rounded-xl border text-xs font-bold text-center transition-colors ${reqProgram === 'tutorias' ? 'bg-[#092c4c] dark:bg-brand-celeste text-white dark:text-[#092c4c] border-[#092c4c] dark:border-brand-celeste' : 'bg-white dark:bg-slate-800 text-slate-650 dark:text-slate-300 border-slate-205 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                        aria-pressed={reqProgram === 'tutorias'}
+                        onClick={() => selectReqProgram('tutorias')}
+                        className={`cursor-pointer py-2 px-3 rounded-xl border text-xs font-bold text-center transition-colors ${reqProgram === 'tutorias' ? 'bg-[#092c4c] dark:bg-brand-celeste text-white dark:text-[#092c4c] border-[#092c4c] dark:border-brand-celeste' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                       >
                         Programa de Tutorías UFT
                       </button>
                       <button
                         type="button"
-                        onClick={() => setReqProgram('psicoeducativo')}
-                        className={`py-2 px-3 rounded-xl border text-xs font-bold text-center transition-colors ${reqProgram === 'psicoeducativo' ? 'bg-[#3a9ad9] text-[#092c4c] border-[#3a9ad9]' : 'bg-white dark:bg-slate-800 text-slate-650 dark:text-slate-300 border-slate-205 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                        aria-pressed={reqProgram === 'psicoeducativo'}
+                        onClick={() => selectReqProgram('psicoeducativo')}
+                        className={`cursor-pointer py-2 px-3 rounded-xl border text-xs font-bold text-center transition-colors ${reqProgram === 'psicoeducativo' ? 'bg-[#3a9ad9] text-[#092c4c] border-[#3a9ad9]' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                       >
                         Apoyo / Taller Psicoeducativo
                       </button>
                     </div>
+                    <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                      {reqProgram === 'tutorias'
+                        ? 'Tu aviso llegará a la coordinación de Tutorías, que te propondrá una tutoría en otro horario.'
+                        : 'Tu aviso llegará al equipo Psicoeducativo (talleres, asesorías y actividades), que te propondrá otro horario.'}
+                    </p>
                   </div>
 
                   <div>
                     <label className="block text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 mb-1">¿En cuál de tus reservas tienes el inconveniente?</label>
-                    {myActiveBookings.length === 0 ? (
+                    {reqAreaBookings.length === 0 ? (
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 p-3 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
-                        No tienes reservas activas. Puedes enviar el aviso igualmente.
+                        No tienes reservas activas en esta área. Puedes enviar el aviso igualmente para pedir un horario.
                       </p>
                     ) : (
                       <div className="space-y-1.5">
-                        {[{ id: '', title: 'Ninguna de mis reservas', date: '', timeSlot: '' }, ...myActiveBookings].map(s => {
+                        {[{ id: '', title: 'No es por una reserva: solo necesito otro horario', date: '', timeSlot: '' }, ...reqAreaBookings].map(s => {
                           const isChosen = reqConflictSessionId === s.id;
                           return (
                             <button
@@ -1839,8 +1916,10 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                             >
                               <span className="min-w-0">
                                 <span className="font-bold block truncate">{s.title}</span>
-                                {s.id && (
+                                {s.id ? (
                                   <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">{s.date} • {s.timeSlot}</span>
+                                ) : (
+                                  <span className="text-[11px] text-slate-500 dark:text-slate-400">Úsalo si no puedes asistir a ningún horario publicado y quieres pedir uno nuevo.</span>
                                 )}
                               </span>
                               {isChosen && <CheckCircle2 className="h-4 w-4 text-amber-600 shrink-0" />}
@@ -2057,7 +2136,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
 
       {/* MODAL DE EVALUACIÓN DE SATISFACCIÓN (12 PREGUNTAS - RESPONSIVO & DARK MODE) */}
       {evaluatingSession && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-fade-in overflow-y-auto">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-2.5 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-fade-in overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full max-h-[94vh] sm:max-h-[90vh] flex flex-col overflow-hidden my-auto animate-scale-up">
             {/* Header del Modal */}
             <div className="bg-[#092c4c] text-white p-4 sm:p-5 relative shrink-0">
