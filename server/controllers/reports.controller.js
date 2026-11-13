@@ -1,9 +1,12 @@
 import { emitEvent } from '../services/socket.service.js';
 import { sendServerError } from '../utils/errors.js';
+import { isTutorOrStaff } from '../middlewares/auth.js';
 
 export const getReports = async (req, res) => {
   const db = req.db;
   try {
+    // Las alertas son de tutores y coordinación; un alumno no las necesita
+    if (!isTutorOrStaff(req)) return res.json([]);
     const reports = await db.collection('reports').find({}).toArray();
     res.json(reports);
   } catch (err) {

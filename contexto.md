@@ -554,18 +554,32 @@ flowchart TD
   - **Firefox**: se desactiva `backdrop-filter` en capas de modal a pantalla completa (`@supports (-moz-appearance: none)` en `index.css`); se respeta `prefers-reduced-motion`.
 - **Persistencia de Sesión**: La autenticación real es la cookie `uft_session` (httpOnly, SameSite=Lax, `Secure` en producción, 7 días), firmada con HMAC-SHA256 por el servidor (`server/services/session.service.js`, secreto `SESSION_SECRET`). Solo contiene el id del usuario y su expiración; el navegador no puede leerla ni falsificarla. Se crea en `/api/login` y `/api/register` y se borra en `/api/logout`. Además, `AuthContext` mantiene la cookie legible `uft_session_user` con una copia del usuario solo para la interfaz (portal elegido, `role` / `tutorType`); la refresca desde `/api/me` al abrir la app y ante cada evento `users:changed`, y cierra la sesión local si el servidor responde 401.
 - **Autorización en la API (`server/middlewares/auth.js`)**: Son públicas solo `/api/login`, `/api/logout`, `/api/register` (crea únicamente alumnos), `/api/forgot-password`, `/api/verify-reset-token` y `/api/reset-password`. Todo lo demás pasa por `requireAuth`, que valida la firma y carga el usuario desde MongoDB en cada petición (los roles revocados o las cuentas borradas pierden el acceso al instante). `requireRole` restringe: `/api/system/*`, `/api/settings/*`, `/api/health`, `/api/cron/remind-tutors` y `/api/test/*` solo admin; `/api/broadcast-message` y crear/editar/eliminar usuarios, admin o docente. Solo un admin puede crear, editar o eliminar cuentas admin o asignar ese rol.
+- **Datos según rol (nov 2026, tras la prueba con alumnos)**: helpers `isStaff` (admin/docente), `isTutorOrStaff` y `canSendTo` en `server/middlewares/auth.js`. Un usuario solo alumno (sin rol tutor/docente/admin):
+  - `GET /api/users`: recibe sus propios datos completos y, de tutores y docentes, solo `id`, `name`, roles y tipo de tutor (y el correo de los docentes, para avisarles inconvenientes). Nunca el RUT ni los datos de otros alumnos.
+  - `GET /api/sessions` (y las respuestas de `/enroll` y QR): los demás inscritos se reemplazan por `otro_<n>` (se conserva la cantidad para los cupos), y `attendance`/`ratings` solo traen su entrada.
+  - `/api/notifications`: solo las suyas (el `email` de la consulta se ignora), y solo marca como leídas las suyas. `/api/student-requests`: solo las suyas, y al crear se fuerza `studentId`/`studentName`/`status`. `/api/availabilities`: solo la suya, y solo guarda la suya. `/api/reports`: lista vacía.
+  - `POST /api/notifications` y `/api/send-email`: solo a su propio correo o al de un docente/admin, y sin cambiar el remitente (`fromName`).
+  - `PUT /api/sessions/:id`: solo puede guardar `ratings.<su id>` en una sesión donde está inscrito.
+  - Crear o eliminar sesiones, y editar reportes o solicitudes (`PUT`), queda solo para admin/docente.
+  - Tutores y coordinación siguen recibiendo los datos completos (pasan lista, ven RUT y correos de sus alumnos).
+  - Los eventos de Socket.io siguen enviando la sesión completa (en Vercel no hay WebSockets).
 - **Sin base de datos local**: Todos los datos de negocio (usuarios, sesiones, reportes, solicitudes, disponibilidades, notificaciones, SMTP) se leen y escriben únicamente en MongoDB Atlas vía `/api`. No existe caché ni respaldo en `localStorage`: si una escritura falla, la interfaz muestra el error en lugar de simular el guardado. `localStorage` se usa solo para preferencias de interfaz (pestaña activa, tema). Los tutoriales vistos se guardan en MongoDB (`users.tutorialsSeen`).
 
 ### Backend & Seguridad
 - **Runtime & Servidor**: Node.js con Express 4 modularizado por capas (Controladores, Servicios, Rutas y Middlewares).
 - **Base de Datos**: MongoDB Atlas (driver oficial `mongodb` v7.x con pool de conexiones y cache `cachedDb`). Cluster en AWS `SA_EAST_1` (São Paulo).
-  - **Conexión (`server/db.js`)**: `connectDB()` comparte una sola conexión en curso entre peticiones simultáneas. Si `connect()` falla se descarta ese cliente (evita "Topology is closed") y el siguiente intento crea uno nuevo. Usa el DNS del sistema; si la consulta `querySrv`/`queryTxt` de una URI `mongodb+srv://` falla (routers que no responden TXT o bloquean DNS públicos), resuelve los hosts por SRV y reintenta con una URI estándar `mongodb://` (`tls=true`, `authSource=admin`). Al conectar crea el índice `users.rutHash`.
+  - **Conexión (`server/db.js`)**: `connectDB()` comparte una sola conexión en curso entre peticiones simultáneas. Si `connect()` falla se descarta ese cliente (evita "Topology is closed") y el siguiente intento crea uno nuevo. Usa el DNS del sistema; si la consulta `querySrv`/`queryTxt` de una URI `mongodb+srv://` falla (routers que no responden TXT o bloquean DNS públicos), resuelve los hosts por SRV y reintenta con una URI estándar `mongodb://` (`tls=true`, `authSource=admin`). Al conectar crea el índice `users.rutHash` y el índice único `email_unique` sobre `users.email` (sin distinguir mayúsculas: colación `es`, fuerza 2; solo correos no vacíos).
 - **Despliegue**: Vercel (`vercel.json`): `/api/*` → `api/index.js` (exporta la app Express como función serverless), resto → SPA. Funciones en la región `gru1` (São Paulo), la misma que Atlas, para minimizar la latencia de cada consulta. Variables obligatorias definidas en Vercel (Production y Preview) como Secret. Limitaciones en serverless: Socket.io no mantiene conexiones y el cron con `setInterval` no se ejecuta.
 - **Seguridad Criptográfica & Datos Sensibles**:
   - **Cifrado en Reposo (Field-Level Encryption)**: RUTs cifrados en MongoDB Atlas con **AES-256-GCM** (`enc:<iv>:<tag>:<cipher>`) usando clave simétrica de 256 bits (`DATA_ENCRYPTION_KEY`).
   - **Blind Index Determinístico**: Búsquedas instantáneas $O(1)$ en MongoDB mediante **HMAC-SHA256** (`rutHash`).
   - **Hashing de Contraseñas**: `bcrypt` (módulo nativo, compatible con los hashes previos de `bcryptjs`) con salt rounds para contraseñas de usuarios.
-  - **Protección HTTP**: `helmet` y `express-rate-limit` (120 req/min general; máximo 10 intentos en 5 min en `/api/login`). `app.set('trust proxy', 1)` para leer la IP real tras Vercel/Vite. Los límites de login/registro y de recuperación de contraseña guardan su contador en la colección `rate_limits` de MongoDB (`server/middlewares/mongoRateLimitStore.js`, TTL sobre `expiresAt`) para que valgan entre instancias serverless; si Mongo falla dejan pasar la petición (`passOnStoreError`). El límite general sigue en memoria.
+  - **Protección HTTP**: `helmet` y `express-rate-limit` (`server/middlewares/rateLimiters.js`). `app.set('trust proxy', 1)` para leer la IP real tras Vercel/Vite. **En una sala todos salen con la misma IP de la universidad**, por eso los límites no son solo por IP:
+    - General: 300 req/min por usuario en sesión (600 por IP sin sesión).
+    - `/api/login`: 10 intentos **fallidos** en 5 min por IP + identificador (`loginLimiter`) y 300 fallidos por IP (`loginIpLimiter`); los ingresos correctos no cuentan (`skipSuccessfulRequests`).
+    - `/api/register`: contador propio (`registerLimiter`, 100 fallidos/15 min por IP); antes compartía el del login.
+    - `/api/forgot-password`: 5 solicitudes cada 15 min por IP + identificador. `/api/reset-password`: 10 fallidos por IP + token. `/api/change-password`: 10 fallidos en 5 min por usuario (va después de `requireAuth`).
+    - Todos menos el general guardan su contador en la colección `rate_limits` de MongoDB (`mongoRateLimitStore.js`, TTL sobre `expiresAt`) para que valgan entre instancias serverless; si Mongo falla dejan pasar la petición (`passOnStoreError`). El general sigue en memoria.
   - **Variables de entorno obligatorias** (`server/config/env.js`): `MONGODB_URI`, `SESSION_SECRET`, `DATA_ENCRYPTION_KEY` (64 hex) y `HMAC_SECRET`. No hay valores de respaldo en el código: si faltan, el arranque lo registra y las operaciones de cifrado/sesión fallan con un error explícito.
   - **Login**: busca por `rutHash` (índice creado al conectar). Las cuentas antiguas sin `rutHash` se buscan solo entre esas y se les guarda el hash al entrar. El identificador puede ser **RUT o correo**: si contiene `@` se busca por `email` (exacto, sin distinguir mayúsculas, `findUserByEmail` en `users.controller.js`). Usuario inexistente y contraseña incorrecta responden el mismo mensaje (`Usuario o contraseña incorrectos.`).
   - **Errores 500** (`server/utils/errors.js`, `sendServerError`): el detalle se registra en el log; en producción la respuesta es un mensaje genérico (en desarrollo incluye `details`). Las rutas de diagnóstico solo para admin (SMTP, cron, sistema, health) siguen devolviendo `details`.
@@ -806,7 +820,7 @@ trayectoria-estudiantil-uft/
   - Sección interactiva **"Asignar Tutores a Cargo"** para que los docentes coordinadores elijan un Tutor de Tutores y le asignen tutores pares mediante selección múltiple.
 
 ### E. Módulo Alumno (`AlumnoDashboard.tsx`)
-- **Explorador y Reserva**: Inscripción inmediata en tutorías colectivas y talleres psicoeducativos con validación de anticipación (la inscripción queda abierta hasta el momento en que inicia la sesión — `REGISTRATION_CLOSE_HOURS_BEFORE = 0` en `src/data.ts` y validado también en el servidor por `updateSession` en `sessions.controller.js` con la hora de Chile, cuando un usuario se autoinscribe; en "Pasar lista" tutores y docentes pueden marcar Presente/Ausente en cualquier momento (`canTakeAttendance`), mientras que el check-in QR del estudiante solo funciona el día de la clase; **TEMPORAL (nov 2026, a revertir):** marcar Presente/Ausente o agregar un alumno ya no pone `isCompleted: true`, así la clase no se cierra al pasar lista; antes `handleMarkAttendance` en `TutorAttendanceTab.tsx` y `DocenteAttendanceTab.tsx` enviaba `isCompleted: true` y "+ Agregar Alumno" lo enviaba si era el día de la clase (buscar el comentario `TEMPORAL` para revertir); en "Pasar lista" el botón "Reiniciar asistencia" deja a todos en pendiente y reabre la sesión) y **límite institucional estricto de máximo 5 reservas activas semanales** (regla que únicamente puede ser omitida cuando un docente/coordinador asigna al estudiante a una tutoría personalizada).
+- **Explorador y Reserva**: Inscripción inmediata en tutorías colectivas y talleres psicoeducativos con validación de anticipación (la inscripción queda abierta hasta el momento en que inicia la sesión — `REGISTRATION_CLOSE_HOURS_BEFORE = 0` en `src/data.ts` y validado también en el servidor por `updateSession` en `sessions.controller.js` con la hora de Chile, cuando un usuario se autoinscribe; en "Pasar lista" tutores y docentes pueden marcar Presente/Ausente en cualquier momento (`canTakeAttendance`), mientras que el check-in QR del estudiante solo funciona el día de la clase; **TEMPORAL (nov 2026, a revertir):** marcar Presente/Ausente o agregar un alumno ya no pone `isCompleted: true`, así la clase no se cierra al pasar lista; antes `handleMarkAttendance` en `TutorAttendanceTab.tsx` y `DocenteAttendanceTab.tsx` enviaba `isCompleted: true` y "+ Agregar Alumno" lo enviaba si era el día de la clase (buscar el comentario `TEMPORAL` para revertir); en "Pasar lista" el botón "Reiniciar asistencia" deja a todos en pendiente y reabre la sesión) y **límite institucional estricto de máximo 5 reservas activas semanales**. **Inscribirse y cancelar** van por `POST` / `DELETE /api/sessions/:id/enroll` (`enrollSession` / `unenrollSession` en `sessions.controller.js`): el servidor agrega o quita solo al usuario en sesión con `$push`/`$pull` condicionados, y valida cupo (`hasFreeSpotExpr`), límite semanal (`countActiveBookingsInWeek`), plazo y reglas 1 a 1 (`checkPersonalizedAccess`). Antes el cliente enviaba la lista completa `studentIds` con `PUT` y las reservas simultáneas se pisaban (en la prueba de nov 2026 se perdían y cancelaban reservas, se superaban los cupos y el límite de 5). En `AlumnoDashboard`, `reloadData` numera cada recarga (`reloadSeq`) y descarta las sesiones de una recarga que terminó después de otra más nueva o de una reserva. El check-in por QR usa siempre el usuario en sesión (los tutores y la coordinación pueden indicar `studentId`) y solo inscribe a quien no estaba si queda cupo (regla que únicamente puede ser omitida cuando un docente/coordinador asigna al estudiante a una tutoría personalizada).
 - **Exclusividad de Tutorías Personalizadas (1 a 1)**: Una sesión `tutoria_personalizada` / `psico_asesoria_individual` (o con `maxSpots === 1`) creada para un estudiante (`reservedForStudentId`) solo la ve y puede inscribirse ese estudiante. Si el docente la crea sin elegir estudiante ("Cupo libre"), la ven todos los estudiantes mientras `studentIds` esté vacío; quien se inscribe primero la toma y desde ahí solo la ve esa persona (si cancela, el cupo vuelve a quedar libre). La regla vive en `canStudentAccessSession` (`src/data.ts`) y el servidor la repite en el registro de asistencia por QR (403). Las adjudicadas desde Horario Flexible quedan reservadas al solicitante.
 - **Varios horarios para una sesión 1 a 1 (cupo libre)**: Sin estudiante elegido, "Crear Sesión" muestra "Horarios ofrecidos". En tutorías, para la fecha elegida aparece una grilla de los `TIME_SLOTS` con los tutores que declararon ese bloque y no tienen otra sesión a esa hora (o, si ya se eligió tutor, si ese tutor está disponible); un clic agrega o quita el bloque y los bloques sin tutor están desactivados. En este modo (`pickSlotsFromGrid`) se ocultan el campo "Bloque Horario" y el botón "Agregar", y los bloques del tutor elegido también agregan o quitan horarios ofrecidos. En psicoeducativo (sin tutor) se sigue usando el campo de bloque u hora exacta y el botón "Agregar". Al publicar se crea una sesión de cupo 1 por horario, todas con el mismo `offerGroupId`.
   - **Vista del alumno**: las sesiones de un mismo `offerGroupId` y fecha se muestran en una sola tarjeta con los horarios como botones. Al inscribirse en uno, `canStudentAccessSession(session, studentId, allSessions)` oculta el resto del grupo para ese estudiante (`hasBookedOfferGroup`), y los horarios tomados por otros dejan de verse. El servidor repite la regla en el registro por QR. La oferta es para un solo estudiante: cuando alguien se inscribe en uno de los horarios (`PUT /api/sessions/:id` o QR), `releaseOfferGroup` (`sessions.controller.js`) elimina los demás horarios del grupo que siguen sin inscritos, liberando al tutor en esos bloques.
@@ -858,7 +872,8 @@ trayectoria-estudiantil-uft/
 | `POST` | `/api/pending-users/import` · `/register` · `/delete` | (Admin) Importa filas del Excel / registra y envía correo / quita de pendientes |
 | `PUT` / `DELETE` | `/api/users/:id` | Edición y eliminación de usuario en MongoDB Atlas |
 | `GET` / `POST` | `/api/sessions` | Obtención y creación de sesiones académicas |
-| `PUT` / `DELETE` | `/api/sessions/:id` | Actualización de asistencia, temario y cancelación |
+| `PUT` / `DELETE` | `/api/sessions/:id` | Actualización de asistencia y temario (alumno: solo su encuesta) / eliminación (admin/docente) |
+| `POST` / `DELETE` | `/api/sessions/:id/enroll` | Inscribir / cancelar al usuario en sesión (atómico; valida cupo, límite semanal y plazo) |
 | `GET` / `POST` | `/api/student-requests` | Listado y envío de solicitudes de horario flexible |
 | `PUT` | `/api/student-requests/:id` | Actualización de estado de solicitud a resuelta |
 | `GET` / `POST` | `/api/availabilities` | Consulta y guardado de disponibilidad horaria semanal |
@@ -920,3 +935,78 @@ trayectoria-estudiantil-uft/
 - `npm run lint`: Ejecuta el chequeo de tipos TypeScript (`tsc --noEmit`).
 - `npm run build`: Genera el paquete optimizado de producción en `/dist`.
 
+
+---
+
+## 10. Correcciones Prueba 1
+
+Prueba general del Portal Alumno con un curso (13 nov 2026, 24 respuestas, Ing. Civil Informática y Telecomunicaciones). Abajo, los problemas críticos detectados y cómo se corrigieron. El detalle técnico vive además en las secciones 3, 6.E y 7.
+
+### 1. Reservas que se perdían, duplicaban o cancelaban solas
+- **Síntomas reportados**:
+  - Al cancelar una reserva se cancelaban otras.
+  - Reservas que se desmarcaban al recargar o al cambiar de pestaña, y tarjetas duplicadas.
+  - Se podían tener más de 5 reservas por semana.
+  - Sesiones con más inscritos que cupos ("tutoria_matematicas" quedó en 26/15; ese dato no se corrigió en la BD).
+- **Causa**: el alumno enviaba la lista completa `studentIds`/`attendance` con `PUT /api/sessions/:id`. Con muchos alumnos a la vez, cada guardado pisaba al anterior (gana el último en escribir). Además, `reloadData` podía terminar después de una recarga más nueva y reponer datos viejos.
+- **Corrección**:
+  - Nuevas rutas `POST` / `DELETE /api/sessions/:id/enroll` (`enrollSession` / `unenrollSession` en `sessions.controller.js`). Agregan o quitan solo al usuario en sesión con `$push`/`$pull` condicionados (atómico).
+  - El servidor valida el cupo (`hasFreeSpotExpr`), el límite semanal (`countActiveBookingsInWeek`, `MAX_WEEKLY_ACTIVE_BOOKINGS = 5`), el plazo y las reglas 1 a 1 (`checkPersonalizedAccess`).
+  - `AlumnoDashboard` usa estas rutas y numera las recargas (`reloadSeq`) para descartar respuestas viejas.
+  - El check-in por QR usa siempre el usuario en sesión (los tutores y la coordinación pueden indicar `studentId`). Solo inscribe a quien no tenía reserva si queda cupo; si no, responde 409.
+- **Prueba**:
+  - 12 inscripciones simultáneas en una sesión de 5 cupos: entraron exactamente 5 (las demás recibieron 409 "sin cupos").
+  - 3 cancelaciones simultáneas quitaron solo a esos 3.
+
+### 2. Seguridad: la API exponía datos de todos los usuarios
+- **Síntomas reportados**: desde la consola del navegador, un alumno veía nombre, RUT, correo y rol de todos los usuarios (incluidos admins) y podía modificar sesiones.
+- **Corrección** (helpers `isStaff`, `isTutorOrStaff` y `canSendTo` en `server/middlewares/auth.js`). Para un usuario solo alumno:
+  - `GET /api/users`: sus propios datos y, de tutores y docentes, solo nombre, roles y tipo de tutor (más el correo de los docentes). Sin RUT ni datos de otros alumnos.
+  - `GET /api/sessions`: los demás inscritos aparecen como `otro_<n>`, y `attendance`/`ratings` solo traen su entrada.
+  - Notificaciones, solicitudes de horario flexible y disponibilidades: solo las suyas, tanto al leer como al escribir. Reportes: lista vacía.
+  - `PUT /api/sessions/:id`: solo su propia encuesta (`ratings.<id>`), en sesiones donde está inscrito.
+- **Huecos adicionales encontrados al revisar y cerrados**:
+  - Cualquier usuario con sesión podía crear o borrar sesiones. Ahora solo admin/docente.
+  - `/api/send-email` y `POST /api/notifications` permitían escribir a cualquier dirección con cualquier remitente. Ahora un alumno solo escribe a su propio correo o al de un docente/admin, y no puede cambiar `fromName`.
+  - Editar reportes y solicitudes (`PUT`) ahora es solo para admin/docente.
+  - Las consultas por correo de notificaciones escapan la expresión regular.
+- **Sin cambios**: tutores y coordinación siguen recibiendo los datos completos (pasan lista, ven RUT y correos). Los eventos de Socket.io siguen enviando la sesión completa (en Vercel no hay WebSockets).
+
+### 3. "Demasiados intentos" desde el primer intento
+- **Síntomas reportados**: bloqueo de 5 minutos al primer login, al registrarse o al volver a entrar tras cerrar sesión. Aviso de "Demasiadas solicitudes de restablecimiento" sin haber pedido ninguna. Desde el celular (otra red) sí funcionaba.
+- **Causa**: los límites eran por IP, y en la sala todos salen con la misma IP de la universidad. Además, el registro compartía el contador del login, el cambio de contraseña también lo usaba, y los ingresos correctos contaban.
+- **Corrección** (`server/middlewares/rateLimiters.js`):
+  - Login: 10 intentos fallidos en 5 min por IP + identificador, más un tope amplio de 300 por IP. Los ingresos correctos no cuentan.
+  - Registro: contador propio.
+  - Recuperar contraseña: por IP + identificador.
+  - Restablecer contraseña: por token.
+  - Cambio de contraseña: por usuario.
+  - Límite general de la API: 300 req/min por usuario en sesión.
+- **Prueba**: con 11 intentos fallidos se bloquea solo esa cuenta; otra cuenta desde la misma IP sigue entrando.
+
+### 4. Ingreso con RUT o correo inconsistente (alto)
+- **Síntomas reportados**: a algunos solo les funcionaba el correo o solo el RUT, sobre todo después de cambiar la clave. Alguien registró su propia contraseña, pero tuvo que entrar con los 4 últimos del RUT.
+- **Causa**: cuentas duplicadas. El curso se importó desde Pendientes (cuenta sin RUT, clave = 4 últimos del RUT) y además varios alumnos se registraron con el mismo correo (cuenta con RUT y clave propia). `insertUser` solo validaba el RUT, no el correo. El login por correo encontraba una cuenta y el login por RUT la otra; la recuperación de contraseña cambiaba la clave de solo una de las dos.
+- **Limpieza de datos (13 nov 2026)**: se borraron las 37 cuentas de los 26 alumnos de la prueba (`Lista-de-usuarios.xlsx`), más la cuenta "hola hola", junto con sus inscripciones, asistencias, encuestas, solicitudes, notificaciones, enlaces de recuperación y los 5 que seguían en Pendientes. Hay un respaldo JSON fuera del repositorio.
+- **Corrección**:
+  - Índice único `email_unique` en `users.email` (`server/db.js`). Si dos registros simultáneos chocan, `sendServerError` responde 409 "El correo ya se encuentra registrado" (error 11000).
+  - `insertUser` rechaza correos ya registrados y guarda el correo en minúsculas. `updateUser` rechaza un correo o un RUT que pertenezcan a otra cuenta.
+  - `registerStudent`: si el correo ya tiene una cuenta **importada sin RUT** (solo alumno), el registro **la completa** (`claimImportedAccount`: agrega RUT, `rutHash`, contraseña propia y carrera, conservando el `id` y sus reservas) en vez de crear otra. Para que nadie tome una cuenta ajena sabiendo solo el correo, el RUT ingresado debe calzar con la contraseña inicial que aún tiene (los 4 últimos del RUT). Si no calza, o la cuenta ya tiene RUT, responde 409 indicando ingresar con el correo o recuperar la contraseña.
+- **Prueba**:
+  - Registro repetido (incluso con el correo en mayúsculas): 409.
+  - Cuenta importada completada con el RUT correcto: queda una sola cuenta y entra con el correo o con el RUT y la clave nueva. Con un RUT que no calza: 409.
+  - 5 registros simultáneos con el mismo correo: 1 cuenta creada y 4 respuestas 409.
+
+### Pendientes de la prueba (aún no corregidos)
+- **Alto**:
+  - Escáner QR difícil de usar (sin zoom real de cámara, QR pequeño, no funciona en tablets).
+  - No se puede ver la contraseña al escribirla.
+- **Medio**:
+  - El registro dice "mínimo 4" pero exige 6.
+  - El selector de fecha de Tutorías Colectivas no se actualiza.
+  - Falta un aviso al cancelar.
+  - Validaciones del formulario de inconvenientes.
+  - Botón de la encuesta en el celular.
+  - El tutorial tapa elementos.
+  - Selector de carrera demasiado sensible a la rueda del mouse.
+- **Diseño**: el rojo de Comunidad, contraste del modo oscuro, interfaz móvil, ajustes de usuario (contraseña, tamaño de letra, apagar los correos).

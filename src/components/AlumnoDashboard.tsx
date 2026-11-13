@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { User, Session, WebNotification, UserAvailability, StudentRequest } from '../types';
 import { 
   triggerNotification, 
@@ -356,8 +356,13 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
     };
   }, [user.email, user.id, user.name, user.career]);
 
+  // Cada recarga lleva un número: si termina después de una recarga más nueva (o de una reserva/cancelación),
+  // sus sesiones ya están viejas y se descartan. Sin esto, una respuesta lenta "desmarcaba" reservas.
+  const reloadSeq = useRef(0);
+
   // Recarga todos los datos desde MongoDB Atlas (si una consulta falla se conserva el estado actual)
   const reloadData = async () => {
+    const seq = ++reloadSeq.current;
     try {
       if (user.email) {
         const notifRes = await fetch(`/api/notifications?email=${encodeURIComponent(user.email)}`);
@@ -412,7 +417,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       const res = await fetch('/api/sessions');
       if (res.ok) {
         const sessionsFromApi = await res.json();
-        if (Array.isArray(sessionsFromApi)) setSessions(sessionsFromApi);
+        if (Array.isArray(sessionsFromApi) && seq === reloadSeq.current) setSessions(sessionsFromApi);
       }
     } catch (e) {
       console.error('Error cargando sesiones:', e);
@@ -539,33 +544,25 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       return;
     }
 
-    const bookedFields = {
-      studentIds: [...session.studentIds, user.id],
-      attendance: {
-        ...(session.attendance || {}),
-        [user.id]: 'pendiente' as const
-      }
-    };
-
-    // Guardar la reserva en MongoDB Atlas
+    // Guardar la reserva en MongoDB Atlas. El servidor agrega solo a este alumno de forma atómica
+    // y valida cupo, límite semanal y plazo (antes se enviaba la lista completa y dos reservas
+    // simultáneas se pisaban entre sí).
+    let savedSession: Session | undefined;
     try {
-      const res = await fetch(`/api/sessions/${session.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bookedFields)
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || `HTTP ${res.status}`);
-      }
+      const res = await fetch(`/api/sessions/${session.id}/enroll`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      savedSession = data?.session;
     } catch (err: any) {
       console.error('Error guardando reserva:', err);
       const serverMsg = err?.message && !String(err.message).startsWith('HTTP') ? err.message : '';
       setBookingFeedback(`⚠️ ${serverMsg || 'No se pudo guardar tu reserva en el servidor. Intenta nuevamente.'}`);
+      reloadData();
       return;
     }
 
-    setSessions(prev => prev.map(s => s.id === session.id ? { ...s, ...bookedFields } : s));
+    reloadSeq.current++; // descarta recargas iniciadas antes de esta reserva
+    if (savedSession) setSessions(prev => prev.map(s => s.id === session.id ? savedSession! : s));
 
     // Notificar al alumno de forma minimalista protegiendo datos sensibles
     const kindLabel = session.type?.includes('taller') ? 'el taller'
@@ -598,28 +595,21 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
       const targetToCancel = sessions.find(s => s.id === sessionId);
       if (!targetToCancel) return;
 
-      const attendance = { ...(targetToCancel.attendance || {}) };
-      delete attendance[user.id];
-      const cancelledFields = {
-        studentIds: targetToCancel.studentIds.filter(id => id !== user.id),
-        attendance
-      };
-
-      // Guardar la cancelación en MongoDB Atlas
+      // Guardar la cancelación en MongoDB Atlas (el servidor quita solo a este alumno)
+      let savedSession: Session | undefined;
       try {
-        const res = await fetch(`/api/sessions/${sessionId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(cancelledFields)
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const res = await fetch(`/api/sessions/${sessionId}/enroll`, { method: 'DELETE' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+        savedSession = data?.session;
       } catch (err) {
         console.error('Error cancelando reserva:', err);
         alert('No se pudo cancelar tu reserva en el servidor. Intenta nuevamente.');
         return;
       }
 
-      setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, ...cancelledFields } : s));
+      reloadSeq.current++; // descarta recargas iniciadas antes de esta cancelación
+      if (savedSession) setSessions(prev => prev.map(s => s.id === sessionId ? savedSession! : s));
 
       // Notify cancel confirmation
       const targetSession = sessions.find(sm => sm.id === sessionId);

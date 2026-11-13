@@ -1,10 +1,12 @@
 import { emitEvent } from '../services/socket.service.js';
 import { sendServerError } from '../utils/errors.js';
+import { isStaff } from '../middlewares/auth.js';
 
 export const getStudentRequests = async (req, res) => {
   const db = req.db;
   try {
-    const requests = await db.collection('student_requests').find({}).toArray();
+    // Un alumno solo ve sus propias solicitudes
+    const requests = await db.collection('student_requests').find(isStaff(req) ? {} : { studentId: req.user.id }).toArray();
     res.json(requests);
   } catch (err) {
     sendServerError(res, err);
@@ -15,6 +17,13 @@ export const createStudentRequest = async (req, res) => {
   const db = req.db;
   try {
     const request = req.body;
+    delete request._id;
+    if (!isStaff(req)) {
+      // La solicitud siempre queda a nombre de quien la envía y pendiente
+      request.studentId = req.user.id;
+      request.studentName = req.user.name;
+      request.status = 'pendiente';
+    }
     await db.collection('student_requests').insertOne(request);
     
     // Notificar en tiempo real (al docente y al alumno)

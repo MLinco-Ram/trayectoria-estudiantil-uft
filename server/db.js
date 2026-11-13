@@ -58,6 +58,12 @@ export async function connectDB() {
         // Índice del login por RUT (idempotente; no bloquea la conexión si falla)
         cachedDb.collection('users').createIndex({ rutHash: 1 }).catch((err) =>
           console.warn('No se pudo crear el índice users.rutHash:', err.message));
+        // Un correo = una cuenta (sin distinguir mayúsculas). En la prueba 1 un correo importado desde
+        // Pendientes y el mismo correo registrado por el alumno quedaron como dos cuentas distintas.
+        cachedDb.collection('users').createIndex(
+          { email: 1 },
+          { name: 'email_unique', unique: true, collation: { locale: 'es', strength: 2 }, partialFilterExpression: { email: { $gt: '' } } }
+        ).catch((err) => console.warn('No se pudo crear el índice único users.email:', err.message));
         console.log("¡Conectado exitosamente a MongoDB Atlas!");
         return cachedDb;
       } catch (error) {
