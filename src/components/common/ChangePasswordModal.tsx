@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { KeyRound, Eye, EyeOff, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import { authApi } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { checkPassword } from '../../utils/passwordPolicy';
 
 interface ChangePasswordModalProps {
   isOpen: boolean;
@@ -8,8 +10,9 @@ interface ChangePasswordModalProps {
 }
 
 // Cambiar la contraseña desde el portal, con la sesión iniciada (POST /api/change-password).
-// Mismas reglas que el servidor: contraseña actual correcta, mínimo 6, distinta de la actual y que no sea parte del RUT.
+// Mismas reglas que el servidor: contraseña actual correcta, mínimo 8 con letras y números, distinta de la actual y que no sea parte del RUT.
 export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen, onClose }) => {
+  const { currentUser } = useAuth();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -30,7 +33,8 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (next.trim().length < 6) return setError('La nueva contraseña debe tener al menos 6 caracteres.');
+    const policyError = checkPassword(next, { rut: currentUser?.rut, email: currentUser?.email });
+    if (policyError) return setError(policyError);
     if (next !== confirm) return setError('La nueva contraseña y su confirmación no coinciden.');
     if (next === current) return setError('La nueva contraseña debe ser distinta de la actual.');
     setSaving(true);
@@ -101,7 +105,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
             {field('current', 'Contraseña actual', current, setCurrent, 'current-password')}
             {field('next', 'Nueva contraseña', next, setNext, 'new-password')}
             {field('confirm', 'Confirmar nueva contraseña', confirm, setConfirm, 'new-password')}
-            <p className="text-xs text-slate-500 dark:text-slate-400">Mínimo 6 caracteres, distinta de la actual y que no sea parte de tu RUT.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Mínimo 8 caracteres, con letras y números, distinta de la actual y sin tu RUT.</p>
 
             {error && (
               <div role="alert" className="flex items-start gap-2 p-2.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-sm text-red-700 dark:text-red-300">

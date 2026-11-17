@@ -5,6 +5,7 @@ import { hashRut, decryptField, sanitizeUserOutput, normalizeRut } from '../serv
 import { setSessionCookie, clearSessionCookie } from '../services/session.service.js';
 import { sendServerError } from '../utils/errors.js';
 import { findUserByEmail } from './users.controller.js';
+import { validatePasswordPolicy, isInitialPasswordExpired } from '../services/password.service.js';
 
 const INVALID_CREDENTIALS = 'Usuario o contraseña incorrectos.';
 
@@ -39,6 +40,14 @@ export const login = async (req, res) => {
       return res.status(401).json({ error: INVALID_CREDENTIALS });
     }
 
+    // La contraseña inicial enviada por correo es temporal. Solo quien la conoce ve este mensaje.
+    if (isInitialPasswordExpired(user)) {
+      return res.status(401).json({
+        error: 'Tu contraseña temporal expiró. Usa "¿Olvidaste tu contraseña?" para crear una nueva.',
+        code: 'initial_password_expired'
+      });
+    }
+
     // Las sesiones se identifican por el campo id; se asigna uno a cuentas antiguas que no lo tengan
     if (!user.id) {
       user.id = `user_${user._id.toString()}`;
@@ -55,7 +64,7 @@ export const login = async (req, res) => {
 };
 
 export const forgotPassword = async (req, res) => {
-  const { identifier, origin } = req.body;
+  const { identifier } = req.body;
   const db = req.db;
   try {
     if (!identifier || !identifier.trim()) {
@@ -97,16 +106,13 @@ export const forgotPassword = async (req, res) => {
       });
     }
 
-    if (!user) {
-      return res.status(404).json({
-        error: "No se encontró ningún usuario registrado con el RUT o correo ingresado. Por favor verifica tus datos e intenta nuevamente."
-      });
-    }
-
-    if (!user.email || !user.email.trim()) {
-      return res.status(400).json({
-        error: "El usuario encontrado no tiene un correo electrónico institucional asociado para recibir el enlace de recuperación."
-      });
+    // Respuesta idéntica exista o no la cuenta: no permite averiguar qué RUT o correos están registrados
+    const GENERIC_OK = {
+      success: true,
+      message: 'Si los datos corresponden a una cuenta con correo registrado, te enviamos un enlace para restablecer tu contraseña. Revisa también tu carpeta de spam.'
+    };
+    if (!user || !user.email || !user.email.trim()) {
+      return res.json(GENERIC_OK);
     }
 
     const resetToken = crypto.randomBytes(32).toString('hex');
@@ -122,7 +128,8 @@ export const forgotPassword = async (req, res) => {
       createdAt: new Date()
     });
 
-    const baseUrl = origin && !origin.includes('localhost') ? origin : (process.env.APP_URL || 'https://trayectoria-estudiantil-uft.vercel.app');
+    // El enlace NUNCA se arma con un origen enviado por el cliente (permitiría apuntar el correo a un sitio ajeno)
+    const baseUrl = process.env.APP_URL || 'https://trayectoria-estudiantil-uft.vercel.app';
     const resetLink = `${baseUrl}/reset-password?reset_token=${resetToken}`;
 
     const client = await createTransporter();
@@ -158,22 +165,24 @@ export const forgotPassword = async (req, res) => {
         </div>
       `;
 
-      await transporter.sendMail({
-        from: { name: displayName, address: config.user },
-        to: `"${user.name}" <${user.email}>`,
-        subject: 'Recuperación de Contraseña - Trayectoria UFT',
-        text: `Hola ${user.name},\n\nPara restablecer tu contraseña en Trayectoria UFT ingresa al siguiente enlace:\n${resetLink}\n\nVálido por 1 hora.`,
-        html: htmlBody
-      });
-      console.log(`[Forgot-Password] Correo de recuperación enviado a ${user.email}`);
+      try {
+        await transporter.sendMail({
+          from: { name: displayName, address: config.user },
+          to: `"${user.name}" <${user.email}>`,
+          subject: 'Recuperación de Contraseña - Trayectoria UFT',
+          text: `Hola ${user.name},\n\nPara restablecer tu contraseña en Trayectoria UFT ingresa al siguiente enlace:\n${resetLink}\n\nVálido por 1 hora.`,
+          html: htmlBody
+        });
+        console.log(`[Forgot-Password] Correo de recuperación enviado a ${user.email}`);
+      } catch (mailErr) {
+        // Se responde igual que si todo hubiera salido bien: un error solo ocurriría con cuentas que existen
+        console.error('[Forgot-Password] Falló el envío del correo:', mailErr.message);
+      }
     } else {
       console.warn(`[Forgot-Password] SMTP no configurado. Token generado para prueba: ${resetLink}`);
     }
 
-    res.json({
-      success: true,
-      message: `Te hemos enviado un correo a ${user.email ? user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3') : 'tu correo'} con el enlace para restablecer tu contraseña. Revisa también tu carpeta de spam.`
-    });
+    res.json(GENERIC_OK);
   } catch (err) {
     console.error("[Forgot-Password-Error]:", err);
     sendServerError(res, err, "Error al procesar la solicitud de recuperación.");
@@ -212,10 +221,6 @@ export const resetPassword = async (req, res) => {
     if (!token) {
       return res.status(400).json({ error: "Token de restablecimiento no proporcionado." });
     }
-    if (!newPassword || newPassword.trim().length < 6) {
-      return res.status(400).json({ error: "La contraseña debe tener al menos 6 caracteres." });
-    }
-
     const resetRecord = await db.collection('password_resets').findOne({ token });
     if (!resetRecord) {
       return res.status(400).json({ error: "El enlace de recuperación es inválido o ya ha sido utilizado." });
@@ -226,12 +231,20 @@ export const resetPassword = async (req, res) => {
       return res.status(400).json({ error: "El enlace de recuperación ha expirado. Por favor solicita uno nuevo." });
     }
 
+    const resetUser = await db.collection('users').findOne({ id: resetRecord.userId });
+    const policyError = validatePasswordPolicy(newPassword, {
+      rut: resetUser ? (decryptField(resetUser.rut) || '') : '',
+      email: resetUser?.email,
+      name: resetUser?.name
+    });
+    if (policyError) return res.status(400).json({ error: policyError });
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword.trim(), salt);
 
     await db.collection('users').updateOne(
       { $or: [{ id: resetRecord.userId }, { rut: resetRecord.userRut }] },
-      { $set: { password: hashedPassword }, $unset: { mustChangePassword: '' } }
+      { $set: { password: hashedPassword }, $unset: { mustChangePassword: '', initialPasswordExpiresAt: '' } }
     );
 
     await db.collection('password_resets').deleteMany({ userId: resetRecord.userId });
@@ -256,9 +269,8 @@ export const changePassword = async (req, res) => {
       return res.status(400).json({ error: 'La contraseña actual no es correcta.' });
     }
     const clean = typeof newPassword === 'string' ? newPassword.trim() : '';
-    if (clean.length < 6) {
-      return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres.' });
-    }
+    const policyError = validatePasswordPolicy(clean, { rut: decryptField(user.rut) || '', email: user.email, name: user.name });
+    if (policyError) return res.status(400).json({ error: policyError });
     if (await bcrypt.compare(clean, user.password)) {
       return res.status(400).json({ error: 'La nueva contraseña debe ser distinta de la actual.' });
     }
@@ -270,9 +282,9 @@ export const changePassword = async (req, res) => {
     const hashed = await bcrypt.hash(clean, await bcrypt.genSalt(10));
     await req.db.collection('users').updateOne(
       { id: user.id },
-      { $set: { password: hashed }, $unset: { mustChangePassword: '' } }
+      { $set: { password: hashed }, $unset: { mustChangePassword: '', initialPasswordExpiresAt: '' } }
     );
-    const { mustChangePassword, ...rest } = user;
+    const { mustChangePassword, initialPasswordExpiresAt, ...rest } = user;
     res.json(sanitizeUserOutput({ ...rest, password: hashed }));
   } catch (err) {
     sendServerError(res, err, 'Error al cambiar la contraseña.');

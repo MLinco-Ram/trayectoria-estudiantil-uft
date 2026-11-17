@@ -76,7 +76,7 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
     } catch (err: any) {
       setStudentFeedback({
         status: 'error',
-        message: err.message || 'No se pudo registrar al estudiante en MongoDB Atlas.'
+        message: err.message || 'No se pudo registrar al estudiante.'
       });
     } finally {
       setIsSubmittingStudent(false);
@@ -100,7 +100,7 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
       setAllUsers(allUsers.map(u => u.id === editingStudent.id ? { ...u, ...payload } : u));
       setEditingStudent(null);
     } catch (err: any) {
-      window.alert(`No se pudieron guardar los cambios en MongoDB Atlas: ${err.message || 'error de conexión'}`);
+      window.alert(`No se pudieron guardar los cambios: ${err.message || 'error de conexión'}`);
     } finally {
       onReload();
     }
@@ -113,7 +113,7 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
       await usersApi.deleteUser(student.id);
       setAllUsers(allUsers.filter(u => u.id !== student.id));
     } catch (err: any) {
-      window.alert(`No se pudo eliminar a "${student.name}" en MongoDB Atlas: ${err.message || 'error de conexión'}`);
+      window.alert(`No se pudo eliminar a "${student.name}": ${err.message || 'error de conexión'}`);
     } finally {
       onReload();
     }
@@ -318,7 +318,7 @@ export const DocenteStudentsTab: React.FC<DocenteStudentsTabProps> = ({
                 />
               </div>
               <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-3 space-y-2">
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug"><span className="font-bold uppercase text-slate-700 dark:text-slate-200">Acceso:</span> se envía la contraseña inicial (últimos 4 del RUT) al correo. Se recomienda cambiarla después de ingresar.</p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug"><span className="font-bold uppercase text-slate-700 dark:text-slate-200">Acceso:</span> se envía una contraseña temporal aleatoria al correo (válida 7 días). Deberá cambiarla al ingresar.</p>
                 <SendInitialPasswordButton user={editingStudent} />
               </div>
               <div className="flex justify-end gap-2 pt-2">

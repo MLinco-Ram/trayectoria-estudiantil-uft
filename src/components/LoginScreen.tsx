@@ -3,6 +3,7 @@ import { CareerSearch } from './common/CareerSearch';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { User, Role } from '../types';
 import { formatRut } from '../data';
+import { checkPassword } from '../utils/passwordPolicy';
 import { 
   LogIn, 
   UserPlus, 
@@ -206,6 +207,12 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       return;
     }
 
+    const regPolicyError = checkPassword(regPassword, { rut: regRut, email: regEmail });
+    if (regPolicyError) {
+      setRegFeedback({ status: 'error', message: regPolicyError });
+      return;
+    }
+
     if (regPassword !== regConfirmPassword) {
       setRegFeedback({ status: 'error', message: 'Las contraseñas no coinciden.' });
       return;
@@ -370,12 +377,12 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   </div>
                 </div>
 
-                {/* Pista para cuentas creadas desde Pendientes (entran con correo y los 4 últimos del RUT) */}
+                {/* Pista para cuentas creadas desde Pendientes (entran con correo y la contraseña temporal) */}
                 <div className="flex gap-2.5 rounded-2xl border-2 border-dashed border-[#007ba7]/40 dark:border-[#2f5a85] bg-sky-50 dark:bg-[#0b2742] px-3.5 py-2.5 text-[11px] leading-snug text-slate-600 dark:text-slate-300">
                   <Mail className="w-4 h-4 shrink-0 mt-0.5 text-[#007ba7] dark:text-brand-celeste" />
                   <p>
                     <strong className="block text-slate-900 dark:text-white">¿Recibiste un correo de bienvenida?</strong>
-                    Ingresa con ese correo. Tu contraseña son los últimos 4 caracteres de tu RUT, sin puntos ni guión.
+                    Ingresa con ese correo y la contraseña temporal que te enviamos. Se te pedirá cambiarla al ingresar.
                   </p>
                 </div>
 
@@ -483,7 +490,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                       <input
                         type={showRegPassword ? 'text' : 'password'}
                         className="flex-1 min-w-0 w-full bg-transparent border-0 outline-none px-3 text-sm font-bold text-white placeholder-white/75"
-                        placeholder="Mínimo 6 caracteres"
+                        placeholder="Mínimo 8, con letras y números"
                         autoComplete="new-password"
                         value={regPassword}
                         onChange={(e) => setRegPassword(e.target.value)}

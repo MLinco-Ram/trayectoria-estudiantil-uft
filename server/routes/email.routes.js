@@ -2,10 +2,11 @@ import { Router } from 'express';
 import { sendEmail } from '../services/email.service.js';
 import { sendServerError } from '../utils/errors.js';
 import { canSendTo, isStaff } from '../middlewares/auth.js';
+import { mailLimiter } from '../middlewares/rateLimiters.js';
 
 const router = Router();
 
-router.post('/send-email', async (req, res) => {
+router.post('/send-email', mailLimiter, async (req, res) => {
   const { to, toName, subject, text, html, fromName } = req.body;
 
   if (!to || !subject || (!text && !html)) {

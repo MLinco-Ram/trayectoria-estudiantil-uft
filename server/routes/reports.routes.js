@@ -5,7 +5,7 @@ import { getReports, createReport, updateReport } from '../controllers/reports.c
 const router = Router();
 
 router.get('/', getReports);
-router.post('/', createReport);
+router.post('/', requireRole('admin', 'docente', 'tutor'), createReport);
 router.put('/:id', requireRole('admin', 'docente'), updateReport);
 
 export default router;

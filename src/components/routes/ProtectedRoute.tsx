@@ -10,7 +10,7 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
-  const { currentUser, isAuthenticated, logout } = useAuth();
+  const { currentUser, isAuthenticated, isLoading, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobile, setIsMobile] = useState<boolean>(() => {
@@ -30,6 +30,15 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowe
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [currentUser, logout, navigate]);
+
+  // Se está comprobando la sesión con el servidor
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-950">
+        <div className="w-8 h-8 rounded-full border-4 border-slate-200 border-t-[#3a9ad9] animate-spin" role="status" aria-label="Cargando" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated || !currentUser) {
     return <Navigate to="/login" state={{ from: location }} replace />;

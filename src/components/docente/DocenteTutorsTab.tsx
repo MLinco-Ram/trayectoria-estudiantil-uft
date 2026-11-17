@@ -161,7 +161,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
     } catch (err: any) {
       setTutorFeedback({
         status: 'error',
-        message: err.message || 'No se pudo registrar al tutor en MongoDB Atlas.'
+        message: err.message || 'No se pudo registrar al tutor.'
       });
     } finally {
       setIsSubmittingTutor(false);
@@ -196,7 +196,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       setAllUsers(updated);
       setEditingTutor(null);
     } catch (err: any) {
-      alert(`No se pudieron guardar los cambios en MongoDB Atlas: ${err.message || 'error de conexión'}`);
+      alert(`No se pudieron guardar los cambios: ${err.message || 'error de conexión'}`);
     } finally {
       onReload();
     }
@@ -210,7 +210,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       const updated = allUsers.filter(u => u.id !== tutor.id);
       setAllUsers(updated);
     } catch (err: any) {
-      alert(`No se pudo eliminar al tutor "${tutor.name}" en MongoDB Atlas: ${err.message || 'error de conexión'}`);
+      alert(`No se pudo eliminar al tutor "${tutor.name}": ${err.message || 'error de conexión'}`);
     } finally {
       onReload();
     }
@@ -240,7 +240,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       setAssignmentFeedback(`¡Tutores asignados exitosamente a ${currentLeadTutor.name}!`);
       setTimeout(() => setAssignmentFeedback(null), 4000);
     } catch (err: any) {
-      setAssignmentFeedback(`No se pudieron guardar las asignaciones en MongoDB Atlas. (${err.message})`);
+      setAssignmentFeedback(`No se pudieron guardar las asignaciones. (${err.message})`);
       setTimeout(() => setAssignmentFeedback(null), 4000);
     } finally {
       setIsSavingAssignments(false);
@@ -255,7 +255,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       const updated = allUsers.map(u => u.id === tutor.id ? { ...u, tutorType: updatedType } : u);
       setAllUsers(updated);
     } catch (err: any) {
-      alert(`No se pudo cambiar el tipo de tutor en MongoDB Atlas: ${err.message || 'error de conexión'}`);
+      alert(`No se pudo cambiar el tipo de tutor: ${err.message || 'error de conexión'}`);
     } finally {
       onReload();
     }
@@ -964,7 +964,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
                 />
               </div>
               <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-3 space-y-2">
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug"><span className="font-bold uppercase text-slate-700 dark:text-slate-200">Acceso:</span> se envía la contraseña inicial (últimos 4 del RUT) al correo. Se recomienda cambiarla después de ingresar.</p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug"><span className="font-bold uppercase text-slate-700 dark:text-slate-200">Acceso:</span> se envía una contraseña temporal aleatoria al correo (válida 7 días). Deberá cambiarla al ingresar.</p>
                 <SendInitialPasswordButton user={editingTutor} />
               </div>
 

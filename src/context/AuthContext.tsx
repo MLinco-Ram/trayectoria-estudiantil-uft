@@ -8,56 +8,89 @@ interface AuthContextType {
   logout: () => void;
   updateUser: (updatedUser: User) => void;
   isAuthenticated: boolean;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Cookie Helpers
-function setSessionCookie(user: User, days = 7) {
-  const expires = new Date(Date.now() + days * 864e5).toUTCString();
-  document.cookie = `uft_session_user=${encodeURIComponent(JSON.stringify(user))}; expires=${expires}; path=/; SameSite=Lax`;
-}
+// La sesión real es la cookie httpOnly `uft_session` del servidor, que el navegador no puede leer ni editar.
+// El usuario vive solo en memoria y se carga desde /api/me; ya no se guarda en ninguna cookie legible.
+// Lo único que se recuerda en esta pestaña es el portal elegido (rol y tipo de tutor), y siempre se
+// valida contra los roles que devuelve el servidor, así que editarlo no da acceso a nada.
+const PORTAL_KEY = 'uft_portal';
 
-function getSessionCookie(): User | null {
-  const match = document.cookie.match(new RegExp('(^| )uft_session_user=([^;]+)'));
-  if (match && match[2]) {
-    try {
-      return JSON.parse(decodeURIComponent(match[2]));
-    } catch (e) {
-      console.warn('Error leyendo cookie de sesión:', e);
-    }
+function readPortal(): { role?: Role; tutorType?: User['tutorType'] } {
+  try {
+    return JSON.parse(sessionStorage.getItem(PORTAL_KEY) || '{}') || {};
+  } catch {
+    return {};
   }
-  return null;
 }
 
-function removeSessionCookie() {
+function savePortal(user: User | null) {
+  try {
+    if (user) sessionStorage.setItem(PORTAL_KEY, JSON.stringify({ role: user.role, tutorType: user.tutorType }));
+    else sessionStorage.removeItem(PORTAL_KEY);
+  } catch {
+    // Sin sessionStorage (modo privado, bloqueo): se usa el portal principal
+  }
+}
+
+// Borra la cookie legible que dejaban las versiones anteriores
+function removeLegacyCookie() {
   document.cookie = 'uft_session_user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
 }
 
+// Usuario de /api/me con el portal que la persona había elegido (solo si sigue teniendo ese rol)
+function withPortal(fresh: User, prev?: Pick<User, 'role' | 'tutorType'> | null): User {
+  const roles: Role[] = Array.isArray(fresh.roles) && fresh.roles.length > 0 ? fresh.roles : [fresh.role];
+  const tutorTypes = Array.isArray(fresh.tutorTypes) && fresh.tutorTypes.length > 0
+    ? fresh.tutorTypes
+    : (fresh.tutorType ? [fresh.tutorType] : []);
+  const wanted = prev || readPortal();
+  const role = wanted.role && roles.includes(wanted.role) ? wanted.role : roles[0];
+  const tutorType = wanted.tutorType && tutorTypes.includes(wanted.tutorType) ? wanted.tutorType : (tutorTypes[0] ?? fresh.tutorType);
+  const { password: _password, ...rest } = fresh as User & { password?: string };
+  return { ...rest, role, roles, tutorType, mustChangePassword: Boolean(fresh.mustChangePassword) };
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(() => getSessionCookie());
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  // Mientras se consulta /api/me al abrir la app no se sabe si hay sesión: las rutas esperan
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    removeLegacyCookie();
+    let cancelled = false;
+    fetch('/api/me')
+      .then(res => (res.ok ? res.json() : null))
+      .then((fresh: User | null) => {
+        if (!cancelled && fresh && fresh.id) setCurrentUser(withPortal(fresh));
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   const login = (user: User) => {
-    setSessionCookie(user);
+    savePortal(user);
     setCurrentUser(user);
   };
 
   const logout = () => {
-    removeSessionCookie();
+    savePortal(null);
     setCurrentUser(null);
     // Invalida la cookie httpOnly de sesión del servidor
     fetch('/api/logout', { method: 'POST' }).catch(() => {});
   };
 
   const updateUser = (updatedUser: User) => {
-    setSessionCookie(updatedUser);
+    savePortal(updatedUser);
     setCurrentUser(updatedUser);
   };
 
-  // La autenticación real es la cookie httpOnly `uft_session` firmada por el servidor; esta cookie
-  // solo guarda una copia del usuario para la interfaz. Se refresca desde MongoDB (/api/me)
-  // al abrir la app y cada vez que cambian los usuarios, para que carrera, roles y tipos de tutor
-  // no queden desactualizados en ningún navegador.
+  // Se refresca desde la base (/api/me) cada vez que cambian los usuarios, para que carrera, roles
+  // y tipos de tutor no queden desactualizados en ningún navegador.
   const sessionUserId = currentUser?.id;
   useEffect(() => {
     if (!sessionUserId) return;
@@ -68,10 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const res = await fetch('/api/me');
         if (res.status === 401) {
           // La sesión del servidor expiró, se cerró o la cuenta ya no existe
-          if (!cancelled) {
-            removeSessionCookie();
-            setCurrentUser(null);
-          }
+          if (!cancelled) setCurrentUser(null);
           return;
         }
         if (!res.ok) return;
@@ -80,18 +110,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setCurrentUser(prev => {
           if (!prev || prev.id !== sessionUserId) return prev;
-          const roles: Role[] = Array.isArray(fresh.roles) && fresh.roles.length > 0 ? fresh.roles : [fresh.role];
-          const tutorTypes = Array.isArray(fresh.tutorTypes) && fresh.tutorTypes.length > 0
-            ? fresh.tutorTypes
-            : (fresh.tutorType ? [fresh.tutorType] : []);
-          // Se conserva el portal elegido en esta sesión mientras el usuario siga teniendo ese rol
-          const role = roles.includes(prev.role) ? prev.role : roles[0];
-          const tutorType = prev.tutorType && tutorTypes.includes(prev.tutorType) ? prev.tutorType : (tutorTypes[0] ?? fresh.tutorType);
-          const { password: _password, ...prevWithoutPassword } = prev;
-          const next: User = { ...prevWithoutPassword, ...fresh, role, roles, tutorType, mustChangePassword: Boolean(fresh.mustChangePassword) };
-          if (JSON.stringify(next) === JSON.stringify(prev)) return prev;
-          setSessionCookie(next);
-          return next;
+          // Se conserva el portal elegido en esta sesión mientras la persona siga teniendo ese rol
+          const next = withPortal(fresh, { role: prev.role, tutorType: prev.tutorType });
+          return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
         });
       } catch (e) {
         // Sin conexión: se mantiene la sesión actual
@@ -123,6 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         updateUser,
         isAuthenticated: Boolean(currentUser),
+        isLoading,
       }}
     >
       {children}

@@ -85,6 +85,7 @@ export interface IssueReport {
   description: string;
   requestType: 'reasignar_horario' | 'reasignar_tutor' | 'otro';
   proposedTime?: string;
+  proposedDate?: string; // YYYY-MM-DD, día propuesto para el nuevo horario
   suggestedTutorId?: string;
   suggestedTutorName?: string;
   status: 'pendiente' | 'resuelto';
@@ -102,6 +103,8 @@ export interface WebNotification {
   timestamp: string;
   read: boolean;
   fromName?: string; // Quién envió el comunicado (si aplica)
+  requiresConfirmation?: boolean; // El destinatario debe confirmar la recepción (una sola vez)
+  confirmedAt?: string; // Cuándo confirmó la recepción
 }
 
 export interface UserAvailability {
@@ -160,7 +163,7 @@ export interface Room {
 }
 
 // Usuario importado (p. ej. desde Excel) que todavía no tiene cuenta ni ha recibido correo
-// No guarda el RUT: solo su contraseña inicial (últimos 4 del RUT) cifrada en el servidor
+// No guarda el RUT ni contraseñas: la contraseña temporal se genera al registrar la cuenta
 export interface PendingUser {
   id: string;
   name: string;

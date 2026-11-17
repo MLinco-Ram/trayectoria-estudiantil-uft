@@ -41,7 +41,7 @@ function ResetPasswordRouteWrapper() {
 
 // Redirección inteligente de raíz (/) según el estado de autenticación y rol
 function HomeRedirect() {
-  const { currentUser, isAuthenticated } = useAuth();
+  const { currentUser, isAuthenticated, isLoading } = useAuth();
   const [searchParams] = useSearchParams();
 
   // Si viene con reset_token en la raíz, redirigir a /reset-password
@@ -49,6 +49,8 @@ function HomeRedirect() {
   if (resetToken) {
     return <Navigate to={`/reset-password?reset_token=${encodeURIComponent(resetToken)}`} replace />;
   }
+
+  if (isLoading) return <RouteFallback />;
 
   if (isAuthenticated && currentUser) {
     return <Navigate to={getRoleHomePath(currentUser.role)} replace />;
@@ -59,7 +61,9 @@ function HomeRedirect() {
 
 // Componente para Login con redirección si ya está autenticado
 function LoginRouteWrapper() {
-  const { currentUser, isAuthenticated } = useAuth();
+  const { currentUser, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) return <RouteFallback />;
 
   if (isAuthenticated && currentUser) {
     return <Navigate to={getRoleHomePath(currentUser.role)} replace />;

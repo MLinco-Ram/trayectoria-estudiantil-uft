@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { triggerNotification, getTodayDateStr, TIME_SLOTS, getSubjects, findRoomConflict } from '../../data';
 import { sessionsApi, studentRequestsApi } from '../../services/api';
+import { TutorPicker, TutorPickerStatus } from '../common/TutorPicker';
 
 interface DocenteFlexScheduleTabProps {
   studentRequests: StudentRequest[];
@@ -110,6 +111,22 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
     return dayObj ? dayObj.slots : [];
   }, [selectedTutorAvailability, selectedDayName]);
 
+  // Estado de un tutor para la fecha y bloque elegidos. Si no puede, queda bloqueado en el selector.
+  const getPickerStatus = (tutorId: string): TutorPickerStatus => {
+    const { availableForSlot, availableForDay } = getTutorAvailabilityStatus(tutorId);
+    if (!availableForDay) return { label: `Sin horario el ${selectedDayName}`, tone: 'none', disabled: true };
+    const busy = sessions.some(x => x.tutorId === tutorId && x.date === flexDate && x.timeSlot === flexTimeSlot && !x.isCompleted);
+    if (busy) return { label: 'Ya tiene otra sesión', tone: 'none', disabled: true };
+    if (availableForSlot) return { label: `Disponible (${flexTimeSlot})`, tone: 'ok' };
+    return { label: `No puede a las ${flexTimeSlot}`, tone: 'warn', disabled: true };
+  };
+  const isSlotBlockedForTutor = (slot: string) => {
+    if (!flexTutorId) return false;
+    if (!getTutorAvailabilityStatus(flexTutorId).slots.includes(slot)) return true;
+    return sessions.some(x => x.tutorId === flexTutorId && x.date === flexDate && x.timeSlot === slot && !x.isCompleted);
+  };
+  const tutorConflict = flexTutorId ? (getPickerStatus(flexTutorId).disabled ? getPickerStatus(flexTutorId).label : '') : '';
+
   const handleOpenResolveModal = (req: StudentRequest) => {
     setResolvingReq(req);
     setFlexTitle(`Tutoría Personalizada: ${req.studentName}`);
@@ -144,6 +161,11 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
 
     if (!flexTimeSlot) {
       setFeedback({ status: 'error', message: 'Por favor selecciona un bloque de horario estandarizado.' });
+      return;
+    }
+
+    if (tutorConflict) {
+      setFeedback({ status: 'error', message: `El tutor elegido no puede en ese horario (${tutorConflict}). Elige otro tutor, otra fecha u otro bloque.` });
       return;
     }
 
@@ -237,7 +259,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
 
       setFeedback({
         status: 'success',
-        message: '¡Sesión flexible adjudicada exitosamente en MongoDB Atlas y notificada a los participantes!'
+        message: '¡Sesión flexible adjudicada exitosamente y notificada a los participantes!'
       });
 
       setTimeout(() => {
@@ -250,7 +272,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
       setIsSubmitting(false);
       setFeedback({
         status: 'error',
-        message: err.message || 'Error al adjudicar la sesión flexible en MongoDB.'
+        message: err.message || 'Error al adjudicar la sesión flexible.'
       });
     }
   };
@@ -520,29 +542,18 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
                       <span>Ordenados por disponibilidad para {selectedDayName || 'el día'}</span>
                     </span>
                   </div>
-                  <select
-                    value={flexTutorId}
-                    onChange={(e) => setFlexTutorId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white font-medium"
-                  >
-                    <option value="">-- Sin tutor par (A cargo de Coordinación Docente) --</option>
-                    {sortedTutores.map(t => {
-                      const { availableForSlot, availableForDay, slots } = getTutorAvailabilityStatus(t.id);
-                      let labelStatus = '';
-                      if (availableForSlot) {
-                        labelStatus = ` • ✅ DISPONIBLE (${flexTimeSlot})`;
-                      } else if (availableForDay) {
-                        labelStatus = ` • ⏰ ${slots.length} bq. en ${selectedDayName}`;
-                      } else {
-                        labelStatus = ` • ⚪ Sin horario en ${selectedDayName}`;
-                      }
-                      return (
-                        <option key={t.id} value={t.id}>
-                          {t.name} ({t.career || 'Tutor'}){labelStatus}
-                        </option>
-                      );
-                    })}
-                  </select>
+                  <TutorPicker
+                    tutors={sortedTutores}
+                    selectedId={flexTutorId}
+                    onSelect={setFlexTutorId}
+                    getStatus={getPickerStatus}
+                    emptyLabel="Sin tutor par (A cargo de Coordinación Docente)"
+                  />
+                  {tutorConflict && (
+                    <p className="mt-1.5 text-[11px] font-semibold text-rose-600">
+                      El tutor elegido ya no está libre para esta fecha u hora ({tutorConflict}). Cambia de tutor, fecha o bloque.
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -583,7 +594,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
                       <span>Disponibilidad declarada por {selectedTutorAvailability.userName || 'el Tutor'}:</span>
                     </span>
                     <span className="text-[10px] text-slate-500 font-medium">
-                      Bloques semanales cargados en MongoDB
+                      Bloques semanales cargados
                     </span>
                   </div>
 
@@ -671,9 +682,14 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white font-mono font-semibold"
                     required
                   >
-                    {TIME_SLOTS.map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
+                    {TIME_SLOTS.map(t => {
+                      const blocked = isSlotBlockedForTutor(t);
+                      return (
+                        <option key={t} value={t} disabled={blocked}>
+                          {t}{blocked ? ' — el tutor no puede' : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>
@@ -717,7 +733,7 @@ export const DocenteFlexScheduleTab: React.FC<DocenteFlexScheduleTabProps> = ({
                   className="flex-1 py-2.5 px-4 bg-[#092c4c] text-white rounded-xl text-xs font-bold hover:bg-[#0c3c66] transition shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <Check className="w-4 h-4 text-[#3a9ad9]" />
-                  <span>{isSubmitting ? 'Guardando en MongoDB...' : 'Adjudicar y Notificar'}</span>
+                  <span>{isSubmitting ? 'Guardando...' : 'Adjudicar y Notificar'}</span>
                 </button>
               </div>
             </form>

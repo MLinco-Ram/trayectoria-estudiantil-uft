@@ -3,8 +3,8 @@ import { Loader2, Send } from 'lucide-react';
 import { User } from '../../types';
 import { usersApi } from '../../services/api';
 
-// Restablece la contraseña del usuario a la inicial (últimos 4 caracteres del RUT),
-// se la envía por correo y le exige cambiarla en su próximo ingreso.
+// Genera una contraseña temporal aleatoria para el usuario, se la envía por correo
+// y le exige cambiarla en su próximo ingreso.
 export const SendInitialPasswordButton: React.FC<{ user: User }> = ({ user }) => {
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
@@ -15,7 +15,7 @@ export const SendInitialPasswordButton: React.FC<{ user: User }> = ({ user }) =>
       return;
     }
     const confirmed = window.confirm(
-      `Se restablecerá la contraseña de ${user.name} a los últimos 4 caracteres de su RUT y se enviará a ${user.email}. ¿Continuar?`
+      `Se generará una contraseña temporal nueva para ${user.name} y se enviará a ${user.email}. La anterior dejará de servir. ¿Continuar?`
     );
     if (!confirmed) return;
 

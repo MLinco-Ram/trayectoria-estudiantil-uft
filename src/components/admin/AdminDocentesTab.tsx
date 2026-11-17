@@ -61,7 +61,7 @@ export const AdminDocentesTab: React.FC<AdminDocentesTabProps> = ({
             </div>
             <div>
               <h2 className="font-bold text-base">Registrar Nuevo Docente / Coordinador</h2>
-              <p className="text-xs text-slate-300">Crea credenciales institucionales persistentes en MongoDB Atlas</p>
+              <p className="text-xs text-slate-300">Crea credenciales institucionales persistentes</p>
             </div>
           </div>
         </div>
@@ -165,7 +165,7 @@ export const AdminDocentesTab: React.FC<AdminDocentesTabProps> = ({
         <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h3 className="font-bold text-slate-900 text-lg">Docentes y Coordinadores Registrados</h3>
-            <p className="text-xs text-slate-500">Lista activa sincronizada con MongoDB Atlas ({docentes.length} usuarios)</p>
+            <p className="text-xs text-slate-500">Lista activa ({docentes.length} usuarios)</p>
           </div>
           <div className="relative w-full sm:w-72">
             <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />

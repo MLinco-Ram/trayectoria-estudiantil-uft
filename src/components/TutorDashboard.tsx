@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ChangePasswordModal } from './common/ChangePasswordModal';
 import { User, Session, IssueReport, UserAvailability, SessionFeedback, WebNotification } from '../types';
-import { triggerNotification, TIME_SLOTS, programColors } from '../data';
+import { triggerNotification, TIME_SLOTS, programColors, getTodayDateStr } from '../data';
 import { useDictionary } from '../hooks/useDictionary';
 import { getSocket } from '../services/socket';
 import { 
@@ -132,6 +132,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [issueKind, setIssueKind] = useState<'reasignar_horario' | 'reasignar_tutor' | 'otro'>('reasignar_horario');
   const [proposedTime, setProposedTime] = useState('');
+  const [proposedDate, setProposedDate] = useState('');
   const [suggestedTutorId, setSuggestedTutorId] = useState('');
   const [selectedDocenteIds, setSelectedDocenteIds] = useState<string[]>([]);
   const [description, setDescription] = useState('');
@@ -470,6 +471,10 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
     return sessions.find(s => s.id === selectedSessionId) || null;
   }, [sessions, selectedSessionId]);
 
+  // "2026-11-20" → "20-11-2026"
+  const fmtDate = (d: string) => d.split('-').reverse().join('-');
+  const proposedLabel = [proposedDate ? fmtDate(proposedDate) : '', proposedTime].filter(Boolean).join(' • ');
+
   // Submit re-routing or re-scheduling ticket to coordinator
   const handleSendReport = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -500,6 +505,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       description: description,
       requestType: issueKind,
       proposedTime: proposedTime ? proposedTime : undefined,
+      proposedDate: proposedDate ? proposedDate : undefined,
       suggestedTutorId: suggestedTutorId ? suggestedTutorId : undefined,
       suggestedTutorName: suggestedTutorObj ? suggestedTutorObj.name : undefined,
       status: 'pendiente',
@@ -531,7 +537,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
       user.email,
       user.name,
       `Aviso de Inconveniente Registrado: ${sessionTitle}`,
-      `Hola ${user.name},\n\nHemos recibido tu reporte sobre la tutoría "${sessionTitle}".\n\n• Motivo: ${issueKind === 'reasignar_horario' ? 'Cambio de Horario' : issueKind === 'reasignar_tutor' ? 'Reasignación de Tutor' : 'Otro Inconveniente'}\n• Detalle: "${description}"\n${proposedTime ? `• Horario alternativo propuesto: ${proposedTime}\n` : ''}${suggestedTutorObj ? `• Tutor sugerido para suplir: ${suggestedTutorObj.name} (${suggestedTutorObj.career || 'Tutor Par'})\n` : ''}\nLa coordinación docente revisará tu caso a la brevedad.`
+      `Hola ${user.name},\n\nHemos recibido tu reporte sobre la tutoría "${sessionTitle}".\n\n• Motivo: ${issueKind === 'reasignar_horario' ? 'Cambio de Horario' : issueKind === 'reasignar_tutor' ? 'Reasignación de Tutor' : 'Otro Inconveniente'}\n• Detalle: "${description}"\n${proposedLabel ? `• Horario alternativo propuesto: ${proposedLabel}\n` : ''}${suggestedTutorObj ? `• Tutor sugerido para suplir: ${suggestedTutorObj.name} (${suggestedTutorObj.career || 'Tutor Par'})\n` : ''}\nLa coordinación docente revisará tu caso a la brevedad.`
     );
 
     // 2. Notificar por correo a los Docentes Coordinadores SELECCIONADOS
@@ -563,7 +569,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                 <p style="margin: 3px 0;">📚 <strong>Tutoría Afectada:</strong> ${sessionTitle}</p>
                 <p style="margin: 3px 0;">📅 <strong>Fecha y Horario:</strong> ${sessionDetails}</p>
                 <p style="margin: 3px 0;">🏷️ <strong>Tipo de Solicitud:</strong> <span style="color: #092c4c; font-weight: 700;">${kindLabel}</span></p>
-                ${proposedTime ? `<p style="margin: 3px 0;">⏰ <strong>Horario propuesto:</strong> <span style="color: #0284c7; font-weight: 700;">${proposedTime}</span></p>` : ''}
+                ${proposedLabel ? `<p style="margin: 3px 0;">⏰ <strong>Horario propuesto:</strong> <span style="color: #0284c7; font-weight: 700;">${proposedLabel}</span></p>` : ''}
                 ${suggestedTutorObj ? `<p style="margin: 3px 0;">🧑‍🏫 <strong>Tutor sugerido para suplir:</strong> <span style="color: #0d9488; font-weight: 700;">${suggestedTutorObj.name} (${suggestedTutorObj.career || 'Tutor Par'})</span></p>` : ''}
               </div>
 
@@ -606,6 +612,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
     setFormFeedback(`¡Inconveniente enviado con éxito! Se ha notificado por correo a ${targetDocentes.length} docente(s) coordinador(es) ${suggestedTutorObj ? `con la sugerencia de ${suggestedTutorObj.name} para suplir la sesión` : ''} y se envió un comprobante a tu correo institucional.`);
     setDescription('');
     setProposedTime('');
+    setProposedDate('');
     setSuggestedTutorId('');
   };
 
@@ -1168,7 +1175,15 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase">Módulo de Retorno Propuesto (Opcional)</label>
+                    <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase">Día y Módulo de Retorno Propuesto (Opcional)</label>
+                    <input
+                      type="date"
+                      aria-label="Día propuesto"
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2 text-xs rounded-lg text-slate-700 font-semibold mb-2"
+                      value={proposedDate}
+                      min={getTodayDateStr()}
+                      onChange={(e) => setProposedDate(e.target.value)}
+                    />
                     <select
                       className="w-full bg-slate-50 border border-slate-200 px-3 py-2 text-xs rounded-lg text-slate-700 font-semibold"
                       value={proposedTime}
@@ -1180,7 +1195,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                       ))}
                     </select>
                     <p className="text-[10px] text-slate-400 mt-2.5">
-                      Indica si hay algún horario de preferencia conversado previamente con el alumno.
+                      Indica el día y el módulo de preferencia conversados previamente con el alumno.
                     </p>
                   </div>
                 </div>
@@ -1389,7 +1404,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                   </h3>
                   <p className="text-xs text-slate-500">
                     {isEditingSchedule
-                      ? 'Haz clic directamente en las casillas del horario para marcar o desmarcar los bloques en los que tienes disponibilidad para dictar tutorías.'
+                      ? 'Haz clic en las casillas para alternar cada bloque entre Disponible (puedes dictar tutorías) y No disponible.'
                       : 'Este es tu horario actualmente guardado. Presiona "Editar Horario" para modificarlo.'}
                   </p>
                 </div>
@@ -1486,9 +1501,9 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                                   } ${
                                     isChecked
                                       ? `bg-emerald-500 text-white shadow-xs ${isEditingSchedule ? 'hover:bg-emerald-600 scale-[0.98]' : 'opacity-90'}`
-                                      : `bg-white text-slate-400 border border-dashed border-slate-200 ${isEditingSchedule ? 'hover:bg-slate-100 hover:text-slate-600' : ''}`
+                                      : `bg-slate-100 text-slate-500 border border-slate-200 ${isEditingSchedule ? 'hover:bg-slate-200 hover:text-slate-700' : ''}`
                                   }`}
-                                  title={isEditingSchedule ? `Clic para ${isChecked ? 'quitar' : 'marcar'} disponibilidad: ${day} (${slot})` : 'Presiona "Editar Horario" para modificar'}
+                                  title={isEditingSchedule ? `Clic para marcar como ${isChecked ? 'no disponible' : 'disponible'}: ${day} (${slot})` : 'Presiona "Editar Horario" para modificar'}
                                 >
                                   {isChecked ? (
                                     <>
@@ -1496,7 +1511,10 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                                       <span className="text-[8.5px] uppercase font-extrabold tracking-wide">Disponible</span>
                                     </>
                                   ) : (
-                                    <span className="text-[9px] text-slate-350 opacity-60 hover:opacity-100">+ Libre</span>
+                                    <>
+                                      <span className="text-[11px] leading-none">✕</span>
+                                      <span className="text-[8.5px] uppercase font-extrabold tracking-wide">No disponible</span>
+                                    </>
                                   )}
                                 </button>
                               </td>
@@ -2429,8 +2447,8 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                                               <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-900 space-y-1 text-[11px]">
                                                 <p className="font-bold">⚠️ Reporte de tutor registrado:</p>
                                                 <p className="italic">"{sessionReport.description}"</p>
-                                                {sessionReport.proposedTime && (
-                                                  <p className="text-[10px] text-rose-700">Horario alternativo propuesto: {sessionReport.proposedTime}</p>
+                                                {(sessionReport.proposedTime || sessionReport.proposedDate) && (
+                                                  <p className="text-[10px] text-rose-700">Horario alternativo propuesto: {[sessionReport.proposedDate ? sessionReport.proposedDate.split('-').reverse().join('-') : '', sessionReport.proposedTime].filter(Boolean).join(' • ')}</p>
                                                 )}
                                               </div>
                                             ) : (

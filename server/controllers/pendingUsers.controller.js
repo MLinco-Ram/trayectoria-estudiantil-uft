@@ -2,8 +2,8 @@ import { encryptField, decryptField } from '../services/crypto.service.js';
 import { emitEvent } from '../services/socket.service.js';
 import { sendServerError } from '../utils/errors.js';
 import { createAccountWithInitialPassword } from './users.controller.js';
-// El RUT no se guarda: del RUT del Excel solo se toman sus últimos 4 caracteres (contraseña inicial),
-// que se guardan cifrados hasta registrar la cuenta. Las cuentas creadas desde aquí entran con su correo.
+// El RUT del Excel no se guarda. Las cuentas creadas desde aquí entran con su correo y una contraseña
+// temporal aleatoria que se envía por correo al registrarlas.
 
 // Usuarios importados (p. ej. desde Excel) que aún NO tienen cuenta: no reciben correo
 // hasta que el administrador les asigna un rol y los registra.
@@ -67,7 +67,6 @@ export const importPendingUsers = async (req, res) => {
       toInsert.push({
         id: `pending_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 7)}`,
         name,
-        initialPassword: encryptField(rut.slice(-4)),
         email,
         career: str(row?.career),
         // Rol opcional (alta manual); desde Excel llega vacío y se asigna después
@@ -177,14 +176,6 @@ export const registerPendingUsers = async (req, res) => {
       }
       const isTutor = doc.role === 'tutor';
       const tutorTypes = isTutor ? (doc.tutorTypes?.length ? doc.tutorTypes : ['tutor_par']) : undefined;
-      // Pendientes antiguos guardaban el RUT cifrado: se usa solo para obtener los 4 caracteres
-      const initialPassword = doc.initialPassword
-        ? decryptField(doc.initialPassword)
-        : cleanRut(decryptField(doc.rut) || doc.rut).slice(-4);
-      if (!initialPassword || initialPassword.length !== 4) {
-        failed.push({ id: doc.id, name: doc.name, reason: 'No hay contraseña inicial (falta el RUT de origen).' });
-        continue;
-      }
       const result = await createAccountWithInitialPassword(db, {
         name: doc.name,
         email: doc.email,
@@ -192,7 +183,7 @@ export const registerPendingUsers = async (req, res) => {
         roles: [doc.role],
         career: doc.career || (doc.role === 'docente' ? 'Coordinación Docente' : ''),
         ...(isTutor ? { tutorType: tutorTypes[0], tutorTypes, assignedTutorIds: tutorTypes.includes('tutor_de_tutores') ? [] : undefined } : {}),
-      }, initialPassword);
+      }, true);
       if (result.error) {
         failed.push({ id: doc.id, name: doc.name, reason: result.error });
         continue;

@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { AlertCircle, Eye, EyeOff, KeyRound, Loader2, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../services/api';
+import { checkPassword, PASSWORD_HINT } from '../utils/passwordPolicy';
 
 // Pantalla obligatoria en el primer ingreso de cuentas creadas por un docente o administrador:
-// la contraseña inicial (últimos 4 caracteres del RUT) debe reemplazarse antes de usar la plataforma.
+// la contraseña temporal enviada por correo debe reemplazarse antes de usar la plataforma.
 export default function ForceChangePasswordScreen() {
   const { currentUser, updateUser, logout } = useAuth();
   const [currentPassword, setCurrentPassword] = useState('');
@@ -17,8 +18,9 @@ export default function ForceChangePasswordScreen() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (newPassword.trim().length < 6) {
-      setError('La nueva contraseña debe tener al menos 6 caracteres.');
+    const policyError = checkPassword(newPassword, { rut: currentUser?.rut, email: currentUser?.email });
+    if (policyError) {
+      setError(policyError);
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -57,7 +59,7 @@ export default function ForceChangePasswordScreen() {
         <form onSubmit={handleSubmit} className="p-7 space-y-4">
           <p className="text-xs text-slate-600 leading-relaxed">
             Hola{currentUser?.name ? `, ${currentUser.name}` : ''}. Por seguridad debes reemplazar la contraseña inicial que
-            recibiste por correo (los últimos 4 caracteres de tu RUT) antes de continuar.
+            recibiste por correo antes de continuar.
           </p>
 
           <div>
@@ -68,7 +70,7 @@ export default function ForceChangePasswordScreen() {
           <div>
             <label htmlFor="fcp-new" className="block text-xs font-bold text-slate-700 mb-1">Nueva contraseña</label>
             <input id="fcp-new" type={inputType} required autoComplete="new-password" value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)} className={inputClass} placeholder="Mínimo 6 caracteres" />
+              onChange={(e) => setNewPassword(e.target.value)} className={inputClass} placeholder={PASSWORD_HINT} />
           </div>
           <div>
             <label htmlFor="fcp-confirm" className="block text-xs font-bold text-slate-700 mb-1">Confirmar nueva contraseña</label>

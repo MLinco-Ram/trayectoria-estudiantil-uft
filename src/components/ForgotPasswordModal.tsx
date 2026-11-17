@@ -63,8 +63,7 @@ export default function ForgotPasswordModal({ isOpen, onClose }: ForgotPasswordM
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          identifier: identifier.trim(),
-          origin: window.location.origin
+          identifier: identifier.trim()
         })
       });
 

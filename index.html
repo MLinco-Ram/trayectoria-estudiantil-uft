@@ -11,19 +11,7 @@
   <link rel="icon" type="image/jpeg" href="/favicon.jpg" />
   <link rel="shortcut icon" type="image/jpeg" href="/favicon.jpg" />
   <link rel="apple-touch-icon" href="/favicon.jpg" />
-  <script>
-    (function() {
-      try {
-        var theme = localStorage.getItem('uft_theme');
-        var isDark = theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        if (isDark) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      } catch (e) {}
-    })();
-  </script>
+  <script src="/theme-init.js"></script>
 </head>
 
 <body>

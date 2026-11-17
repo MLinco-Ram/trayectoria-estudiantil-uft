@@ -52,7 +52,7 @@ const cellText = (v: unknown): string => {
 };
 
 // Lee el primer hoja del .xlsx: columnas Nombre, Apellido, RUT, Correo y (opcional) Carrera.
-// La columna Contraseña se ignora: la contraseña son los últimos 4 caracteres del RUT. El RUT no se
+// La columna Contraseña se ignora: la contraseña temporal es aleatoria y se envía por correo. El RUT no se
 // guarda; la cuenta se crea sin RUT y la persona ingresa con su correo.
 async function parseExcel(file: File) {
   const { default: ExcelJS } = await import('exceljs');
@@ -227,7 +227,7 @@ export const AdminPendingTab: React.FC<{ onRegistered?: () => void }> = ({ onReg
     }
     const missing = targets.length - ready.length;
     const ok = window.confirm(
-      `Se crearán ${ready.length} cuenta(s) y cada persona recibirá un correo con su contraseña (últimos 4 caracteres del RUT). Ingresarán con su correo.` +
+      `Se crearán ${ready.length} cuenta(s) y cada persona recibirá un correo con su contraseña temporal. Ingresarán con su correo.` +
         (missing ? `\n\n${missing} seleccionado(s) sin rol se omitirán.` : '') +
         '\n\n¿Continuar?'
     );
@@ -311,7 +311,7 @@ export const AdminPendingTab: React.FC<{ onRegistered?: () => void }> = ({ onReg
                 <input id="pm-name" required value={manual.name} onChange={(e) => setManual({ ...manual, name: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none" placeholder="Nombre y apellidos" />
               </div>
               <div>
-                <label htmlFor="pm-rut" className="block text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1" title="Solo se usan sus últimos 4 caracteres como contraseña; el RUT no se guarda">RUT <span className="normal-case font-normal">(no se guarda)</span></label>
+                <label htmlFor="pm-rut" className="block text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1" title="El RUT solo se valida y no se guarda; la contraseña temporal es aleatoria">RUT <span className="normal-case font-normal">(no se guarda)</span></label>
                 <input id="pm-rut" required value={manual.rut} onChange={(e) => setManual({ ...manual, rut: formatRut(e.target.value) })} className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none font-mono" placeholder="20.123.456-7" />
               </div>
               <div className="lg:col-span-2">

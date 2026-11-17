@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { WebNotification } from '../../types';
-import { Bell, X, CheckCheck, Mail } from 'lucide-react';
+import { Bell, X, CheckCheck, Mail, BadgeCheck } from 'lucide-react';
 
 interface NotificationModalProps {
   isOpen: boolean;
@@ -24,6 +24,23 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   senderLabel = 'Centro de Apoyo UFT',
 }) => {
   const [notifTimeframe, setNotifTimeframe] = useState<'week' | 'all'>('week');
+
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const handleConfirm = async (notif: WebNotification) => {
+    if (confirmingId || notif.confirmedAt) return;
+    setConfirmingId(notif.id);
+    try {
+      const res = await fetch(`/api/notifications/${notif.id}/confirm`, { method: 'PUT' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const confirmedAt = data.confirmedAt || new Date().toISOString();
+      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true, confirmedAt } : n));
+    } catch (e) {
+      console.warn('Error confirmando notificación', e);
+    } finally {
+      setConfirmingId(null);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -188,6 +205,25 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                   <p className="text-xs text-slate-600 dark:text-slate-300 whitespace-pre-wrap break-words break-all leading-relaxed pl-4 border-l-2 border-slate-200 dark:border-slate-700 my-2 overflow-hidden">
                     {notif.message}
                   </p>
+
+                  {notif.requiresConfirmation && (
+                    notif.confirmedAt ? (
+                      <p className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 pb-1">
+                        <BadgeCheck className="w-4 h-4" />
+                        Confirmado el {new Date(notif.confirmedAt).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={confirmingId === notif.id}
+                        onClick={(e) => { e.stopPropagation(); handleConfirm(notif); }}
+                        className="mb-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-[11px] font-bold py-1.5 px-3.5 rounded-lg flex items-center gap-1.5 cursor-pointer transition"
+                      >
+                        <BadgeCheck className="w-4 h-4" />
+                        {confirmingId === notif.id ? 'Confirmando...' : 'Confirmar recepción'}
+                      </button>
+                    )
+                  )}
 
                   <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 pt-1">
                     <span>Emisor: <strong className="text-slate-600 dark:text-slate-300">{notif.fromName || senderLabel}</strong></span>

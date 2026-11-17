@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { checkPassword, PASSWORD_HINT } from '../utils/passwordPolicy';
 import { Eye, EyeOff, CheckCircle2, AlertCircle, Loader2, ArrowRight, XCircle, KeyRound } from 'lucide-react';
 
 interface ResetPasswordScreenProps {
@@ -50,8 +51,9 @@ export default function ResetPasswordScreen({ token, onSuccess }: ResetPasswordS
       return;
     }
 
-    if (newPassword.trim().length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.');
+    const policyError = checkPassword(newPassword);
+    if (policyError) {
+      setError(policyError);
       return;
     }
 
@@ -171,7 +173,7 @@ export default function ResetPasswordScreen({ token, onSuccess }: ResetPasswordS
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     required
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder={PASSWORD_HINT}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-celeste focus:bg-white text-slate-800 transition-all text-xs pr-10"

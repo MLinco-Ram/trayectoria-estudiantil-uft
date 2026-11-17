@@ -3,6 +3,7 @@ import { User, Session, ProgramType, SessionType, UserAvailability, Room } from 
 import { PlusCircle, X, Calendar, Clock, MapPin, Users, BookOpen, CheckCircle2, AlertTriangle, GraduationCap, Check, Sparkles } from 'lucide-react';
 import { getTodayDateStr, TIME_SLOTS, getSubjects, getPrograms, programLabel, triggerNotification, findRoomConflict } from '../../data';
 import { sessionsApi } from '../../services/api';
+import { TutorPicker, TutorPickerStatus } from '../common/TutorPicker';
 
 interface DocenteCreateSessionTabProps {
   user: User;
@@ -113,6 +114,34 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
     return { hasAnyAvail: true, availableForDay, availableForSlot, slots };
   };
 
+  // Con hora exacta no hay bloque que comparar: solo se exige que el tutor tenga horario ese día
+  const checkExactSlot = !(isPersonalizedForm && useExactTime);
+
+  // Estado de un tutor para la fecha y hora elegidas. Si no puede, queda bloqueado en el selector.
+  const getPickerStatus = (tutorId: string): TutorPickerStatus => {
+    const { availableForSlot, availableForDay, slots } = getTutorAvailabilityStatus(tutorId);
+    if (!availableForDay) return { label: `Sin horario el ${selectedDayName}`, tone: 'none', disabled: true };
+    if (pickSlotsFromGrid || !checkExactSlot) return { label: `${slots.length} bq. el ${selectedDayName}`, tone: 'ok' };
+    const busy = sessions.some(s => s.tutorId === tutorId && s.date === formDate && s.timeSlot === formTimeSlot && !s.isCompleted);
+    if (busy) return { label: 'Ya tiene otra sesión', tone: 'none', disabled: true };
+    if (availableForSlot) return { label: `Disponible (${formTimeSlot})`, tone: 'ok' };
+    return { label: `No puede a las ${formTimeSlot}`, tone: 'warn', disabled: true };
+  };
+
+  // Bloques que el tutor elegido no puede tomar en la fecha elegida (no declarados o con otra sesión)
+  const isSlotBlockedForTutor = (slot: string) => {
+    if (!formTutorId || formProgram !== 'tutorias') return false;
+    const { slots } = getTutorAvailabilityStatus(formTutorId);
+    if (!slots.includes(slot)) return true;
+    return sessions.some(s => s.tutorId === formTutorId && s.date === formDate && s.timeSlot === slot && !s.isCompleted);
+  };
+  const tutorConflict = formProgram === 'tutorias' && !!formTutorId && formTutorId !== ''
+    ? (() => {
+        const st = getPickerStatus(formTutorId);
+        return st.disabled ? st.label : '';
+      })()
+    : '';
+
   // Tutores ordenados con prioridad a quienes están disponibles en el bloque actual
   const sortedTutores = useMemo(() => {
     return [...tutores].sort((a, b) => {
@@ -165,6 +194,11 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
 
     if (formProgram === 'tutorias' && !formTutorId) {
       setFeedback({ status: 'error', message: 'Por favor selecciona un tutor para la tutoría académica.' });
+      return;
+    }
+
+    if (tutorConflict) {
+      setFeedback({ status: 'error', message: `El tutor elegido no puede en ese horario (${tutorConflict}). Elige otro tutor, otra fecha u otro bloque.` });
       return;
     }
 
@@ -273,7 +307,7 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
         status: 'success',
         message: newSessions.length > 1
           ? `¡${newSessions.length} horarios de "${newSession.title}" publicados! Cada estudiante podrá elegir uno.`
-          : `¡Sesión "${newSession.title}" creada y sincronizada exitosamente en MongoDB Atlas!`
+          : `¡Sesión "${newSession.title}" creada exitosamente!`
       });
 
       setFormTitle('');
@@ -286,7 +320,7 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
     } catch (err: any) {
       setFeedback({
         status: 'error',
-        message: err.message || 'No se pudo crear la sesión en MongoDB Atlas.'
+        message: err.message || 'No se pudo crear la sesión.'
       });
     } finally {
       setIsSubmitting(false);
@@ -499,9 +533,14 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
                     onChange={(e) => setFormTimeSlot(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white"
                   >
-                    {TIME_SLOTS.map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
+                    {TIME_SLOTS.map(t => {
+                      const blocked = isSlotBlockedForTutor(t);
+                      return (
+                        <option key={t} value={t} disabled={blocked}>
+                          {t}{blocked ? ' — el tutor no puede' : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 )}
               </div>
@@ -522,32 +561,18 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
                     </span>
                   </div>
 
-                  <select
-                    value={formTutorId}
-                    onChange={(e) => setFormTutorId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-sm focus:ring-2 focus:ring-[#3a9ad9] focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
-                    required
-                  >
-                    <option value="">-- Selecciona un tutor par --</option>
-                    {sortedTutores.map(t => {
-                      const { availableForSlot, availableForDay, slots } = getTutorAvailabilityStatus(t.id);
-                      let labelStatus = '';
-                      if (pickSlotsFromGrid) {
-                        labelStatus = availableForDay ? ` • ⏰ ${slots.length} bq. en ${selectedDayName}` : ` • ⚪ Sin horario en ${selectedDayName}`;
-                      } else if (availableForSlot) {
-                        labelStatus = ` • ✅ DISPONIBLE (${formTimeSlot})`;
-                      } else if (availableForDay) {
-                        labelStatus = ` • ⏰ ${slots.length} bq. en ${selectedDayName}`;
-                      } else {
-                        labelStatus = ` • ⚪ Sin horario en ${selectedDayName}`;
-                      }
-                      return (
-                        <option key={t.id} value={t.id}>
-                          {t.name} ({t.career || 'Tutor'}){labelStatus}
-                        </option>
-                      );
-                    })}
-                  </select>
+                  <TutorPicker
+                    tutors={sortedTutores}
+                    selectedId={formTutorId}
+                    onSelect={setFormTutorId}
+                    getStatus={getPickerStatus}
+                  />
+                  {tutorConflict && (
+                    <p className="mt-1.5 text-[11px] font-semibold text-rose-600 flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                      <span>El tutor elegido ya no está libre para esta fecha u hora ({tutorConflict}). Cambia de tutor, fecha o bloque.</span>
+                    </p>
+                  )}
                 </div>
 
                 {/* Botones de Selección Rápida de Tutores Disponibles en este Horario */}

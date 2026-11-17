@@ -341,8 +341,8 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
               </div>
             </div>
             <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              Envía a <span className="font-mono font-semibold text-slate-800 dark:text-white">{editingUser.email || 'su correo'}</span> la contraseña inicial
-              (últimos 4 caracteres del RUT).
+              Envía a <span className="font-mono font-semibold text-slate-800 dark:text-white">{editingUser.email || 'su correo'}</span> una contraseña temporal
+              aleatoria (válida por 7 días).
             </p>
             <SendInitialPasswordButton user={editingUser} />
           </section>

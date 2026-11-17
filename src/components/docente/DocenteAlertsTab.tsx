@@ -53,7 +53,7 @@ export const DocenteAlertsTab: React.FC<DocenteAlertsTabProps> = ({
         : session?.timeSlot || '';
     return {
       tutorId: draft.tutorId ?? defaultTutorId,
-      date: draft.date ?? (session?.date || ''),
+      date: draft.date ?? (report.requestType === 'reasignar_horario' && report.proposedDate ? report.proposedDate : (session?.date || '')),
       timeSlot: draft.timeSlot ?? defaultSlot,
     };
   };
@@ -328,9 +328,9 @@ export const DocenteAlertsTab: React.FC<DocenteAlertsTabProps> = ({
 
                   <div className="bg-white p-3.5 rounded-xl border border-rose-100 text-xs text-slate-700 space-y-1.5">
                     <p><strong>Motivo del Reporte:</strong> {report.description}</p>
-                    {report.proposedTime && (
+                    {(report.proposedTime || report.proposedDate) && (
                       <p className="text-sky-700 font-medium">
-                        ⏰ <strong>Horario propuesto:</strong> {report.proposedTime}
+                        ⏰ <strong>Horario propuesto:</strong> {[report.proposedDate ? report.proposedDate.split('-').reverse().join('-') : '', report.proposedTime].filter(Boolean).join(' • ')}
                       </p>
                     )}
                     {report.suggestedTutorName && (

@@ -86,3 +86,46 @@ export const markAllAsRead = async (req, res) => {
     sendServerError(res, err);
   }
 };
+
+// El destinatario confirma una sola vez que recibió un comunicado que lo pide. Al confirmar, quien lo envió recibe un aviso.
+export const confirmNotification = async (req, res) => {
+  const { id } = req.params;
+  const db = req.db;
+  try {
+    const own = { id, toEmail: emailQuery(req.user.email), requiresConfirmation: true };
+    const confirmedAt = new Date().toISOString();
+    // El filtro sin confirmedAt hace que solo una solicitud pueda confirmar (doble clic o dos pestañas)
+    const result = await db.collection('notifications').updateOne(
+      { ...own, confirmedAt: { $exists: false } },
+      { $set: { confirmedAt, read: true } }
+    );
+    const notif = await db.collection('notifications').findOne(own);
+    if (!notif) return res.status(404).json({ error: 'Este mensaje no requiere confirmación.' });
+    if (result.matchedCount === 0) {
+      return res.json({ success: true, alreadyConfirmed: true, confirmedAt: notif.confirmedAt });
+    }
+
+    emitEvent('notifications:changed', { action: 'confirm', id, notification: notif });
+
+    if (notif.fromEmail) {
+      const when = new Date(confirmedAt).toLocaleString('es-CL', { timeZone: 'America/Santiago', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      const ack = {
+        id: `notif_confirm_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        toEmail: notif.fromEmail,
+        toName: notif.fromName || '',
+        subject: `✓ Confirmación de recepción: ${notif.subject}`,
+        message: `${req.user.name || notif.toName || notif.toEmail} confirmó la recepción del comunicado "${notif.subject}" el ${when.replace(/\.$/, "")}.`,
+        timestamp: confirmedAt,
+        read: false,
+        priority: 'normal',
+        fromName: 'Trayectoria UFT'
+      };
+      await db.collection('notifications').insertOne(ack);
+      emitEvent('notifications:changed', { action: 'create', notification: ack });
+    }
+
+    res.json({ success: true, confirmedAt });
+  } catch (err) {
+    sendServerError(res, err);
+  }
+};

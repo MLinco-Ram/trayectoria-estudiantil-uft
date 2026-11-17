@@ -178,7 +178,7 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
         setSelectedSessionDetail(null);
       }
     } catch (err: any) {
-      window.alert(`No se pudo eliminar la sesión en MongoDB Atlas: ${err.message || 'error de conexión'}`);
+      window.alert(`No se pudo eliminar la sesión: ${err.message || 'error de conexión'}`);
     } finally {
       onReload();
     }

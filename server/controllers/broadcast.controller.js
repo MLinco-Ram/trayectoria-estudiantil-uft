@@ -150,7 +150,9 @@ export const broadcastMessage = async (req, res) => {
       timestamp: nowIso,
       read: false,
       priority: priority || 'normal',
-      fromName: senderName
+      fromName: senderName,
+      // Los tutores deben confirmar una vez que recibieron el comunicado; el aviso de confirmación vuelve a quien lo envió
+      ...(u.role === 'tutor' && req.user?.email ? { requiresConfirmation: true, fromEmail: req.user.email } : {})
     }));
 
     if (notifDocs.length > 0) {

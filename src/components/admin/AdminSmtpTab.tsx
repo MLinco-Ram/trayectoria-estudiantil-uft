@@ -94,13 +94,13 @@ export const AdminSmtpTab: React.FC<AdminSmtpTabProps> = ({
                 Parámetros del Servidor SMTP
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                La configuración se almacena en la colección <span className="font-mono text-[#3a9ad9]">settings</span> de MongoDB Atlas.
+                La configuración se almacena de forma segura en el sistema.
               </p>
             </div>
             {isConfigured ? (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                Configurado en Mongo
+                Configurado
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
@@ -186,7 +186,7 @@ export const AdminSmtpTab: React.FC<AdminSmtpTabProps> = ({
                 </span>
                 {hasStoredPassword && (
                   <span className="text-emerald-600 text-xs font-bold flex items-center gap-1">
-                    ✓ Guardada en Mongo
+                    ✓ Guardada
                   </span>
                 )}
               </label>
@@ -218,7 +218,7 @@ export const AdminSmtpTab: React.FC<AdminSmtpTabProps> = ({
                 className="w-full py-3 px-6 rounded-xl bg-[#092c4c] text-white font-bold text-sm hover:bg-[#0c3c66] transition flex items-center justify-center gap-2 shadow-sm"
               >
                 <Save className="w-4 h-4" />
-                Guardar Configuración en MongoDB Atlas
+                Guardar Configuración
               </button>
             </div>
           </form>

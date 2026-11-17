@@ -230,7 +230,7 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
 
       setDocFeedback({
         status: 'success',
-        message: `¡Docente "${newDocName}" creado exitosamente en MongoDB Atlas! Se envió su contraseña inicial por correo.`
+        message: `¡Docente "${newDocName}" creado exitosamente! Se envió su contraseña inicial por correo.`
       });
 
       setNewDocName('');
@@ -241,7 +241,7 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       console.error('Error creando docente:', err);
       setDocFeedback({
         status: 'error',
-        message: err.message || 'No se pudo crear el docente en MongoDB Atlas.'
+        message: err.message || 'No se pudo crear el docente.'
       });
     } finally {
       setIsSubmittingDoc(false);
@@ -319,7 +319,7 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
 
       setEditFeedback({
         status: 'success',
-        message: `¡Usuario ${editingUser.name} actualizado exitosamente en MongoDB Atlas!`
+        message: `¡Usuario ${editingUser.name} actualizado exitosamente!`
       });
 
       setTimeout(() => {
@@ -331,7 +331,7 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       console.error('Error actualizando usuario:', err);
       setEditFeedback({
         status: 'error',
-        message: err.message || 'No se pudieron guardar los cambios en MongoDB Atlas.'
+        message: err.message || 'No se pudieron guardar los cambios.'
       });
     } finally {
       setIsUpdatingUser(false);
@@ -351,7 +351,7 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       setAlumnos(prev => prev.filter(a => a.id !== targetUser.id && a.rut !== targetUser.id));
     } catch (err: any) {
       console.error('Error al eliminar usuario:', err);
-      window.alert(`No se pudo eliminar al usuario "${targetUser.name}" en MongoDB Atlas: ${err.message || 'error de conexión'}`);
+      window.alert(`No se pudo eliminar al usuario "${targetUser.name}": ${err.message || 'error de conexión'}`);
     }
   };
 
@@ -372,14 +372,14 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       await settingsApi.saveSmtpSettings(configPayload);
       setSaveStatus({
         status: 'success',
-        message: '¡Configuración guardada exitosamente en MongoDB Atlas! Los envíos de correo usarán estos parámetros.'
+        message: '¡Configuración guardada exitosamente! Los envíos de correo usarán estos parámetros.'
       });
       setSmtpPass('');
       loadSmtpSettings();
     } catch (err: any) {
       setSaveStatus({
         status: 'error',
-        message: err.message || 'No se pudo guardar la configuración SMTP en MongoDB Atlas.'
+        message: err.message || 'No se pudo guardar la configuración SMTP.'
       });
     }
 

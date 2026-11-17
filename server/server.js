@@ -20,12 +20,23 @@ const server = http.createServer(app);
 initSocket(server);
 
 // Seguridad de Cabeceras HTTP
+// Las respuestas de este servidor son JSON (la página la sirve Vercel/Vite): CSP cerrada, sin marcos ni caché de datos.
+// Las cabeceras de la página están en vercel.json.
+app.disable('x-powered-by');
 app.use(
   helmet({
-    contentSecurityPolicy: false, // Permitir fuentes e imágenes externas
+    contentSecurityPolicy: { useDefaults: false, directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
     crossOriginEmbedderPolicy: false,
+    frameguard: { action: 'deny' },
+    crossOriginResourcePolicy: { policy: 'same-origin' },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   })
 );
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
 
 app.use(express.json({ limit: '1mb' }));
 

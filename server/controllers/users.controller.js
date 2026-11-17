@@ -5,7 +5,8 @@ import { emitEvent } from '../services/socket.service.js';
 import { setSessionCookie } from '../services/session.service.js';
 import { getUserRoles, isTutorOrStaff } from '../middlewares/auth.js';
 import { sendServerError } from '../utils/errors.js';
-import { sendEmail } from '../services/email.service.js';
+import { sendEmail, formatInitialPasswordEmail } from '../services/email.service.js';
+import { generateInitialPassword, initialPasswordExpiry, validatePasswordPolicy } from '../services/password.service.js';
 
 const ALUMNO_EMAIL_DOMAINS = ['@uft.cl', '@mail.uft.cl', '@uft.edu'];
 
@@ -49,21 +50,21 @@ export const getUsers = async (req, res) => {
   }
 };
 
-// Valida, hashea la contraseña, cifra el RUT e inserta. Devuelve { error } o { user } (sin datos sensibles)
-const initialPasswordFromRut = (rut) => (rut || '').replace(/[\.\-\s]/g, '').slice(-4).toUpperCase();
+// Contraseña de cuentas antiguas (hasta v1.0.8): los últimos 4 caracteres del RUT. Ya no se genera; solo se usa
+// para reconocer esas cuentas al completar un registro (ver claimImportedAccount).
+const legacyInitialPasswordFromRut = (rut) => (rut || '').replace(/[\.\-\s]/g, '').slice(-4).toUpperCase();
 
-// Envía la contraseña inicial por correo. Devuelve true solo si salió por SMTP real (no simulado).
-async function sendInitialPasswordEmail(user, initialPassword) {
-  const loginHint = user.rut
-    ? `(los últimos 4 caracteres de tu RUT, sin puntos ni guión). Ingresa con tu RUT o tu correo (${user.email}) y esta contraseña.`
-    : `(los últimos 4 caracteres de tu RUT, sin puntos ni guión). Ingresa con tu correo (${user.email}) y esta contraseña.`;
-  const mail = await sendEmail({
-    to: user.email,
-    toName: user.name,
-    subject: 'Tu contraseña de acceso a Trayectoria Estudiantil UFT',
-    text: `Tu contraseña de acceso a Trayectoria Estudiantil UFT es: ${initialPassword} ${loginHint} ${isPasswordChangeRequired() ? 'Se te pedirá cambiarla en tu primer ingreso.' : 'Te recomendamos cambiarla después de ingresar.'}`,
-    actionText: 'Ingresar a la Plataforma'
+// Envía la contraseña inicial (aleatoria) por correo, avisando cuándo vence. Devuelve true solo si salió por SMTP real (no simulado).
+async function sendInitialPasswordEmail(user, initialPassword, expiresAt) {
+  const { subject, text, html } = formatInitialPasswordEmail({
+    name: user.name,
+    email: user.email,
+    password: initialPassword,
+    expiresAt,
+    hasRut: Boolean(user.rut),
+    mustChange: isPasswordChangeRequired(),
   });
+  const mail = await sendEmail({ to: user.email, toName: user.name, subject, text, html, actionText: 'Ingresar a la Plataforma' });
   return !mail?.simulated;
 }
 
@@ -98,7 +99,7 @@ async function claimImportedAccount(db, account, { name, rut, career, password }
   if (await db.collection('users').findOne({ rutHash: rutBlindIndex })) {
     return { error: 'El RUT ya se encuentra registrado en el sistema.' };
   }
-  const matchesInitial = account.password && await bcrypt.compare(initialPasswordFromRut(cleanRut), account.password);
+  const matchesInitial = account.password && await bcrypt.compare(legacyInitialPasswordFromRut(cleanRut), account.password);
   if (!matchesInitial) return { error: alreadyRegistered, status: 409 };
 
   const update = {
@@ -108,7 +109,7 @@ async function claimImportedAccount(db, account, { name, rut, career, password }
     password: await bcrypt.hash(password.trim(), await bcrypt.genSalt(10)),
     ...(typeof career === 'string' && career.trim() ? { career: career.trim() } : {}),
   };
-  await db.collection('users').updateOne({ _id: account._id }, { $set: update, $unset: { mustChangePassword: '' } });
+  await db.collection('users').updateOne({ _id: account._id }, { $set: update, $unset: { mustChangePassword: '', initialPasswordExpiresAt: '' } });
   const user = sanitizeUserOutput({ ...account, ...update, rut: rut.trim() });
   emitEvent('users:changed', { action: 'update', user });
   return { user };
@@ -161,25 +162,26 @@ async function insertUser(db, newUser) {
   return { user: safeResult };
 }
 
-// Crea una cuenta con la contraseña inicial (últimos 4 caracteres del RUT) y se la envía por correo.
+// Crea una cuenta con una contraseña inicial ALEATORIA (temporal, 7 días) y se la envía por correo.
 // La usan el alta manual (Docente/Admin) y el registro de pendientes importados desde Excel.
-// Con `presetInitialPassword` (uso interno desde Pendientes) la cuenta se crea sin RUT y entra con su correo.
-export async function createAccountWithInitialPassword(db, data, presetInitialPassword) {
-  const { _id, rutHash, password, mustChangePassword, ...newUser } = data || {};
+// Con `withoutRut` (uso interno desde Pendientes) la cuenta se crea sin RUT y entra con su correo.
+export async function createAccountWithInitialPassword(db, data, withoutRut = false) {
+  const { _id, rutHash, password, mustChangePassword, initialPasswordExpiresAt, ...newUser } = data || {};
   if (!newUser.id) newUser.id = `${newUser.role || 'user'}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
   // Nunca se acepta ni se devuelve una contraseña desde el cliente; se comunica solo por correo.
-  const initialPassword = presetInitialPassword || initialPasswordFromRut(newUser.rut);
+  const initialPassword = generateInitialPassword();
   newUser.password = initialPassword;
+  newUser.initialPasswordExpiresAt = initialPasswordExpiry();
   if (isPasswordChangeRequired()) newUser.mustChangePassword = true;
 
-  const result = presetInitialPassword ? await insertUserWithoutRut(db, newUser) : await insertUser(db, newUser);
+  const result = withoutRut ? await insertUserWithoutRut(db, newUser) : await insertUser(db, newUser);
   if (result.error) return { error: result.error };
 
   let emailSent = false;
   if (newUser.email) {
     try {
-      emailSent = await sendInitialPasswordEmail(newUser, initialPassword);
+      emailSent = await sendInitialPasswordEmail(newUser, initialPassword, newUser.initialPasswordExpiresAt);
     } catch (mailErr) {
       console.warn('[Mail] No se pudo enviar el correo de bienvenida:', mailErr.message);
     }
@@ -211,9 +213,8 @@ export const registerStudent = async (req, res) => {
     if (!ALUMNO_EMAIL_DOMAINS.some(d => cleanEmail.endsWith(d))) {
       return res.status(400).json({ error: 'El correo institucional debe tener dominio oficial de la universidad.' });
     }
-    if (password.trim().length < 6) {
-      return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres.' });
-    }
+    const policyError = validatePasswordPolicy(password, { rut, email: cleanEmail, name });
+    if (policyError) return res.status(400).json({ error: policyError });
 
     // Si el correo ya tiene una cuenta importada desde Pendientes (sin RUT), el registro la completa
     // en vez de crear otra. Para no permitir que alguien tome la cuenta de otro sabiendo solo su correo,
@@ -245,7 +246,7 @@ export const registerStudent = async (req, res) => {
   }
 };
 
-// Restablece la contraseña a la inicial (últimos 4 del RUT), la envía por correo y exige cambiarla al ingresar.
+// Genera una contraseña temporal NUEVA y aleatoria, la envía por correo y exige cambiarla al ingresar.
 // El correo se envía antes de guardar: si falla, la contraseña actual del usuario no cambia.
 export const sendInitialPassword = async (req, res) => {
   try {
@@ -254,11 +255,9 @@ export const sendInitialPassword = async (req, res) => {
     if (rejectAdminChangeByNonAdmin(req, res, { targetUser })) return;
     if (!targetUser.email) return res.status(400).json({ error: 'El usuario no tiene un correo registrado.' });
 
-    const plainRut = decryptField(targetUser.rut) || targetUser.rut;
-    const initialPassword = initialPasswordFromRut(plainRut);
-    if (initialPassword.length !== 4) return res.status(400).json({ error: 'El usuario no tiene un RUT válido.' });
-
-    const sent = await sendInitialPasswordEmail(targetUser, initialPassword);
+    const initialPassword = generateInitialPassword();
+    const expiresAt = initialPasswordExpiry();
+    const sent = await sendInitialPasswordEmail(targetUser, initialPassword, expiresAt);
     if (!sent) {
       return res.status(503).json({ error: 'El servidor de correo (SMTP) no está configurado. No se cambió la contraseña.' });
     }
@@ -266,11 +265,10 @@ export const sendInitialPassword = async (req, res) => {
     const hashed = await bcrypt.hash(initialPassword, await bcrypt.genSalt(10));
     await req.db.collection('users').updateOne(
       { _id: targetUser._id },
-      isPasswordChangeRequired()
-        ? { $set: { password: hashed, mustChangePassword: true } }
-        : { $set: { password: hashed }, $unset: { mustChangePassword: '' } }
+      { $set: { password: hashed, initialPasswordExpiresAt: expiresAt, ...(isPasswordChangeRequired() ? { mustChangePassword: true } : {}) },
+        ...(isPasswordChangeRequired() ? {} : { $unset: { mustChangePassword: '' } }) }
     );
-    res.json({ success: true, message: `Contraseña enviada a ${targetUser.email}.` });
+    res.json({ success: true, message: `Contraseña temporal enviada a ${targetUser.email}.` });
   } catch (err) {
     sendServerError(res, err, 'No se pudo enviar la contraseña por correo.');
   }
@@ -317,8 +315,11 @@ export const updateUser = async (req, res) => {
     }
 
     if (password !== undefined && password.trim()) {
+      const policyError = validatePasswordPolicy(password, { rut: decryptField(targetUser.rut) || '', email: targetUser.email, name: targetUser.name });
+      if (policyError) return res.status(400).json({ error: policyError });
       const salt = await bcrypt.genSalt(10);
       updateData.password = await bcrypt.hash(password.trim(), salt);
+      updateData.initialPasswordExpiresAt = null; // una contraseña fijada por el administrador no vence
     }
 
     if (Object.keys(updateData).length === 0) {

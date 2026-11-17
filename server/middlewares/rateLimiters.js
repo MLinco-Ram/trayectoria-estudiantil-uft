@@ -1,6 +1,7 @@
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { MongoRateLimitStore } from './mongoRateLimitStore.js';
 import { readSessionCookie, verifySessionToken } from '../services/session.service.js';
+import { isStaff } from './auth.js';
 
 // En una sala de clases todos los alumnos salen a internet con la MISMA IP de la universidad.
 // Por eso los límites no pueden ser solo por IP: 24 alumnos agotaban en segundos un tope pensado
@@ -100,4 +101,17 @@ export const resetPasswordLimiter = rateLimit({
   store: new MongoRateLimitStore('reset-password'),
   passOnStoreError: true,
   message: { error: 'Demasiados intentos con este enlace. Espera 15 minutos o solicita uno nuevo.' }
+});
+
+// Envío de correos, notificaciones y comunicados: por usuario con sesión (va después de requireAuth).
+// Frena el uso de la plataforma como fuente de spam; coordinación tiene un tope mucho más alto.
+export const mailLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: (req) => (isStaff(req) ? 300 : req.userRoles?.includes('tutor') ? 120 : 40),
+  keyGenerator: (req) => `user:${req.user?.id || ipKey(req)}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: new MongoRateLimitStore('mail'),
+  passOnStoreError: true,
+  message: { error: 'Enviaste demasiados mensajes en poco tiempo. Espera unos minutos e intenta de nuevo.' }
 });

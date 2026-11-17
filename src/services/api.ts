@@ -20,7 +20,7 @@ export const authApi = {
     return handleResponse<User>(res);
   },
 
-  forgotPassword: async (payload: { identifier: string; origin?: string }) => {
+  forgotPassword: async (payload: { identifier: string }) => {
     const res = await fetch('/api/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

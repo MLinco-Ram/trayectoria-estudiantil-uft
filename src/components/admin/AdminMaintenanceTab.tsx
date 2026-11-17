@@ -70,8 +70,8 @@ export const AdminMaintenanceTab: React.FC<AdminMaintenanceTabProps> = ({ onSucc
 
     const isConfirmed = window.confirm(
       selectedItems.users
-        ? '⚠️ ADVERTENCIA CRÍTICA:\n\nHas marcado la eliminación de usuarios (Docentes, Tutores y Alumnos). Solo las cuentas de Administrador serán preservadas.\n\n¿Estás completamente seguro de proceder con este vaciado en MongoDB Atlas?'
-        : '⚠️ ADVERTENCIA:\n\n¿Estás seguro de vaciar las tutorías y actividades seleccionadas en MongoDB Atlas?\n\n* Toda la sincronización se actualizará en tiempo real vía WebSockets.'
+        ? '⚠️ ADVERTENCIA CRÍTICA:\n\nHas marcado la eliminación de usuarios (Docentes, Tutores y Alumnos). Solo las cuentas de Administrador serán preservadas.\n\n¿Estás completamente seguro de proceder con este vaciado?'
+        : '⚠️ ADVERTENCIA:\n\n¿Estás seguro de vaciar las tutorías y actividades seleccionadas?\n\n* Toda la sincronización se actualizará en tiempo real vía WebSockets.'
     );
 
     if (!isConfirmed) return;
@@ -96,7 +96,7 @@ export const AdminMaintenanceTab: React.FC<AdminMaintenanceTabProps> = ({ onSucc
     } catch (err: any) {
       setResult({
         status: 'error',
-        message: err.message || 'Ocurrió un error al vaciar los datos en MongoDB Atlas.'
+        message: err.message || 'Ocurrió un error al vaciar los datos.'
       });
     } finally {
       setIsResetting(false);
@@ -169,7 +169,7 @@ export const AdminMaintenanceTab: React.FC<AdminMaintenanceTabProps> = ({ onSucc
             {/* Selección de Colecciones a Vaciar */}
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">
-                Selecciona qué datos deseas vaciar de MongoDB Atlas:
+                Selecciona qué datos deseas vaciar:
               </label>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -350,7 +350,7 @@ export const AdminMaintenanceTab: React.FC<AdminMaintenanceTabProps> = ({ onSucc
             <div className="flex items-center justify-between pt-2 border-t border-slate-200">
               <div className="text-xs text-slate-500 flex items-center gap-1.5">
                 <Database className="w-4 h-4 text-slate-400" />
-                <span>Impacto directo en la base de datos <strong>MongoDB Atlas</strong></span>
+                <span>Impacto directo en la base de datos del sistema</span>
               </div>
 
               <button

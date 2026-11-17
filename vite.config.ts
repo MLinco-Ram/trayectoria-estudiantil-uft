@@ -7,6 +7,20 @@ import {readFileSync} from 'fs';
 // Versión visible en la app: la de package.json (subir el último número en cada commit)
 const appVersion = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')).version;
 
+// `npm run preview` sirve la app compilada con las mismas cabeceras de seguridad que vercel.json,
+// para comprobar que la CSP no bloquea nada. (upgrade-insecure-requests y el host wss se omiten en local.)
+function previewSecurityHeaders(): Record<string, string> {
+  const cfg = JSON.parse(readFileSync(path.resolve(__dirname, 'vercel.json'), 'utf-8'));
+  const out: Record<string, string> = {};
+  for (const h of cfg.headers?.[0]?.headers ?? []) {
+    if (h.key === 'Access-Control-Allow-Origin' || h.key === 'Vary') continue;
+    out[h.key] = h.key === 'Content-Security-Policy'
+      ? h.value.replace('; upgrade-insecure-requests', '').replace(/ wss:\/\/[^;]+/, " ws://localhost:4173")
+      : h.value;
+  }
+  return out;
+}
+
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
@@ -28,6 +42,14 @@ export default defineConfig(() => {
             'vendor-icons': ['lucide-react'],
           },
         },
+      },
+    },
+    preview: {
+      port: 4173,
+      headers: previewSecurityHeaders(),
+      proxy: {
+        '/api': { target: 'http://localhost:3001', changeOrigin: true },
+        '/socket.io': { target: 'http://localhost:3001', changeOrigin: true, ws: true },
       },
     },
     server: {
