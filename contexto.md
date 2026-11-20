@@ -585,15 +585,6 @@ flowchart TD
   - **Errores 500** (`server/utils/errors.js`, `sendServerError`): el detalle se registra en el log; en producción la respuesta es un mensaje genérico (en desarrollo incluye `details`). Las rutas de diagnóstico solo para admin (SMTP, cron, sistema, health) siguen devolviendo `details`.
 - **Servicio de Correos**: `nodemailer` para envíos reales vía Google SMTP / Gmail institucional configurables desde el panel de administración.
 - **Ejecución TypeScript/ESM**: `tsx` para scripts y servidor Node.
-- **Entorno de Desarrollo & CLI**: Antigravity CLI (`agy`) habilitado globalmente y accesos directos configurados en el Escritorio.
-
----
-
-## 3. Lanzadores y Acceso Rápido (Antigravity CLI / Escritorio)
-- **Comando en Terminal**: `agy` (o `antigravity-ide`) disponible directamente desde cualquier terminal de PowerShell o CMD.
-- **Acceso Directo en Escritorio**:
-  1. `Antigravity - Trayectoria UFT.lnk`: Acceso directo nativo con icono oficial de Antigravity que abre la carpeta del proyecto.
-  2. `Abrir Antigravity - Trayectoria UFT.bat`: Script ejecutable sin restricciones para iniciar el entorno en esta carpeta de trabajo.
 
 ---
 
