@@ -25,6 +25,7 @@ import { AdminMaintenanceTab } from './admin/AdminMaintenanceTab';
 import { AdminPendingTab } from './admin/AdminPendingTab';
 import { EditUserModal } from './admin/EditUserModal';
 import { ThemeToggle } from './common/ThemeToggle';
+import { MfaSetupModal } from './common/MfaSetup';
 
 import { useNavigate } from 'react-router-dom';
 import { useAuth, getRoleHomePath } from '../context/AuthContext';
@@ -41,6 +42,7 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
   const auth = useAuth();
   const user = propUser || auth.currentUser;
   const onLogout = propLogout || auth.logout;
+  const [showMfa, setShowMfa] = useState(false);
   const navigate = useNavigate();
   const [showPortalSwitcher, setShowPortalSwitcher] = useState(false);
 
@@ -655,6 +657,14 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
               )}
             </div>
           )}
+          <button
+            onClick={() => setShowMfa(true)}
+            className="w-full flex items-center justify-center gap-2 bg-white/10 text-slate-100 hover:bg-white/20 px-3 py-2 rounded-xl text-xs font-semibold transition border border-white/15"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            Verificación en dos pasos
+          </button>
+          <MfaSetupModal isOpen={showMfa} onClose={() => setShowMfa(false)} />
           <div className="flex items-center gap-2">
             <ThemeToggle className="bg-[#061e34] text-amber-300 border-slate-700 hover:bg-[#0c2a47]" />
             <button

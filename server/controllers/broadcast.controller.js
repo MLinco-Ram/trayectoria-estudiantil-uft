@@ -1,5 +1,7 @@
-import nodemailer from 'nodemailer';
-import { getEffectiveSmtpConfig, formatMinimalEmail } from '../services/email.service.js';
+import crypto from 'crypto';
+import { formatMinimalEmail } from '../services/email.service.js';
+import { enqueueEmails, processEmailQueue, queueStats } from '../services/emailQueue.service.js';
+import { audit } from '../services/audit.service.js';
 
 export const broadcastMessage = async (req, res) => {
   const { 
@@ -20,7 +22,6 @@ export const broadcastMessage = async (req, res) => {
       return res.status(400).json({ error: "El asunto y el mensaje son obligatorios." });
     }
 
-    const config = await getEffectiveSmtpConfig();
     const users = await db.collection('users').find({}).toArray();
     let targetUsers = [];
     let contextTitle = '';
@@ -95,54 +96,27 @@ export const broadcastMessage = async (req, res) => {
       : '<span style="background-color: #3b82f6; color: #ffffff; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase;">Comunicado</span>';
 
     const baseUrl = process.env.APP_URL || 'https://trayectoria-estudiantil-uft.vercel.app';
-    let sentCount = 0;
-    if (config) {
-      const transporter = nodemailer.createTransport({
-        host: config.host,
-        port: config.port,
-        secure: config.secure,
-        auth: {
-          user: config.user,
-          pass: config.pass,
-        },
-      });
-
-      const fromName = config.fromName || 'Trayectoria Estudiantil UFT';
-
-      for (const dest of targetUsers) {
-        try {
-          const actionUrl = `${baseUrl}/${dest.role === 'tutor' ? 'tutor' : dest.role === 'alumno' ? 'alumno' : 'docente'}`;
-          const emailSubject = `[UFT] Nuevo comunicado de ${senderName}`;
-          const summaryText = `${senderName} publicó un nuevo comunicado en tu portal de Trayectoria Estudiantil UFT (${contextTitle}). Para leer el contenido completo e informarte de las novedades, ingresa directamente a la plataforma.`;
-
-          const htmlBody = formatMinimalEmail({
-            toName: dest.name,
-            subject: emailSubject,
-            summary: summaryText,
-            actionUrl,
-            actionText: 'Ingresar a la Plataforma'
-          });
-
-          await transporter.sendMail({
-            from: { name: fromName, address: config.user },
-            to: `"${dest.name}" <${dest.email}>`,
-            subject: emailSubject,
-            text: `Estimado/a ${dest.name},\n\n${senderName} publicó un nuevo comunicado en tu portal de Trayectoria Estudiantil UFT (${contextTitle}).\n\nIngresa directamente a la plataforma para leer el mensaje completo:\n${actionUrl}`,
-            html: htmlBody,
-          });
-          sentCount++;
-        } catch (e) {
-          console.warn(`[Broadcast] Falló envío a ${dest.email}:`, e.message);
-        }
-      }
-    } else {
-      sentCount = targetUsers.length;
-      console.warn(`[Broadcast] SMTP no configurado. Mensaje simulado para ${sentCount} usuarios.`);
-    }
+    // Los correos se encolan y se envían por lotes (ver emailQueue.service.js); lo que no alcance a salir en esta
+    // petición lo termina el cron diario. Cada uno lleva su propio saludo y enlace.
+    const emailSubject = `[UFT] Nuevo comunicado de ${senderName}`;
+    const summaryText = `${senderName} publicó un nuevo comunicado en tu portal de Trayectoria Estudiantil UFT (${contextTitle}). Para leer el contenido completo e informarte de las novedades, ingresa directamente a la plataforma.`;
+    await enqueueEmails(db, targetUsers.map(dest => {
+      const actionUrl = `${baseUrl}/${dest.role === 'tutor' ? 'tutor' : dest.role === 'alumno' ? 'alumno' : 'docente'}`;
+      return {
+        to: dest.email,
+        toName: dest.name,
+        subject: emailSubject,
+        text: `Estimado/a ${dest.name},\n\n${summaryText}\n\nIngresa directamente a la plataforma: ${actionUrl}`,
+        html: formatMinimalEmail({ toName: dest.name, subject: emailSubject, summary: summaryText, actionUrl, actionText: 'Ingresar a la Plataforma' }),
+      };
+    }));
+    await processEmailQueue(db, { maxMs: 7000 });
+    const { pending } = await queueStats(db);
+    const sentCount = targetUsers.length;
 
     const nowIso = new Date().toISOString();
     const notifDocs = targetUsers.map(u => ({
-      id: `notif_broadcast_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      id: `notif_broadcast_${crypto.randomUUID()}`,
       toEmail: u.email,
       toName: u.name,
       subject: `[UFT] ${subject.trim()}`,
@@ -172,14 +146,18 @@ export const broadcastMessage = async (req, res) => {
       createdAt: new Date()
     });
 
+    await audit(req, 'broadcast.sent', { scope, sessionId: sessionId || null }, { recipients: sentCount });
     res.json({
       success: true,
       sentCount,
-      recipients: targetUsers.map(u => ({ name: u.name, email: u.email, role: u.role })),
-      message: `¡Aviso enviado exitosamente a ${sentCount} destinatario(s) (${contextTitle})!`
+      recipients: targetUsers.map(u => ({ name: u.name, role: u.role })),
+      queued: pending,
+      message: pending > 0
+        ? `Aviso registrado para ${sentCount} destinatario(s) (${contextTitle}). Quedan ${pending} correo(s) en cola que se enviarán automáticamente.`
+        : `¡Aviso enviado exitosamente a ${sentCount} destinatario(s) (${contextTitle})!`
     });
   } catch (err) {
     console.error("[Broadcast-Error]:", err);
-    res.status(500).json({ error: "Error al emitir el comunicado", details: err.message });
+    res.status(500).json({ error: "Error al emitir el comunicado" });
   }
 };

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { ChangePasswordModal } from './common/ChangePasswordModal';
+import { MfaSetupModal, canUseMfa } from './common/MfaSetup';
 import { User, Session, WebNotification, UserAvailability, StudentRequest } from '../types';
 import { 
   triggerNotification, 
@@ -52,7 +53,8 @@ import {
   ChevronDown,
   ChevronUp,
   HeartHandshake,
-  Layers
+  Layers,
+  ShieldCheck
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTutorialSeen, legacyTutorialSeen } from '../hooks/useTutorialSeen';
@@ -117,6 +119,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
   const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showMfa, setShowMfa] = useState(false);
   
   // Guided Tutorial Tour State
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
@@ -1023,6 +1026,20 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
                       <KeyRound className="h-3.5 w-3.5" />
                       <span>Cambiar contraseña</span>
                     </button>
+
+                    {canUseMfa(user) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowLogoutDropdown(false);
+                          setShowMfa(true);
+                        }}
+                        className="w-full mb-2 bg-white/10 hover:bg-white/20 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        <span>Verificación en dos pasos</span>
+                      </button>
+                    )}
 
                     <button
                       type="button"
@@ -2576,6 +2593,7 @@ export default function AlumnoDashboard({ user: propUser, onLogout: propLogout, 
         }}
       />
       <ChangePasswordModal isOpen={showChangePassword} onClose={() => setShowChangePassword(false)} />
+      <MfaSetupModal isOpen={showMfa} onClose={() => setShowMfa(false)} />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { emitEvent } from '../services/socket.service.js';
 import { sendServerError } from '../utils/errors.js';
 import { isStaff, canSendTo } from '../middlewares/auth.js';
@@ -24,19 +25,22 @@ export const getNotifications = async (req, res) => {
 export const createNotification = async (req, res) => {
   const db = req.db;
   try {
-    if (!(await canSendTo(req, req.body.toEmail))) {
+    if (typeof req.body?.toEmail !== 'string' || !(await canSendTo(req, req.body.toEmail))) {
       return res.status(403).json({ error: 'No puedes enviar notificaciones a ese destinatario.' });
     }
+    const body = req.body || {};
+    const text = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
+    // El id, la fecha, el estado de lectura y el remitente los fija el servidor; la prioridad solo toma valores conocidos
     const newNotif = {
-      id: req.body.id || `notif_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-      toEmail: req.body.toEmail,
-      toName: req.body.toName || '',
-      subject: req.body.subject || 'Aviso UFT',
-      message: req.body.message || '',
-      timestamp: req.body.timestamp || new Date().toISOString(),
-      read: req.body.read || false,
-      priority: req.body.priority || 'normal',
-      fromName: isStaff(req) ? (req.body.fromName || 'Trayectoria UFT') : 'Trayectoria UFT'
+      id: `notif_${crypto.randomUUID()}`,
+      toEmail: text(body.toEmail, 254),
+      toName: text(body.toName, 200),
+      subject: text(body.subject, 200) || 'Aviso UFT',
+      message: text(body.message, 5000),
+      timestamp: new Date().toISOString(),
+      read: false,
+      priority: ['normal', 'alta', 'urgente'].includes(body.priority) ? (isStaff(req) ? body.priority : 'normal') : 'normal',
+      fromName: isStaff(req) ? (text(body.fromName, 100) || 'Trayectoria UFT') : 'Trayectoria UFT'
     };
 
     await db.collection('notifications').insertOne(newNotif);
@@ -110,7 +114,7 @@ export const confirmNotification = async (req, res) => {
     if (notif.fromEmail) {
       const when = new Date(confirmedAt).toLocaleString('es-CL', { timeZone: 'America/Santiago', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
       const ack = {
-        id: `notif_confirm_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        id: `notif_confirm_${crypto.randomUUID()}`,
         toEmail: notif.fromEmail,
         toName: notif.fromName || '',
         subject: `✓ Confirmación de recepción: ${notif.subject}`,

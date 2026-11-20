@@ -1,5 +1,8 @@
 import { Server } from 'socket.io';
 import { readSessionCookie, verifySessionToken } from './session.service.js';
+import { getOrConnectDB } from '../db.js';
+
+const emailRoom = (email) => `email:${String(email).trim().toLowerCase()}`;
 
 let ioInstance = null;
 
@@ -23,10 +26,19 @@ export function initSocket(server) {
   });
 
   // Solo se conectan clientes con una sesión válida (la misma cookie httpOnly de la API)
-  ioInstance.use((socket, next) => {
+  // Cada conexión entra a la sala de su propio correo: los avisos dirigidos a una persona solo le llegan a ella (NO-07).
+  ioInstance.use(async (socket, next) => {
     const session = verifySessionToken(readSessionCookie({ headers: socket.request.headers }));
     if (!session) return next(new Error('Sesión no válida'));
-    next();
+    try {
+      const db = await getOrConnectDB();
+      const user = await db.collection('users').findOne({ id: session.uid }, { projection: { email: 1, sessionVersion: 1 } });
+      if (!user || (session.sv ?? 0) !== (user.sessionVersion ?? 0)) return next(new Error('Sesión no válida'));
+      if (user.email) socket.join(emailRoom(user.email));
+      next();
+    } catch {
+      next(new Error('Sesión no válida'));
+    }
   });
 
   return ioInstance;
@@ -44,12 +56,16 @@ function safePayload(data) {
   for (const key of SAFE_KEYS) {
     if (typeof data?.[key] === 'string') out[key] = data[key];
   }
-  // Los paneles ignoran las notificaciones dirigidas a otra persona; solo necesitan saber a quién va
-  if (typeof data?.notification?.toEmail === 'string') out.notification = { toEmail: data.notification.toEmail };
   return out;
 }
 
 export function emitEvent(event, data) {
   if (!ioInstance) return;
+  // Un aviso dirigido a una persona se emite solo a su sala; nunca se envía el correo del destinatario a los demás
+  const toEmail = data?.notification?.toEmail;
+  if (typeof toEmail === 'string' && toEmail.trim()) {
+    ioInstance.to(emailRoom(toEmail)).emit(event, safePayload(data));
+    return;
+  }
   ioInstance.emit(event, safePayload(data));
 }

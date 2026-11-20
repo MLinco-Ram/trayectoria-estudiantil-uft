@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ChangePasswordModal } from './common/ChangePasswordModal';
+import { MfaSetupModal, canUseMfa } from './common/MfaSetup';
 import { User, Session, IssueReport, UserAvailability, SessionFeedback, WebNotification } from '../types';
 import { triggerNotification, TIME_SLOTS, programColors, getTodayDateStr } from '../data';
 import { useDictionary } from '../hooks/useDictionary';
@@ -142,6 +143,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
   const [activeQRModalSession, setActiveQRModalSession] = useState<Session | null>(null);
   const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showMfa, setShowMfa] = useState(false);
   // Evita que una recarga en segundo plano (disparada por cambios en OTRA pestaña, ej. el panel del docente)
   // sobrescriba bloques de disponibilidad que el tutor recién marcó y aún no ha guardado.
   const availabilityDirtyRef = useRef(false);
@@ -877,6 +879,20 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
                       <KeyRound className="h-3.5 w-3.5" />
                       <span>Cambiar contraseña</span>
                     </button>
+
+                    {canUseMfa(user) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowLogoutDropdown(false);
+                          setShowMfa(true);
+                        }}
+                        className="w-full mb-2 bg-white/10 hover:bg-white/20 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        <span>Verificación en dos pasos</span>
+                      </button>
+                    )}
 
                     <button
                       type="button"
@@ -2618,6 +2634,7 @@ export default function TutorDashboard({ user: propUser, onLogout: propLogout, o
         }}
       />
       <ChangePasswordModal isOpen={showChangePassword} onClose={() => setShowChangePassword(false)} />
+      <MfaSetupModal isOpen={showMfa} onClose={() => setShowMfa(false)} />
     </div>
   );
 }

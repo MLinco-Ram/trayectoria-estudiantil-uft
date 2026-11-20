@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { encryptField, decryptField } from '../services/crypto.service.js';
 import { emitEvent } from '../services/socket.service.js';
 import { sendServerError } from '../utils/errors.js';
@@ -65,7 +66,7 @@ export const importPendingUsers = async (req, res) => {
       seen.add(email);
 
       toInsert.push({
-        id: `pending_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 7)}`,
+        id: `pending_${crypto.randomUUID()}`,
         name,
         email,
         career: str(row?.career),

@@ -9,6 +9,5 @@ export function sendServerError(res, err, message = 'Error interno del servidor.
   }
   console.error(`[500] ${res.req?.method} ${res.req?.originalUrl}:`, err);
   const body = { error: message };
-  if (process.env.NODE_ENV !== 'production') body.details = err?.message;
   res.status(500).json(body);
 }

@@ -17,12 +17,37 @@ import pendingUsersRoutes from './pendingUsers.routes.js';
 import { requireAuth, requireRole, requirePasswordChanged } from '../middlewares/auth.js';
 import { registerStudent } from '../controllers/users.controller.js';
 import { registerLimiter } from '../middlewares/rateLimiters.js';
+import crypto from 'crypto';
+import { mfaStatus, mfaSetup, mfaEnable, mfaDisable, mfaReset } from '../controllers/mfa.controller.js';
+import { checkAndSendTutorDailyReminders, runRetention } from '../services/cron.service.js';
+import { processEmailQueue } from '../services/emailQueue.service.js';
+import { audit } from '../services/audit.service.js';
 
 const apiRouter = Router();
 
 // Rutas públicas: login, recuperación de contraseña y registro de alumnos
 apiRouter.use('/', authRoutes);
 apiRouter.post('/register', registerLimiter, registerStudent);
+
+// Tarea diaria de Vercel Cron (sin sesión de usuario): recordatorios, cola de correos y retención de datos.
+// Vercel envía "Authorization: Bearer <CRON_SECRET>"; sin CRON_SECRET configurado el endpoint queda deshabilitado.
+apiRouter.get('/cron/daily', async (req, res) => {
+  const secret = process.env.CRON_SECRET || '';
+  const given = String(req.headers.authorization || '');
+  const expected = `Bearer ${secret}`;
+  const ok = secret.length >= 16 && given.length === expected.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected));
+  if (!ok) return res.status(401).json({ error: 'No autorizado.' });
+  try {
+    const reminders = await checkAndSendTutorDailyReminders();
+    const queueSent = await processEmailQueue(req.db, { maxMs: 20000 });
+    const retention = await runRetention();
+    await audit(req, 'cron.daily', {}, { actor: 'cron', queueSent });
+    res.json({ success: true, reminders, queueSent, retention });
+  } catch (err) {
+    console.error('[Cron-Daily]', err);
+    res.status(500).json({ error: 'Error al ejecutar la tarea diaria.' });
+  }
+});
 
 // Todo lo que sigue exige una sesión válida
 apiRouter.use(requireAuth);
@@ -49,6 +74,13 @@ apiRouter.get('/health', adminOnly, async (req, res) => {
   }
 });
 apiRouter.get('/check-db', (req, res) => res.redirect('/api/health'));
+
+// Verificación en dos pasos (TOTP)
+apiRouter.get('/mfa', mfaStatus);
+apiRouter.post('/mfa/setup', mfaSetup);
+apiRouter.post('/mfa/enable', mfaEnable);
+apiRouter.post('/mfa/disable', mfaDisable);
+apiRouter.delete('/users/:id/mfa', adminOnly, mfaReset);
 
 // Montar submódulos de rutas
 apiRouter.use('/users', usersRoutes);

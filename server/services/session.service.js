@@ -4,7 +4,9 @@ import { requireEnv } from '../config/env.js';
 // Sesiones firmadas con HMAC-SHA256 en una cookie httpOnly (el navegador no puede leerla ni editarla).
 // El token solo guarda el id del usuario; roles y datos se leen de MongoDB en cada petición.
 export const SESSION_COOKIE = 'uft_session';
-const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+// Vida corta (12 h) con renovación al usarse (ver requireAuth); la versión permite revocar todas las sesiones de un usuario
+const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+export const SESSION_RENEW_BELOW_MS = 6 * 60 * 60 * 1000;
 
 function getSessionSecret() {
   return requireEnv('SESSION_SECRET');
@@ -14,8 +16,8 @@ function sign(value) {
   return crypto.createHmac('sha256', getSessionSecret()).update(value).digest('base64url');
 }
 
-export function createSessionToken(userId) {
-  const payload = Buffer.from(JSON.stringify({ uid: userId, exp: Date.now() + SESSION_MAX_AGE_MS })).toString('base64url');
+export function createSessionToken(userId, sessionVersion = 0) {
+  const payload = Buffer.from(JSON.stringify({ uid: userId, sv: sessionVersion, exp: Date.now() + SESSION_MAX_AGE_MS })).toString('base64url');
   return `${payload}.${sign(payload)}`;
 }
 
@@ -53,8 +55,8 @@ const cookieOptions = () => ({
   path: '/',
 });
 
-export function setSessionCookie(res, userId) {
-  res.cookie(SESSION_COOKIE, createSessionToken(userId), { ...cookieOptions(), maxAge: SESSION_MAX_AGE_MS });
+export function setSessionCookie(res, userId, sessionVersion = 0) {
+  res.cookie(SESSION_COOKIE, createSessionToken(userId, sessionVersion), { ...cookieOptions(), maxAge: SESSION_MAX_AGE_MS });
 }
 
 export function clearSessionCookie(res) {

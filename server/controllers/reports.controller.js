@@ -1,14 +1,18 @@
+import crypto from 'crypto';
 import { emitEvent } from '../services/socket.service.js';
 import { sendServerError } from '../utils/errors.js';
-import { isTutorOrStaff } from '../middlewares/auth.js';
+import { isTutorOrStaff, isStaff } from '../middlewares/auth.js';
+import { encryptField, decryptField } from '../services/crypto.service.js';
 
 export const getReports = async (req, res) => {
   const db = req.db;
   try {
     // Las alertas son de tutores y coordinación; un alumno no las necesita
     if (!isTutorOrStaff(req)) return res.json([]);
-    const reports = await db.collection('reports').find({}).toArray();
-    res.json(reports);
+    // Un tutor ve solo sus propios reportes (pueden contener datos de salud); coordinación ve todos.
+    // La descripción se guarda cifrada.
+    const reports = await db.collection('reports').find(isStaff(req) ? {} : { tutorId: req.user.id }).toArray();
+    res.json(reports.map(r => ({ ...r, description: decryptField(r.description), ...(r.resolutionNote ? { resolutionNote: decryptField(r.resolutionNote) } : {}) })));
   } catch (err) {
     sendServerError(res, err);
   }
@@ -28,7 +32,7 @@ export const createReport = async (req, res) => {
       return res.status(400).json({ error: 'Indica la tutoría y describe el inconveniente.' });
     }
     const report = {
-      id: str(body.id, 100) || `report_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      id: str(body.id, 100) || `report_${crypto.randomUUID()}`,
       sessionId,
       tutorId: req.user.id,
       description,
@@ -45,7 +49,7 @@ export const createReport = async (req, res) => {
       report.suggestedTutorName = str(body.suggestedTutorName, 200);
     }
 
-    await db.collection('reports').insertOne(report);
+    await db.collection('reports').insertOne({ ...report, description: encryptField(report.description) });
     emitEvent('reports:changed', { action: 'create', reportId: report.id });
     res.status(201).json(report);
   } catch (err) {
@@ -62,7 +66,7 @@ export const updateReport = async (req, res) => {
     const updateData = {};
     if (body.status === 'resuelto' || body.status === 'pendiente') updateData.status = body.status;
     if (typeof body.resolvedAt === 'string') updateData.resolvedAt = body.resolvedAt.slice(0, 40);
-    if (typeof body.resolutionNote === 'string') updateData.resolutionNote = body.resolutionNote.slice(0, 2000);
+    if (typeof body.resolutionNote === 'string') updateData.resolutionNote = encryptField(body.resolutionNote.slice(0, 2000));
     if (Object.keys(updateData).length === 0) return res.status(400).json({ error: 'No hay datos para actualizar.' });
     const result = await db.collection('reports').updateOne({ id }, { $set: updateData });
     if (result.matchedCount === 0) {

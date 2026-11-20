@@ -1,88 +1,87 @@
-import { getDb, getOrConnectDB } from '../db.js';
-import { getEffectiveSmtpConfig, createTransporter, formatMinimalEmail } from './email.service.js';
+import { getOrConnectDB } from '../db.js';
+import { enqueueEmails, processEmailQueue } from './emailQueue.service.js';
+import { formatMinimalEmail } from './email.service.js';
 
+// "Mañana" en hora de Chile (el servidor corre en UTC: a las 21:00 de Chile ya es mañana en UTC)
+export const tomorrowInSantiago = (now = new Date()) => {
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const [y, m, d] = fmt.format(now).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
+};
+
+// Recordatorio a cada tutor con tutorías mañana. Cada sesión se reclama de forma atómica con reminderSentAt:
+// aunque el cron corra varias veces (o cada hora en un servidor propio) el aviso sale una sola vez.
 export const checkAndSendTutorDailyReminders = async () => {
   const db = await getOrConnectDB();
-  if (!db) return { sent: 0, message: "No DB connection" };
+  if (!db) return { sent: 0, message: 'No DB connection' };
 
   try {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
-
-    const sessionsTomorrow = await db.collection('sessions').find({
-      date: tomorrowStr,
-      tutorId: { $ne: null }
-    }).toArray();
-
-    if (!sessionsTomorrow || sessionsTomorrow.length === 0) {
-      return { sent: 0, message: `No hay tutorías agendadas para mañana (${tomorrowStr}).` };
+    const tomorrowStr = tomorrowInSantiago();
+    const sessions = await db.collection('sessions')
+      .find({ date: tomorrowStr, tutorId: { $ne: null }, reminderSentAt: { $exists: false } }).toArray();
+    if (sessions.length === 0) {
+      return { sent: 0, message: `No hay tutorías pendientes de recordatorio para mañana (${tomorrowStr}).` };
     }
 
-    const client = await createTransporter();
-    const users = await db.collection('users').find({}).toArray();
-    let sentCount = 0;
+    const baseUrl = process.env.APP_URL || 'https://trayectoria-estudiantil-uft.vercel.app';
+    const items = [];
+    for (const sess of sessions) {
+      const claim = await db.collection('sessions').updateOne(
+        { id: sess.id, reminderSentAt: { $exists: false } },
+        { $set: { reminderSentAt: new Date() } }
+      );
+      if (claim.modifiedCount === 0) continue; // otra ejecución ya la tomó
 
-    for (const sess of sessionsTomorrow) {
-      const tutor = users.find(u => u.id === sess.tutorId);
-      if (!tutor || !tutor.email) continue;
+      const tutor = await db.collection('users').findOne({ id: sess.tutorId }, { projection: { name: 1, email: 1 } });
+      if (!tutor?.email) continue;
 
-      const registeredStudents = (sess.studentIds || []).map(stId => {
-        const st = users.find(u => u.id === stId);
-        return st ? `${st.name} (${st.career || 'Alumno'} - ${st.email || 'Sin correo'})` : stId;
-      });
-
-      const studentCount = (sess.studentIds || []).length;
-      const subject = `Recordatorio: Tu tutoría de mañana "${sess.title}" (${studentCount} alumno${studentCount === 1 ? '' : 's'} inscrito${studentCount === 1 ? '' : 's'})`;
-      
-      const studentListHtml = registeredStudents.length > 0
-        ? `<ul style="margin: 8px 0; padding-left: 20px; color: #1e293b;">${registeredStudents.map(s => `<li>${s}</li>`).join('')}</ul>`
-        : `<p style="color: #64748b; font-style: italic;">Aún no hay alumnos inscritos en este bloque.</p>`;
-
-      const baseUrl = process.env.APP_URL || 'https://trayectoria-estudiantil-uft.vercel.app';
+      const count = (sess.studentIds || []).length;
+      const subject = `Recordatorio: Tu tutoría de mañana "${sess.title}" (${count} alumno${count === 1 ? '' : 's'} inscrito${count === 1 ? '' : 's'})`;
+      const summary = `Te recordamos que tienes una sesión de tutoría programada para mañana (${sess.date}). Ingresa a la plataforma para revisar los detalles completos, la nómina de estudiantes y pasar asistencia.`;
       const actionUrl = `${baseUrl}/tutor`;
-      const summaryText = `Te recordamos que tienes una sesión de tutoría programada para mañana (${sess.date}). Ingresa a la plataforma para revisar los detalles completos, la nómina de estudiantes y pasar asistencia.`;
-
-      const htmlBody = formatMinimalEmail({
+      items.push({
+        to: tutor.email,
         toName: tutor.name,
         subject,
-        summary: summaryText,
-        actionUrl,
-        actionText: 'Ver Tutoría en la Plataforma'
+        text: `Hola ${tutor.name},\n\n${summary}\n\nIngresa aquí: ${actionUrl}`,
+        html: formatMinimalEmail({ toName: tutor.name, subject, summary, actionUrl, actionText: 'Ver Tutoría en la Plataforma' }),
       });
-
-      const textBody = `Hola ${tutor.name},\n\n${summaryText}\n\nIngresa aquí: ${actionUrl}`;
-
-      if (client) {
-        try {
-          await client.transporter.sendMail({
-            from: { name: client.config.fromName || 'Trayectoria Estudiantil UFT', address: client.config.user },
-            to: `"${tutor.name}" <${tutor.email}>`,
-            subject: subject,
-            text: textBody,
-            html: htmlBody,
-          });
-          console.log(`[Auto-Reminder] Correo recordatorio enviado al tutor ${tutor.name} (${tutor.email}) para sesión ${sess.title}`);
-          sentCount++;
-        } catch (mErr) {
-          console.error(`[Auto-Reminder] Error enviando correo al tutor ${tutor.email}:`, mErr);
-        }
-      } else {
-        console.log(`[Auto-Reminder Simulado] Recordatorio 1 día antes para tutor ${tutor.name} (${tutor.email}) con ${studentCount} alumnos.`);
-        sentCount++;
-      }
     }
 
-    return { sent: sentCount, message: `Se enviaron ${sentCount} recordatorios a tutores para las tutorías de mañana (${tomorrowStr}).` };
+    await enqueueEmails(db, items);
+    const sent = await processEmailQueue(db, { maxMs: 8000 });
+    return { sent, queued: items.length, message: `Se registraron ${items.length} recordatorios para las tutorías de mañana (${tomorrowStr}); ${sent} enviados ahora.` };
   } catch (err) {
-    console.error("[Auto-Reminder] Error general:", err);
-    return { error: err.message };
+    console.error('[Auto-Reminder] Error general:', err);
+    return { error: 'Error al procesar los recordatorios.' };
   }
 };
 
+// Política de conservación (Ley 21.719): no se guardan datos personales más tiempo del necesario
+export const runRetention = async () => {
+  const db = await getOrConnectDB();
+  const day = 24 * 60 * 60 * 1000;
+  const iso = (days) => new Date(Date.now() - days * day).toISOString();
+  const date = (days) => new Date(Date.now() - days * day);
+  const result = {};
+  // Listas de destinatarios de comunicados: 90 días (queda el asunto y la cantidad, no los correos)
+  result.broadcastRecipients = (await db.collection('broadcast_history')
+    .updateMany({ createdAt: { $lt: date(90) }, recipientEmails: { $exists: true } }, { $unset: { recipientEmails: '' } })).modifiedCount;
+  // Notificaciones internas: 180 días
+  result.notifications = (await db.collection('notifications').deleteMany({ timestamp: { $lt: iso(180) } })).deletedCount;
+  // Cola de correos terminada: 30 días
+  result.emailQueue = (await db.collection('email_queue').deleteMany({ status: { $in: ['sent', 'failed'] }, createdAt: { $lt: date(30) } })).deletedCount;
+  // Bitácora de auditoría: 2 años
+  result.auditLog = (await db.collection('audit_log').deleteMany({ at: { $lt: date(730) } })).deletedCount;
+  return result;
+};
+
 export const startCronJobs = () => {
-  // Intervalo cada hora
+  // Servidor propio (no Vercel): cada hora. Es seguro repetirlo porque los recordatorios se marcan como enviados.
+  if (process.env.VERCEL) return;
   setInterval(async () => {
     await checkAndSendTutorDailyReminders();
+    const db = await getOrConnectDB();
+    if (db) await processEmailQueue(db, { maxMs: 20000 });
   }, 1000 * 60 * 60);
 };

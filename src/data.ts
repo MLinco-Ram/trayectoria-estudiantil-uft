@@ -408,8 +408,7 @@ export function triggerNotification(toEmail: string, toName: string, subject: st
       to: toEmail,
       toName,
       subject,
-      text: message,
-      html: htmlContent
+      text: message
     }),
   }).catch((err) => {
     console.error('Error al despachar correo:', err);

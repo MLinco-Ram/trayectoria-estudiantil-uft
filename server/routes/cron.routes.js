@@ -105,7 +105,7 @@ router.post('/cron/remind-tutors', adminOnly, async (req, res) => {
       });
     } catch (err) {
       console.error("[Remind-Test-Error]:", err);
-      return res.status(500).json({ error: "Error enviando correo de recordatorio al tutor", details: err.message });
+      return res.status(500).json({ error: "Error enviando correo de recordatorio al tutor" });
     }
   }
 
@@ -229,7 +229,7 @@ router.post('/test/student-inconvenience-alert', adminOnly, async (req, res) => 
     });
   } catch (err) {
     console.error("[Inconvenience-Alert-Test-Error]:", err);
-    res.status(500).json({ error: "Error enviando alerta de inconveniente a los docentes", details: err.message });
+    res.status(500).json({ error: "Error enviando alerta de inconveniente a los docentes" });
   }
 });
 

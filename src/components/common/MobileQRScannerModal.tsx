@@ -163,9 +163,13 @@ export const MobileQRScannerModal: React.FC<MobileQRScannerModalProps> = ({
         // Raw sessionId string fallback
       }
 
+      // El QR vigente trae "<idSesion>~<ventana>~<firma>": el id va antes del primer "~" y el texto completo es el token
+      const qrToken = sessionId.includes('~') ? sessionId : undefined;
+      if (qrToken) sessionId = qrToken.split('~')[0];
+
       const response = viaPin
         ? await sessionsApi.registerPinAttendance(sessionId)
-        : await sessionsApi.registerQRAttendance(sessionId, currentUser.id);
+        : await sessionsApi.registerQRAttendance(sessionId, currentUser.id, qrToken);
 
       if (response && response.success) {
         await stopScanner();

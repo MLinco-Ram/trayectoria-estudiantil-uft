@@ -98,7 +98,7 @@ export function sanitizeUserOutput(user) {
   if (!user || typeof user !== 'object') return user;
   
   const decryptedRut = decryptField(user.rut);
-  const { password, rutHash, ...cleanUser } = user;
+  const { password, rutHash, mfaSecret, mfaPendingSecret, mfaLastStep, sessionVersion, ...cleanUser } = user;
   if (!isPasswordChangeRequired()) delete cleanUser.mustChangePassword;
   // Fecha de registro: la guardada al crear la cuenta o, en cuentas antiguas, la que trae el ObjectId
   if (!cleanUser.createdAt && user._id && typeof user._id.getTimestamp === 'function') {

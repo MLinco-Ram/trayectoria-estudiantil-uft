@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { login, logout, me, forgotPassword, verifyResetToken, resetPassword, changePassword, markTutorialSeen } from '../controllers/auth.controller.js';
-import { loginLimiter, loginIpLimiter, forgotPasswordLimiter, resetPasswordLimiter, changePasswordLimiter } from '../middlewares/rateLimiters.js';
+import { loginLimiter, loginIpLimiter, loginAccountLimiter, forgotPasswordLimiter, resetPasswordLimiter, changePasswordLimiter } from '../middlewares/rateLimiters.js';
 import { requireAuth } from '../middlewares/auth.js';
 
 const router = Router();
 
-router.post('/login', loginIpLimiter, loginLimiter, login);
+router.post('/login', loginIpLimiter, loginAccountLimiter, loginLimiter, login);
 router.post('/logout', logout);
 router.get('/me', requireAuth, me);
 router.post('/me/tutorials', requireAuth, markTutorialSeen);

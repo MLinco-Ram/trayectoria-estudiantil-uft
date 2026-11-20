@@ -2,15 +2,39 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { createTransporter } from '../services/email.service.js';
 import { hashRut, decryptField, sanitizeUserOutput, normalizeRut } from '../services/crypto.service.js';
-import { setSessionCookie, clearSessionCookie } from '../services/session.service.js';
+import { setSessionCookie, clearSessionCookie, readSessionCookie, verifySessionToken } from '../services/session.service.js';
+import { audit } from '../services/audit.service.js';
+import { verifyTotp } from '../services/totp.service.js';
+import { sendEmail } from '../services/email.service.js';
+
+// Aviso por correo cuando cambia la contraseña de la cuenta (si no fue la persona, puede reaccionar)
+const notifyPasswordChanged = (user) => {
+  if (!user?.email) return;
+  sendEmail({
+    to: user.email, toName: user.name,
+    subject: 'Cambió la contraseña de tu cuenta',
+    text: 'La contraseña de tu cuenta de Trayectoria UFT fue cambiada y se cerraron tus otras sesiones. Si no fuiste tú, usa "¿Olvidaste tu contraseña?" en la pantalla de ingreso y avisa a la Dirección de Trayectoria Estudiantil.'
+  }).catch(err => console.warn("[Mail] No se pudo enviar el aviso de cambio de contraseña:", err.message));
+};
 import { sendServerError } from '../utils/errors.js';
 import { findUserByEmail } from './users.controller.js';
 import { validatePasswordPolicy, isInitialPasswordExpired } from '../services/password.service.js';
 
+// Los tokens de recuperación son 32 bytes en hexadecimal; cualquier otra cosa (p. ej. un objeto {$ne: null}) se rechaza
+const RESET_TOKEN_FORMAT = /^[a-f0-9]{64}$/;
+const INVALID_RESET_LINK = 'El enlace de recuperación es inválido o ya ha sido utilizado.';
+
+// En la base solo se guarda el hash del token: quien lea la colección no puede usar los enlaces vigentes
+const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+
+const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const DUMMY_HASH = bcrypt.hashSync('contraseña-ficticia-para-igualar-tiempos', 10);
+
 const INVALID_CREDENTIALS = 'Usuario o contraseña incorrectos.';
 
 export const login = async (req, res) => {
-  const { rut, password } = req.body;
+  const { rut, password, totp } = req.body || {};
   const db = req.db;
   try {
     // El identificador puede ser un RUT o un correo (las cuentas creadas desde Pendientes no tienen RUT)
@@ -24,19 +48,11 @@ export const login = async (req, res) => {
       // Búsqueda eficiente en MongoDB Atlas usando Blind Index (rutHash)
       : (rutBlindIndex ? await db.collection('users').findOne({ rutHash: rutBlindIndex }) : null);
     
-    // Compatibilidad con cuentas antiguas sin rutHash (p. ej. las del seed): solo se revisan esas,
-    // y al encontrarla se le guarda el rutHash para que la próxima vez use el índice
-    if (!user && cleanEnteredRut) {
-      const legacyUsers = await db.collection('users').find({ rutHash: { $exists: false } }).toArray();
-      user = legacyUsers.find(u => normalizeRut(decryptField(u.rut)) === cleanEnteredRut);
-      if (user) {
-        await db.collection('users').updateOne({ _id: user._id }, { $set: { rutHash: rutBlindIndex } });
-      }
-    }
-
     // Mismo mensaje para RUT inexistente y contraseña incorrecta: no revela qué RUT están registrados
-    const isMatch = user?.password ? await bcrypt.compare(password || '', user.password) : false;
+    // Siempre se ejecuta bcrypt (contra un hash ficticio si la cuenta no existe) para que el tiempo de respuesta no revele qué RUT o correos están registrados
+    const isMatch = await bcrypt.compare(typeof password === 'string' ? password : '', user?.password || DUMMY_HASH) && Boolean(user?.password);
     if (!user || !isMatch) {
+      await audit(req, 'auth.login_failed', { userId: user?.id || null });
       return res.status(401).json({ error: INVALID_CREDENTIALS });
     }
 
@@ -48,13 +64,28 @@ export const login = async (req, res) => {
       });
     }
 
+    // Verificación en dos pasos (cuentas que la activaron): contraseña correcta pero falta o falla el código
+    if (user.mfaEnabled) {
+      if (typeof totp !== 'string' || !totp.trim()) {
+        return res.status(401).json({ error: 'Ingresa el código de tu app autenticadora.', mfaRequired: true });
+      }
+      const step = verifyTotp(decryptField(user.mfaSecret), totp);
+      // Un código solo sirve una vez: se rechaza el mismo paso (o uno anterior) ya usado
+      if (step === null || step <= (user.mfaLastStep ?? 0)) {
+        await audit(req, 'auth.mfa_failed', { userId: user.id });
+        return res.status(401).json({ error: 'El código de verificación no es correcto.', mfaRequired: true });
+      }
+      await db.collection('users').updateOne({ _id: user._id }, { $set: { mfaLastStep: step } });
+    }
+
     // Las sesiones se identifican por el campo id; se asigna uno a cuentas antiguas que no lo tengan
     if (!user.id) {
       user.id = `user_${user._id.toString()}`;
       await db.collection('users').updateOne({ _id: user._id }, { $set: { id: user.id } });
     }
 
-    setSessionCookie(res, user.id);
+    setSessionCookie(res, user.id, user.sessionVersion ?? 0);
+    await audit(req, 'auth.login', { userId: user.id }, { actor: user.id });
 
     // Retornar usuario con RUT descifrado para el cliente autorizado
     res.json(sanitizeUserOutput(user));
@@ -67,7 +98,7 @@ export const forgotPassword = async (req, res) => {
   const { identifier } = req.body;
   const db = req.db;
   try {
-    if (!identifier || !identifier.trim()) {
+    if (typeof identifier !== 'string' || !identifier.trim()) {
       return res.status(400).json({ error: "Por favor, ingresa tu RUT o correo institucional." });
     }
 
@@ -84,26 +115,8 @@ export const forgotPassword = async (req, res) => {
       user = await db.collection('users').findOne({
         email: { $regex: new RegExp(`^${escapedEmail}$`, 'i') }
       });
-    } else if (cleanRut) {
-      user = await db.collection('users').findOne({
-        $or: [
-          ...(rutBlindIndex ? [{ rutHash: rutBlindIndex }] : []),
-          { rut: cleanRut },
-          { rut: rawInput }
-        ]
-      });
-    }
-
-    // 2. Fallback exhaustivo descifrando RUTs si aún no se encontró
-    if (!user) {
-      const allUsers = await db.collection('users').find({}).toArray();
-      user = allUsers.find(u => {
-        if (u.email && u.email.trim().toLowerCase() === cleanEmail) return true;
-        const plainRut = decryptField(u.rut);
-        const normDbRut = normalizeRut(plainRut);
-        if (cleanRut && normDbRut && normDbRut === cleanRut) return true;
-        return false;
-      });
+    } else if (rutBlindIndex) {
+      user = await db.collection('users').findOne({ rutHash: rutBlindIndex });
     }
 
     // Respuesta idéntica exista o no la cuenta: no permite averiguar qué RUT o correos están registrados
@@ -119,14 +132,13 @@ export const forgotPassword = async (req, res) => {
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
 
     await db.collection('password_resets').deleteMany({ userId: user.id });
-    const plainRut = decryptField(user.rut) || user.rut;
     await db.collection('password_resets').insertOne({
       userId: user.id,
-      userRut: plainRut,
-      token: resetToken,
-      expiresAt: expiresAt,
+      tokenHash: hashToken(resetToken),
+      expiresAt: expiresAt, // índice TTL: los vencidos se borran solos
       createdAt: new Date()
     });
+    await audit(req, 'auth.password_reset_requested', { userId: user.id }, { actor: user.id });
 
     // El enlace NUNCA se arma con un origen enviado por el cliente (permitiría apuntar el correo a un sitio ajeno)
     const baseUrl = process.env.APP_URL || 'https://trayectoria-estudiantil-uft.vercel.app';
@@ -143,9 +155,9 @@ export const forgotPassword = async (req, res) => {
             <p style="color: #3a9ad9; margin: 4px 0 0; font-size: 12px; font-weight: bold; text-transform: uppercase;">Restablecimiento de Contraseña</p>
           </div>
           
-          <h3 style="color: #092c4c; margin-top: 0;">Hola, ${user.name}</h3>
+          <h3 style="color: #092c4c; margin-top: 0;">Hola, ${escapeHtml(user.name)}</h3>
           <p style="color: #475569; font-size: 14px; line-height: 1.5;">
-            Recibimos una solicitud para restablecer la contraseña de tu cuenta institucional en <strong>Trayectoria UFT</strong> asociada al RUT <strong>${plainRut}</strong>.
+            Recibimos una solicitud para restablecer la contraseña de tu cuenta institucional en <strong>Trayectoria UFT</strong>.
           </p>
 
           <div style="margin: 28px 0; text-align: center;">
@@ -193,17 +205,17 @@ export const verifyResetToken = async (req, res) => {
   const { token } = req.query;
   const db = req.db;
   try {
-    if (!token) {
-      return res.status(400).json({ valid: false, error: "El enlace de recuperación es inválido o ya ha sido utilizado." });
+    if (typeof token !== 'string' || !RESET_TOKEN_FORMAT.test(token)) {
+      return res.status(400).json({ valid: false, error: INVALID_RESET_LINK });
     }
 
-    const resetRecord = await db.collection('password_resets').findOne({ token: String(token) });
+    const resetRecord = await db.collection('password_resets').findOne({ tokenHash: hashToken(token) });
     if (!resetRecord) {
       return res.status(400).json({ valid: false, error: "El enlace de recuperación es inválido o ya ha sido utilizado." });
     }
 
     if (new Date() > new Date(resetRecord.expiresAt)) {
-      await db.collection('password_resets').deleteOne({ token: String(token) });
+      await db.collection('password_resets').deleteOne({ _id: resetRecord._id });
       return res.status(400).json({ valid: false, error: "El enlace de recuperación ha expirado. Por favor solicita uno nuevo." });
     }
 
@@ -218,16 +230,19 @@ export const resetPassword = async (req, res) => {
   const { token, newPassword } = req.body;
   const db = req.db;
   try {
-    if (!token) {
-      return res.status(400).json({ error: "Token de restablecimiento no proporcionado." });
+    if (typeof token !== 'string' || !RESET_TOKEN_FORMAT.test(token)) {
+      return res.status(400).json({ error: INVALID_RESET_LINK });
     }
-    const resetRecord = await db.collection('password_resets').findOne({ token });
+    if (typeof newPassword !== 'string') {
+      return res.status(400).json({ error: 'La nueva contraseña no es válida.' });
+    }
+    const resetRecord = await db.collection('password_resets').findOne({ tokenHash: hashToken(token) });
     if (!resetRecord) {
       return res.status(400).json({ error: "El enlace de recuperación es inválido o ya ha sido utilizado." });
     }
 
     if (new Date() > new Date(resetRecord.expiresAt)) {
-      await db.collection('password_resets').deleteOne({ token });
+      await db.collection('password_resets').deleteOne({ _id: resetRecord._id });
       return res.status(400).json({ error: "El enlace de recuperación ha expirado. Por favor solicita uno nuevo." });
     }
 
@@ -242,10 +257,13 @@ export const resetPassword = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword.trim(), salt);
 
+    // sessionVersion + 1: cierra todas las sesiones abiertas de la cuenta (M-01)
     await db.collection('users').updateOne(
-      { $or: [{ id: resetRecord.userId }, { rut: resetRecord.userRut }] },
-      { $set: { password: hashedPassword }, $unset: { mustChangePassword: '', initialPasswordExpiresAt: '' } }
+      { id: resetRecord.userId },
+      { $set: { password: hashedPassword }, $inc: { sessionVersion: 1 }, $unset: { mustChangePassword: '', initialPasswordExpiresAt: '' } }
     );
+    await audit(req, 'auth.password_reset_done', { userId: resetRecord.userId }, { actor: resetRecord.userId });
+    notifyPasswordChanged(resetUser);
 
     await db.collection('password_resets').deleteMany({ userId: resetRecord.userId });
 
@@ -264,7 +282,7 @@ export const changePassword = async (req, res) => {
   const { currentPassword, newPassword } = req.body || {};
   try {
     const user = req.user;
-    const isMatch = user?.password ? await bcrypt.compare(String(currentPassword || ''), user.password) : false;
+    const isMatch = typeof currentPassword === 'string' && user?.password ? await bcrypt.compare(currentPassword, user.password) : false;
     if (!isMatch) {
       return res.status(400).json({ error: 'La contraseña actual no es correcta.' });
     }
@@ -280,18 +298,32 @@ export const changePassword = async (req, res) => {
     }
 
     const hashed = await bcrypt.hash(clean, await bcrypt.genSalt(10));
+    const nextVersion = (user.sessionVersion ?? 0) + 1;
     await req.db.collection('users').updateOne(
       { id: user.id },
-      { $set: { password: hashed }, $unset: { mustChangePassword: '', initialPasswordExpiresAt: '' } }
+      { $set: { password: hashed, sessionVersion: nextVersion }, $unset: { mustChangePassword: '', initialPasswordExpiresAt: '' } }
     );
+    // Las demás sesiones quedan cerradas; esta sigue con la versión nueva
+    setSessionCookie(res, user.id, nextVersion);
+    await audit(req, 'auth.password_changed', { userId: user.id });
+    notifyPasswordChanged(user);
     const { mustChangePassword, initialPasswordExpiresAt, ...rest } = user;
-    res.json(sanitizeUserOutput({ ...rest, password: hashed }));
+    res.json(sanitizeUserOutput({ ...rest, password: hashed, sessionVersion: nextVersion }));
   } catch (err) {
     sendServerError(res, err, 'Error al cambiar la contraseña.');
   }
 };
 
-export const logout = (req, res) => {
+// Cerrar sesión revoca la cookie en el servidor (sessionVersion + 1), no solo la borra del navegador (M-01)
+export const logout = async (req, res) => {
+  try {
+    const session = verifySessionToken(readSessionCookie(req));
+    if (session?.uid) {
+      await req.db.collection('users').updateOne({ id: session.uid }, { $inc: { sessionVersion: 1 } });
+    }
+  } catch (err) {
+    console.warn('[Logout] No se pudo revocar la sesión:', err.message);
+  }
   clearSessionCookie(res);
   res.json({ success: true });
 };

@@ -1,6 +1,8 @@
 import nodemailer from 'nodemailer';
 import { getEffectiveSmtpConfig } from '../services/email.service.js';
 import { sendServerError } from '../utils/errors.js';
+import { encryptField, isEncrypted } from '../services/crypto.service.js';
+import { audit } from '../services/audit.service.js';
 
 export const getSmtpSettings = async (req, res) => {
   const db = req.db;
@@ -35,12 +37,14 @@ export const saveSmtpSettings = async (req, res) => {
   try {
     const { host, port, secure, user, pass, fromName } = req.body;
     
-    if (!user) {
+    if (typeof user !== 'string' || !user.trim() || user.length > 254) {
       return res.status(400).json({ error: "El correo de usuario SMTP es requerido." });
     }
 
     const current = await db.collection('settings').findOne({ type: 'smtp' });
-    const finalPass = (pass && pass.trim()) ? pass.trim() : (current?.pass || process.env.SMTP_PASS || '');
+    // La contraseña SMTP se guarda cifrada (AES-256-GCM): quien lea la BD no obtiene la clave del correo institucional
+    const typedPass = typeof pass === 'string' ? pass.trim() : '';
+    const finalPass = typedPass ? encryptField(typedPass) : (current?.pass ? (isEncrypted(current.pass) ? current.pass : encryptField(current.pass)) : encryptField(process.env.SMTP_PASS || ''));
 
     const newConfig = {
       type: 'smtp',
@@ -59,6 +63,7 @@ export const saveSmtpSettings = async (req, res) => {
       { upsert: true }
     );
 
+    await audit(req, 'settings.smtp_saved', {}, { passwordChanged: Boolean(typedPass) });
     res.json({ success: true, message: "Configuración SMTP guardada exitosamente en la base de datos." });
   } catch (err) {
     sendServerError(res, err);
@@ -127,6 +132,6 @@ export const testSmtp = async (req, res) => {
     res.json({ success: true, message: `Correo de prueba enviado con éxito a ${testEmail} como "${displayName}"`, messageId: info.messageId });
   } catch (err) {
     console.error("[Mail Test Error]:", err);
-    res.status(500).json({ error: "Error en la prueba SMTP", details: err.message });
+    res.status(500).json({ error: "No se pudo completar la prueba SMTP. Revisa la configuración del servidor de correo." });
   }
 };

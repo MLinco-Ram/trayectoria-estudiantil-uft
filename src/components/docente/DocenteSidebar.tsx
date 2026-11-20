@@ -23,6 +23,7 @@ import {
 
 import { useNavigate } from 'react-router-dom';
 import { useAuth, getRoleHomePath } from '../../context/AuthContext';
+import { MfaSetupModal } from '../common/MfaSetup';
 
 export type DocenteTabType = 
   | 'calendar' 
@@ -57,6 +58,7 @@ export const DocenteSidebar: React.FC<DocenteSidebarProps> = ({
   const navigate = useNavigate();
   const auth = useAuth();
   const [showPortalSwitcher, setShowPortalSwitcher] = useState(false);
+  const [showMfa, setShowMfa] = useState(false);
 
   // Otros portales a los que este usuario puede cambiarse (según sus roles)
   const portalOptions: { key: string; label: string; icon: React.ElementType; target: User; path: string }[] = [];
@@ -200,6 +202,16 @@ export const DocenteSidebar: React.FC<DocenteSidebarProps> = ({
 
       {/* Botón de Cerrar Sesión fijo al final del Sidebar con Logo */}
       <div className="p-4 border-t border-white/10 shrink-0 relative z-10 space-y-3">
+        <button
+          type="button"
+          onClick={() => setShowMfa(true)}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-xs font-bold text-slate-200 hover:text-white bg-white/10 hover:bg-white/20 transition-all cursor-pointer border border-white/15 shadow-sm"
+        >
+          <ShieldCheck className="w-4 h-4" />
+          <span>Verificación en dos pasos</span>
+        </button>
+        <MfaSetupModal isOpen={showMfa} onClose={() => setShowMfa(false)} />
+
         <button
           type="button"
           onClick={onLogout}

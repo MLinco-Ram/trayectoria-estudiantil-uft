@@ -695,22 +695,10 @@ trayectoria-estudiantil-uft/
 
 ---
 
-## 4. Cuentas de Prueba Configuradas
+## 4. Cuentas de Prueba
 
-| Rol | Nombre | RUT | Contraseña | Propósito |
-| :--- | :--- | :--- | :--- | :--- |
-| **Docente** | Viviana Carrasco | `11.111.111-1` | `123` | Coordinación docente, aprobación de horarios y alertas. |
-| **Tutor Par** | Carlos Valenzuela | `18.456.789-K` | `123` | Gestión de tutorías asignadas y toma de asistencia. |
-| **Alumno** | Mayra Linco | `20.123.456-7` | `123` | Inscripción en talleres, historial y avisos de tope. |
-| **Alumno** | PruebaAlumno | `11.111.113-8` | `Alumno2026` | Cuenta de prueba (prueba.alumno@uft.cl), creada el 13 nov 2026. |
-| **Alumno** | PruebaAlumno2 | `11.111.117-0` | `Alumno22026` | Cuenta de prueba (prueba.alumno2@uft.cl). |
-| **Alumno** | PruebaAlumno3 | `11.111.118-9` | `Alumno32026` | Cuenta de prueba (prueba.alumno3@uft.cl). |
-| **Alumno** | PruebaAlumno4 | `11.111.119-7` | `Alumno42026` | Cuenta de prueba (prueba.alumno4@uft.cl). |
-| **Alumno** | PruebaAlumno5 | `11.111.120-0` | `Alumno52026` | Cuenta de prueba (prueba.alumno5@uft.cl). |
-| **Tutor Par** | PruebaTutorPar | `11.111.114-6` | `TutorPar2026` | Cuenta de prueba (prueba.tutorpar@uft.cl). |
-| **Tutor de Tutores** | PruebaTutorTutores | `11.111.115-4` | `TutorLead2026` | Cuenta de prueba (prueba.tutortutores@uft.cl); tiene a cargo a PruebaTutorPar. |
-| **Docente** | PruebaDocente | `11.111.116-2` | `Docente2026` | Cuenta de prueba (prueba.docente@uft.cl). |
-| **Admin** | Administrador TI | `admin` | *(definida con `npm run create-admin`, no se documenta)* | Panel central de administración TI, gestión de usuarios y SMTP. |
+No se documentan cuentas de prueba ni contraseñas en este archivo. Para pruebas locales, crear cuentas desde el registro o desde el panel de administración, y borrarlas al terminar. El administrador se crea con `npm run create-admin`.
+
 
 ---
 
@@ -893,7 +881,13 @@ trayectoria-estudiantil-uft/
 | `GET` / `POST` | `/api/settings/smtp` | Lectura y guardado de credenciales SMTP en MongoDB |
 | `POST` | `/api/settings/smtp/test` | Prueba en vivo de despacho SMTP |
 | `POST` | `/api/broadcast-message` | Despacho masivo o por sesión de comunicados oficiales |
-| `POST` | `/api/send-email` | Despacho general de correos institucionales |
+| `POST` | `/api/send-email` | Despacho general de correos: el cliente solo envía `to`, `subject`, `text`; el HTML lo arma el servidor. Tutores limitados a sí mismos, tutores, coordinación y sus alumnos (`canSendTo`) |
+| `GET` | `/api/sessions/:id/attendance-pin` | Tutor de la sesión (o quien lo supervisa) y coordinación: devuelve `{ pin, qr, expiresInMs }` vigentes (ventanas de 45 s) |
+| `POST` | `/api/sessions/:id/qr-attendance` · `/api/sessions/attendance-pin` | El alumno marca asistencia con el QR (`token`) o el PIN vigente, solo de 30 min antes a 30 min después de la clase |
+| `GET` / `POST` / `DELETE` | `/api/mfa` · `/api/mfa/setup` · `/api/mfa/enable` · `/api/mfa/disable` · `/api/users/:id/mfa` | Verificación en dos pasos (TOTP): estado, generar secreto, activar, desactivar y (admin) reiniciar |
+| `GET` | `/api/system/audit-log` | (Admin) Bitácora de auditoría paginada (`limit`, `action`, `actor`, `before`) |
+| `POST` | `/api/system/reset-academic-data` | (Admin) Vaciado de datos: exige `confirm: "VACIAR"` y una lista fija de colecciones |
+| `GET` | `/api/cron/daily` | Vercel Cron (sin sesión, `Authorization: Bearer $CRON_SECRET`): recordatorios, cola de correos y retención de datos |
 
 ---
 
@@ -1012,7 +1006,7 @@ Prueba general del Portal Alumno con un curso (13 nov 2026, 24 respuestas, Ing. 
   - El botón del escáner estaba solo en la barra inferior móvil (`md:hidden`), que no se ve en tablets.
   - La protección contra lecturas repetidas usaba estado de React, que llegaba desactualizado: el mismo QR se enviaba varias veces.
 - **Corrección**:
-  - **QR del tutor/docente**: solo el `id` de la sesión, nivel M, sin logo (25 módulos, cada uno ~3 veces más grande). Ocupa `min(58vh, 80vw)`, o `min(78vh, 92vw)` en pantalla completa.
+  - **QR del tutor/docente** (actualizado en la sección 13, A-04: ahora es dinámico, `<idSesion>~<ventana>~<firma>`, cambia cada 45 s): originalmente solo el `id` de la sesión, nivel M, sin logo (25 módulos, cada uno ~3 veces más grande). Ocupa `min(58vh, 80vw)`, o `min(78vh, 92vw)` en pantalla completa.
   - **Escáner** (`MobileQRScannerModal`):
     - Analiza el cuadro completo (sin `qrbox`), con resolución alta (1920×1080 ideal) y enfoque continuo.
     - Usa el detector nativo del navegador si existe (`useBarCodeDetectorIfSupported`).
@@ -1044,7 +1038,7 @@ Prueba general del Portal Alumno con un curso (13 nov 2026, 24 respuestas, Ing. 
 - **Autocompletado de Chrome en el registro**: Chrome ignora `autoComplete="off"` y escribía el RUT guardado del login en el buscador de carrera ("No hay carreras que coincidan con 20.783.960-4"). `CareerSearch` solo acepta texto cuando el campo tiene el foco. Contraseña y Confirmar del registro llevan `autoComplete="new-password"` para que Chrome no ponga la clave guardada.
 
 ### Verificación en navegador (13 nov 2026, local contra Atlas)
-Cuenta de prueba creada desde el registro: **Prueba**, RUT 11.111.112-K, prueba.claude@uft.cl (carrera Ing. Civil Informática y Telecomunicaciones). **Hay que borrarla de la base cuando termine la verificación.**
+Se creó una cuenta de prueba desde el registro. **Hay que borrarla de la base cuando termine la verificación.**
 - **Probado y funciona**: buscador de carrera (sin tildes, Enter selecciona); "Mínimo 6 caracteres" en el registro; creación de cuenta y entrada directa al portal; RUT en la tarjeta de bienvenida; tutorial paso 4 (queda sobre las tarjetas sin taparlas); selector de fecha (al elegir el 25/11 la tira se mueve y lo marca); motivo bajo tarjetas terminadas ("Esta sesión ya terminó."); botones de área y texto explicativo en "Avisar inconveniente"; el buscador de carrera ya no recibe el RUT autocompletado.
 - **Aceptable**: tutorial paso 6. El formulario de inconvenientes es más alto que la pantalla, así que la tarjeta tapa la parte baja (horarios); es el caso "nada cabe, elige lo que menos tapa".
 - **No probado**:
@@ -1099,3 +1093,58 @@ Fuente: `Formulario_Plataforma Trayectoria.csv` (3 respuestas de coordinación/e
 7. **App instalable (PWA)**: `public/manifest.webmanifest` (accesos directos a los portales), íconos `public/icon-192.png` / `icon-512.png`, `public/sw.js` (no cachea `/api` ni `/socket.io`; red primero en navegación) registrado solo en producción desde `main.tsx`, y `common/InstallAppPrompt.tsx` (botón "Instalar" cuando el navegador lo ofrece). En iPhone: Compartir → "Agregar a pantalla de inicio".
 
 Nota: Viviana Carrasco marcó "Muy en desacuerdo" en toda la pregunta 5 pese a lograr todo sin ayuda y poner nota 7; se interpretó como confusión de escala.
+
+## 13. Auditoría de seguridad (20 nov 2026) — Fases 1, 2 y 3 aplicadas
+
+Fuente: `Informe_Auditoria_Seguridad_UFT.pdf` (v1.0.9). Pruebas: `npx tsx server/tests/security.integration.js` (105 comprobaciones contra el servidor local; crea cuentas `test_fx_*` sin correo y las borra al terminar). Carga: `load/k6-inscripcion.js` (solo contra una copia de la base).
+
+**Fase 1**
+- **C-01**: `verifyResetToken`/`resetPassword` exigen un token hexadecimal de 64 caracteres (`RESET_TOKEN_FORMAT`); objetos tipo `{"$ne":null}` → 400.
+- **C-02**: el id lo genera siempre el servidor (`randomUUID`); `createAccountWithInitialPassword` solo acepta `CREATABLE_FIELDS`; roles validados (`KNOWN_ROLES`); índice único `users.id`. Pendiente: índice único de `rutHash` (existe uno no único con la misma clave).
+- **C-03** (`getUsers`): coordinación ve todo; el tutor ve su cuenta, tutores y coordinación (sin RUT) y solo los alumnos de sus sesiones; el alumno ve su cuenta y tutores/coordinación.
+- **A-01**: `/api/send-email` no acepta `html` (lo arma el servidor); `canSendTo` limita al tutor a sí mismo, tutores, coordinación y sus alumnos.
+- **A-07**: `login` y `forgotPassword` ya no recorren `users`. `scripts/migrate-encrypt-ruts.js [--dry-run]` backfilla `rutHash`, cifra la contraseña SMTP y borra enlaces de recuperación antiguos (ejecutada el 20 nov: 29 usuarios ya correctos, 1 contraseña SMTP cifrada).
+
+**Fase 2**
+- **A-02**: solo un admin crea/edita/borra cuentas `admin` o `docente` (un docente solo puede editar su propia cuenta); cambiar el correo de otro usuario avisa al correo anterior.
+- **A-03** (`updateSession`): un tutor solo edita sus sesiones (o las de los tutores que supervisa) y solo `attendance`, `studentIds`, `isCompleted` y `syllabus`; claves con `$` o con formato raro → 400.
+- **A-05**: `password_resets` guarda `userId` + `tokenHash` (SHA-256) + `expiresAt` con índice TTL; el RUT salió de la base y del correo. Los tokens antiguos en claro ya no sirven.
+- **A-06**: `settings.pass` se guarda cifrada (`encryptField`) y `getEffectiveSmtpConfig` la descifra (las instalaciones antiguas en claro también funcionan).
+- **A-08**: se eliminó `claimImportedAccount`: registrarse con un correo ya existente → 409.
+- **M-01**: la cookie dura 12 h con renovación al usarse; lleva `sv` (versión) y `requireAuth` la compara con `users.sessionVersion`. Cambiar/restablecer contraseña, `sendInitialPassword`, cambio de correo, reinicio de MFA y **cerrar sesión** suben la versión y cierran las demás sesiones.
+- **M-04**: `utils/validate.js` (`pickFields`, `hasSafeKeys`); aplicado a crear/editar sesiones, solicitudes de alumnos (ya no hay `upsert`) y disponibilidades.
+- **M-10**: `services/audit.service.js` → colección `audit_log` (solo inserción: actor, roles, IP, acción, ids; nunca RUT/correo/contraseña). Registra ingresos, ingresos fallidos, listados completos de usuarios, altas/cambios/bajas, cambios de contraseña, SMTP, comunicados y cambios de sesiones.
+- Ids aleatorios (`randomUUID`) en sesiones, salas, diccionario, notificaciones, reportes, pendientes y solicitudes; índices únicos de `users.id` y `sessions.id`.
+
+**Fase 3**
+- **A-04**: QR y PIN dinámicos (`sessions.controller.js`): ventanas de 45 s firmadas con `HMAC_SECRET`; se acepta la actual y la anterior. QR = `<idSesion>~<ventana>~<firma>`. `GET /sessions/:id/attendance-pin` (solo el tutor de la sesión, quien lo supervisa o coordinación) devuelve `{pin, qr, expiresInMs}` y el modal del proyector (`SessionQRModal`) se actualiza solo. El alumno debe presentar QR o PIN vigentes; tutores/coordinación marcan sin código.
+- **M-02/M-03**: el limitador general usa `MongoRateLimitStore`; nuevo tope de login por cuenta sin IP (`loginAccountLimiter`, 20 fallos/hora).
+- **MFA (TOTP)** (`totp.service.js`, `mfa.controller.js`, `common/MfaSetup.tsx`): opcional; la opción "Verificación en dos pasos" está en el menú de usuario, junto a "Cambiar contraseña" (tutor y alumno, solo si la cuenta tiene rol docente o admin), y en la barra lateral de los paneles Docente y Administrador. El modal (`MfaSetupModal`, exporta también `canUseMfa(user)`) se dibuja con `createPortal` directamente en `<body>` con `z-[10000]`: dentro de la barra lateral quedaba atrapado bajo el contenido principal y las ventanas de crear sesión/taller. El QR de activación mide 240 px con margen blanco de 4 módulos, corrección `L` y una URI `otpauth://` corta (sin `algorithm`/`digits`/`period`, que son los valores por defecto); debajo se muestra la clave manual. El login pide el código (`mfaRequired`), cada código sirve una sola vez, el secreto va cifrado y un admin puede reiniciarlo con `DELETE /api/users/:id/mfa`. **No es obligatorio todavía.**
+- **M-11**: `create-admin.js` exige `ADMIN_EMAIL` real, usa id aleatorio para cuentas nuevas y aplica la política de contraseñas. El admin existente (`admin_root`) conserva su id.
+- **Cola de correos** (`emailQueue.service.js`, colección `email_queue`): los comunicados se encolan y se envían por lotes dentro de un presupuesto de tiempo; lo que sobra lo termina el cron. Cada correo se marca como enviado (sin duplicados) y reintenta 3 veces.
+- **Recordatorios** (`cron.service.js`): "mañana" en hora de Chile y marca `reminderSentAt` por sesión (no se repite). Ruta `GET /api/cron/daily` (Vercel Cron, `vercel.json` → 11:00 UTC), protegida con `Authorization: Bearer $CRON_SECRET` (mínimo 16 caracteres; sin la variable queda deshabilitada). También purga datos: destinatarios de comunicados 90 días, notificaciones 180, cola terminada 30, bitácora 2 años.
+- `db.js`: `maxPoolSize: 10` e índices (`sessions.date/studentIds/tutorId`, `notifications.toEmail`, TTL de `password_resets`).
+
+**Pendiente / requiere decisión**
+- Rotar `SESSION_SECRET` en Vercel y definir `CRON_SECRET` y `ADMIN_EMAIL`. Hacer **obligatorio** el MFA para admin y docentes.
+- Tiempo real en producción: Socket.io no funciona en Vercel; hace falta un servicio gestionado (Pusher/Ably) o un backend con WebSocket (Railway/Render/Fly).
+- Paginación de `getUsers`/`getSessions`/`getReports` (cambia el contrato con el frontend) y prueba de carga con k6.
+- Cron cada pocos minutos para vaciar la cola (Vercel Hobby solo permite diario; el envío se hace igual al emitir el comunicado).
+- Fase 4: M-05 a M-09, M-12, B-01 a B-06.
+
+## 14. Informe de pruebas por módulo (20 nov 2026) — correcciones
+
+Fuente: `Informe_Pruebas_por_Modulo_UFT.pdf` (102 simulaciones sobre la v1.0.9). La mayoría de las críticas y altas ya estaban cubiertas por la sección 13; esto agrega lo que faltaba. `npx tsx server/tests/security.integration.js` ahora hace **171 comprobaciones** (incluye sockets reales y carreras concurrentes).
+
+- **Registro y usuarios** (`utils/rut.js`): RUT con dígito verificador (módulo 11) y solo `\d{8}[\dK]` (RG-05/06); nombres de 1 a 100 caracteres sin `<` ni `>` (RG-07/08); tipos validados al editar (US-08); la contraseña de otra persona solo la fija un admin, coordinación usa "enviar contraseña temporal" (US-07). **Índice único `rutHash_unique`** (RG-11, 6 altas simultáneas con el mismo RUT → 1 cuenta). Borrar un usuario también elimina sus solicitudes, disponibilidad, notificaciones y enlaces de recuperación.
+- **Contraseñas** (`password.service.js` + `src/utils/passwordPolicy.ts`): rechaza repeticiones y secuencias (`aaaaaaaa1`, `abababab1`, `abcdefgh1`) (AU-13). El login ejecuta siempre bcrypt (hash ficticio si la cuenta no existe) para igualar tiempos (AU-04) y no revienta con tipos raros (AU-07). Al cambiar o restablecer la contraseña se avisa por correo a la cuenta.
+- **Sesiones**: fecha real AAAA-MM-DD, horario `HH:MM - HH:MM` y cupo entero 1–1000 (SE-04); encuesta con notas 1–5 y textos de hasta 1.000 caracteres, solo campos permitidos (SE-11); **límite semanal atómico**: tras inscribir se recuenta y se deshace si pasó de 5 (SE-07, 8 reservas en paralelo → ≤ 5); `reservedForStudentId` se oculta a otros alumnos (SE-20); la asistencia del alumno solo se acepta de 30 min antes del inicio a 30 min después del término (SE-14); alumnos y tutores reciben las sesiones de los últimos 120 días más las propias, coordinación recibe todo (LO-02).
+- **Notificaciones** (NO-03/07): id, fecha, leído y prioridad los fija el servidor (prioridad solo para coordinación). Socket.io: cada conexión entra a la sala `email:<correo>` y los avisos dirigidos solo se emiten a su destinatario; las conexiones se validan contra `sessionVersion`.
+- **Reportes y solicitudes**: el tutor ve solo sus reportes (RE-03); `reports.description`/`resolutionNote` y `student_requests.message` se guardan **cifrados** y se descifran al leer. Disponibilidad: el tutor no ve las de alumnos (DI-02), bloques con formato válido.
+- **Administración**: `POST /api/system/reset-academic-data` exige `confirm: "VACIAR"` y una lista fija de colecciones (nunca `settings`, `rate_limits`, `password_resets`, `audit_log`, `email_queue`) y queda en la bitácora (AD-08). `GET /api/system/audit-log` (solo admin, paginada).
+- **Robustez** (`server.js`): JSON malformado, cuerpo demasiado grande y rutas inexistentes responden siempre JSON sin trazas (RB-01/03); ya no se devuelve `details` ni `err.message` (RB-06). Se quitó el bloque de correos de prueba de `server.js` (B-02). La respuesta de un comunicado ya no lista los correos de los destinatarios.
+- **Dependencias**: se quitaron `xlsx` y `@google/genai` (sin uso); `npm audit fix` + `nodemailer@10.6.1` + `express@4.22.3` → de 12 vulnerabilidades (1 crítica, 7 altas) a **2 moderadas** (`uuid` dentro de `exceljs`, sin parche compatible).
+
+**Pendiente de este informe**: paginación de `GET /api/users` para coordinación (LO-03; descifra todos los RUT en cada carga), confirmación del correo al registrarse (descartada antes), estados de solicitud pendiente→aprobada/rechazada, aviso por inicio de sesión desde un equipo nuevo, MFA obligatorio, tiempo real en Vercel y cron frecuente para la cola.
+
+**Archivos nuevos de las secciones 13 y 14** (backend en `server/`): `services/audit.service.js` (bitácora), `services/emailQueue.service.js` (cola de correos), `services/totp.service.js`, `controllers/mfa.controller.js`, `utils/validate.js` (validación de entradas), `utils/rut.js` (RUT y nombres), `tests/security.integration.js` (171 pruebas contra el servidor local; ver su cabecera). Frontend: `src/components/common/MfaSetup.tsx`. Otros: `load/k6-inscripcion.js` (carga, solo contra una copia de la base).

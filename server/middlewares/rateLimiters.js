@@ -21,6 +21,9 @@ export const generalLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  // Contador en Mongo, compartido entre instancias de Vercel (en memoria cada instancia contaba por separado)
+  store: new MongoRateLimitStore('general'),
+  passOnStoreError: true,
   message: { error: 'Demasiadas peticiones en poco tiempo. Espera un minuto e intenta de nuevo.' }
 });
 
@@ -37,6 +40,20 @@ export const loginLimiter = rateLimit({
   store: new MongoRateLimitStore('login'),
   passOnStoreError: true,
   message: { error: 'Demasiados intentos fallidos con esta cuenta. Por seguridad, espera 5 minutos antes de reintentar.' }
+});
+
+// Fuerza bruta distribuida (M-03): tope por CUENTA sin importar la IP, para ataques que rotan direcciones.
+// Más alto que el de IP+cuenta para no bloquear a quien se equivoca unas veces, pero finito.
+export const loginAccountLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  skipSuccessfulRequests: true,
+  keyGenerator: (req) => `acct|${normalizeIdentifier(req.body?.rut) || 'vacio'}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: new MongoRateLimitStore('login-account'),
+  passOnStoreError: true,
+  message: { error: 'Esta cuenta tuvo demasiados intentos fallidos. Por seguridad, espera una hora o usa "¿Olvidaste tu contraseña?".' }
 });
 
 // Freno amplio por IP para el login (cubre a un curso completo entrando a la vez)

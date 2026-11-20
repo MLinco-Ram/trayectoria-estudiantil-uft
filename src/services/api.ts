@@ -10,6 +10,13 @@ async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 // --- AUTENTICACIÓN ---
+export const mfaApi = {
+  status: async () => handleResponse<{ enabled: boolean }>(await fetch('/api/mfa')),
+  setup: async () => handleResponse<{ secret: string; otpauthUri: string }>(await fetch('/api/mfa/setup', { method: 'POST' })),
+  enable: async (code: string) => handleResponse<{ enabled: boolean }>(await fetch('/api/mfa/enable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) })),
+  disable: async (code: string) => handleResponse<{ enabled: boolean }>(await fetch('/api/mfa/disable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) })),
+};
+
 export const authApi = {
   login: async (credentials: { rut: string; password?: string }) => {
     const res = await fetch('/api/login', {
@@ -132,11 +139,11 @@ export const sessionsApi = {
     return handleResponse<{ success: boolean; message: string }>(res);
   },
 
-  registerQRAttendance: async (sessionId: string, studentId: string) => {
+  registerQRAttendance: async (sessionId: string, studentId: string, token?: string) => {
     const res = await fetch(`/api/sessions/${sessionId}/qr-attendance`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ studentId }),
+      body: JSON.stringify({ studentId, token }),
     });
     return handleResponse<{ success: boolean; alreadyPresent?: boolean; session: Session; message: string }>(res);
   },
@@ -150,7 +157,7 @@ export const sessionsApi = {
   },
   getAttendancePin: async (sessionId: string) => {
     const res = await fetch(`/api/sessions/${sessionId}/attendance-pin`);
-    return handleResponse<{ pin: string }>(res);
+    return handleResponse<{ pin: string; qr: string; expiresInMs: number }>(res);
   },
 };
 
@@ -346,7 +353,7 @@ export const broadcastApi = {
     return handleResponse<{
       success: boolean;
       sentCount: number;
-      recipients: Array<{ name: string; email: string; role: string }>;
+      recipients: Array<{ name: string; role: string }>;
       message: string;
     }>(res);
   },
@@ -358,8 +365,7 @@ export const emailApi = {
     to: string;
     toName?: string;
     subject: string;
-    text?: string;
-    html?: string;
+    text: string;
     fromName?: string;
   }) => {
     const res = await fetch('/api/send-email', {
@@ -377,7 +383,7 @@ export const systemApi = {
     const res = await fetch('/api/system/reset-academic-data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ targetCollections }),
+      body: JSON.stringify({ targetCollections, confirm: 'VACIAR' }),
     });
     return handleResponse<{
       success: boolean;

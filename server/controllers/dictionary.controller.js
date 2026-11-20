@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { emitEvent } from '../services/socket.service.js';
 import { sendServerError } from '../utils/errors.js';
 
@@ -44,7 +45,7 @@ export const createDictionaryEntry = async (req, res) => {
       if (BASE_PROGRAMS.includes(key) || await col.findOne({ kind: 'program', key })) {
         return res.status(409).json({ error: `El programa "${name}" ya existe.` });
       }
-      entry = { id: `prog_${Date.now()}`, kind, key, name, createdAt: new Date().toISOString() };
+      entry = { id: `prog_${crypto.randomUUID()}`, kind, key, name, createdAt: new Date().toISOString() };
     } else {
       const program = String(req.body?.program || '');
       const programExists = BASE_PROGRAMS.includes(program) || await col.findOne({ kind: 'program', key: program });
@@ -53,7 +54,7 @@ export const createDictionaryEntry = async (req, res) => {
       const dup = (BASE_SUBJECTS[program] || []).includes(lower) ||
         (await col.find({ kind: 'subject', program }).toArray()).some(s => s.name.toLowerCase() === lower);
       if (dup) return res.status(409).json({ error: `La materia/área "${name}" ya existe en ese programa.` });
-      entry = { id: `subj_${Date.now()}`, kind, name, program, createdAt: new Date().toISOString() };
+      entry = { id: `subj_${crypto.randomUUID()}`, kind, name, program, createdAt: new Date().toISOString() };
     }
 
     await col.insertOne({ ...entry });

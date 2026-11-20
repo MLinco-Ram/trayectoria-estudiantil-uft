@@ -12,6 +12,15 @@ const COMMON = new Set([
   'universidad', 'universidad1', 'alumno123', 'alumno2026', 'tutor123', 'docente123', 'estudiante1',
 ]);
 
+// Repeticiones y secuencias: "aaaaaaaa1", "abababab1", "abcdefg1", "12345678"
+const isWeakPattern = (flat: string) => {
+  if (new Set(flat).size < 4) return true;
+  if (/^(.{1,3})\1{2,}.?$/.test(flat)) return true;
+  let steps = 0;
+  for (let i = 1; i < flat.length; i++) if (Math.abs(flat.charCodeAt(i) - flat.charCodeAt(i - 1)) === 1) steps++;
+  return steps >= flat.length - 2;
+};
+
 const normalize = (v: string) => v.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 // Devuelve el motivo del rechazo o null si la contraseña es válida
@@ -21,7 +30,7 @@ export function checkPassword(password: string, personal: { rut?: string; email?
   if (pwd.length > 72) return 'La contraseña no puede superar los 72 caracteres.';
   if (!/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(pwd) || !/\d/.test(pwd)) return 'La contraseña debe combinar letras y números.';
   const flat = normalize(pwd).replace(/[^a-z0-9]/g, '');
-  if (COMMON.has(flat) || /^(.)\1+$/.test(flat)) return 'Esa contraseña es demasiado común. Elige otra.';
+  if (COMMON.has(flat) || isWeakPattern(flat)) return 'Esa contraseña es demasiado común o predecible. Elige otra.';
   const rut = (personal.rut || '').replace(/[.\-\s]/g, '').toLowerCase();
   if (rut.length >= 8 && (flat.includes(rut) || flat.includes(rut.slice(0, -1)))) return 'La contraseña no puede contener tu RUT.';
   const emailUser = normalize((personal.email || '').split('@')[0]).replace(/[^a-z0-9]/g, '');

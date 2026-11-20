@@ -15,15 +15,30 @@ export const SessionQRModal: React.FC<SessionQRModalProps> = ({ session, onClose
   const containerRef = useRef<HTMLDivElement>(null);
   // PIN de 6 dígitos para quien no puede escanear: se muestra al lado del QR
   const [pin, setPin] = useState<string | null>(null);
+  // QR firmado y vigente: el PIN y el QR cambian solos cada ~45 s (el servidor indica cuánto falta)
+  const [qrToken, setQrToken] = useState<string | null>(null);
   const sessionId = session?.id;
   useEffect(() => {
     setPin(null);
+    setQrToken(null);
     if (!sessionId) return;
     let cancelled = false;
-    sessionsApi.getAttendancePin(sessionId)
-      .then(r => { if (!cancelled) setPin(r.pin); })
-      .catch(err => console.warn('No se pudo obtener el PIN de asistencia:', err));
-    return () => { cancelled = true; };
+    let timer: ReturnType<typeof setTimeout>;
+    const load = () => {
+      sessionsApi.getAttendancePin(sessionId)
+        .then(r => {
+          if (cancelled) return;
+          setPin(r.pin);
+          setQrToken(r.qr);
+          timer = setTimeout(load, Math.max(2000, Math.min(r.expiresInMs + 300, 45000)));
+        })
+        .catch(err => {
+          console.warn('No se pudo obtener el código de asistencia:', err);
+          if (!cancelled) timer = setTimeout(load, 5000);
+        });
+    };
+    load();
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [sessionId]);
 
   // Pantalla completa real del navegador (Fullscreen API), no solo agrandar el modal.
@@ -76,7 +91,7 @@ export const SessionQRModal: React.FC<SessionQRModalProps> = ({ session, onClose
   // Solo el id de la sesión, sin logo y con corrección de errores M: el QR queda con 25 módulos por lado
   // (antes un JSON con título, fecha y hora, nivel H y logo: 69 módulos). Cada cuadrito es ~3 veces más
   // grande, así se lee desde el fondo de la sala. El escáner del alumno acepta el id directo.
-  const qrPayload = session.id;
+  const qrPayload = qrToken || session.id;
 
   // Pantalla completa: solo el QR, lo más grande posible sobre fondo blanco, y la X para salir
   if (isFullscreen) {

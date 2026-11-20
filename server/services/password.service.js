@@ -40,6 +40,15 @@ const COMMON = new Set([
   'universidad', 'universidad1', 'alumno123', 'alumno2026', 'tutor123', 'docente123', 'estudiante1',
 ]);
 
+// Repeticiones y secuencias: "aaaaaaaa1", "abababab1", "abcdefg1", "12345678"
+export const isWeakPattern = (flat) => {
+  if (new Set(flat).size < 4) return true;
+  if (/^(.{1,3})\1{2,}.?$/.test(flat)) return true;
+  let steps = 0;
+  for (let i = 1; i < flat.length; i++) if (Math.abs(flat.charCodeAt(i) - flat.charCodeAt(i - 1)) === 1) steps++;
+  return steps >= flat.length - 2;
+};
+
 const normalize = (v) => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 // Devuelve el motivo del rechazo o null si la contraseña es válida.
@@ -52,7 +61,7 @@ export function validatePasswordPolicy(password, personal = {}) {
     return 'La contraseña debe combinar letras y números.';
   }
   const flat = normalize(pwd).replace(/[^a-z0-9]/g, '');
-  if (COMMON.has(flat) || /^(.)\1+$/.test(flat)) return 'Esa contraseña es demasiado común. Elige otra.';
+  if (COMMON.has(flat) || isWeakPattern(flat)) return 'Esa contraseña es demasiado común o predecible. Elige otra.';
 
   const rut = String(personal.rut || '').replace(/[.\-\s]/g, '').toLowerCase();
   if (rut.length >= 8) {

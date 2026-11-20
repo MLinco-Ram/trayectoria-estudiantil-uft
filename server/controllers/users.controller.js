@@ -1,58 +1,92 @@
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { isPasswordChangeRequired } from '../config/features.js';
 import { encryptField, decryptField, hashRut, sanitizeUserOutput } from '../services/crypto.service.js';
 import { emitEvent } from '../services/socket.service.js';
 import { setSessionCookie } from '../services/session.service.js';
-import { getUserRoles, isTutorOrStaff } from '../middlewares/auth.js';
+import { getUserRoles, isStaff } from '../middlewares/auth.js';
 import { sendServerError } from '../utils/errors.js';
 import { sendEmail, formatInitialPasswordEmail } from '../services/email.service.js';
+import { audit } from '../services/audit.service.js';
+import { isValidRut, RUT_ERROR, isValidName, NAME_ERROR } from '../utils/rut.js';
 import { generateInitialPassword, initialPasswordExpiry, validatePasswordPolicy } from '../services/password.service.js';
 
 const ALUMNO_EMAIL_DOMAINS = ['@uft.cl', '@mail.uft.cl', '@uft.edu'];
 
-const includesAdmin = (role, roles) =>
-  role === 'admin' || (Array.isArray(roles) ? roles.includes('admin') : roles === 'admin');
+const PRIVILEGED = ['admin', 'docente'];
+const KNOWN_ROLES = ['admin', 'docente', 'tutor', 'alumno'];
+const validRoles = (role, roles) =>
+  (role === undefined || KNOWN_ROLES.includes(role)) &&
+  (roles === undefined || (Array.isArray(roles) ? roles : [roles]).every(r => KNOWN_ROLES.includes(r)));
+const includesPrivileged = (role, roles) =>
+  PRIVILEGED.includes(role) || (Array.isArray(roles) ? roles.some(r => PRIVILEGED.includes(r)) : PRIVILEGED.includes(roles));
 
 async function findUserById(db, id) {
   return db.collection('users').findOne({ $or: [{ id }, { rutHash: hashRut(id) }, { rut: id }] });
 }
 
-// Solo un administrador puede crear, editar o eliminar cuentas con rol admin, o asignar ese rol
+// Solo un administrador puede crear, editar o eliminar cuentas con rol admin o docente, o asignar esos roles.
+// Un docente no puede tocar la cuenta de otro docente (cambiarle el correo y pedir "olvidé mi contraseña" sería tomarla) (A-02).
 function rejectAdminChangeByNonAdmin(req, res, { targetUser, role, roles } = {}) {
   if (req.userRoles.includes('admin')) return false;
-  if (includesAdmin(role, roles) || getUserRoles(targetUser).includes('admin')) {
-    res.status(403).json({ error: 'Solo un administrador puede gestionar cuentas o permisos de administrador.' });
+  const targetIsPrivileged = getUserRoles(targetUser).some(r => PRIVILEGED.includes(r));
+  const targetIsOther = targetUser && targetUser.id !== req.user.id;
+  if (includesPrivileged(role, roles) || (targetIsPrivileged && targetIsOther) || (targetUser && getUserRoles(targetUser).includes('admin'))) {
+    res.status(403).json({ error: 'Solo un administrador puede gestionar cuentas o permisos de administrador y docente.' });
     return true;
   }
   return false;
 }
 
+const publicContact = (u, withEmail) => ({
+  id: u.id, name: u.name, role: u.role, roles: u.roles, tutorTypes: u.tutorTypes, tutorType: u.tutorType,
+  ...(withEmail ? { email: u.email } : {})
+});
+
+// Sin RUT ni contraseña: datos mínimos de un alumno para el tutor que lo atiende
+const studentForTutor = (u) => {
+  const { rut, ...rest } = sanitizeUserOutput(u);
+  return rest;
+};
+
 export const getUsers = async (req, res) => {
   const db = req.db;
   try {
-    const users = await db.collection('users').find({}).toArray();
-    if (isTutorOrStaff(req)) {
-      res.json(users.map(u => sanitizeUserOutput(u)));
-      return;
+    // Coordinación (admin y docente) ve a todos, con RUT
+    if (isStaff(req)) {
+      await audit(req, 'users.list_full');
+      const users = await db.collection('users').find({}).toArray();
+      return res.json(users.map(u => sanitizeUserOutput(u)));
     }
-    // Un alumno solo necesita sus propios datos y el nombre de tutores y coordinación
-    // (y el correo de coordinación para avisarle inconvenientes). Nunca RUT ni datos de otros alumnos.
-    const visible = users.flatMap(u => {
-      if (u.id === req.user.id) return [sanitizeUserOutput(u)];
+
+    const isTutor = (req.userRoles || []).includes('tutor');
+    // Alumnos y tutores: se ve la cuenta propia, a los tutores y a coordinación (solo nombre; coordinación con correo).
+    const staffFilter = { $or: [{ role: { $in: ['tutor', 'docente'] } }, { roles: { $in: ['tutor', 'docente'] } }] };
+    const contacts = await db.collection('users').find(staffFilter).toArray();
+    const visible = [sanitizeUserOutput(req.user)];
+    for (const u of contacts) {
+      if (u.id === req.user.id) continue;
       const roles = getUserRoles(u);
-      const isCoord = roles.includes('docente');
-      if (!isCoord && !roles.includes('tutor')) return [];
-      return [{ id: u.id, name: u.name, role: u.role, roles: u.roles, tutorTypes: u.tutorTypes, tutorType: u.tutorType, ...(isCoord ? { email: u.email } : {}) }];
-    });
+      visible.push(publicContact(u, roles.includes('docente') || isTutor));
+    }
+
+    // Un tutor además ve (sin RUT) solo a los alumnos de sus propias sesiones
+    if (isTutor) {
+      const mine = await db.collection('sessions')
+        .find({ tutorId: req.user.id }, { projection: { studentIds: 1, reservedForStudentId: 1 } }).toArray();
+      const studentIds = new Set(mine.flatMap(s => [...(s.studentIds || []), ...(s.reservedForStudentId ? [s.reservedForStudentId] : [])]));
+      studentIds.delete(req.user.id);
+      if (studentIds.size > 0) {
+        const students = await db.collection('users').find({ id: { $in: [...studentIds] } }).toArray();
+        const known = new Set(visible.map(v => v.id));
+        for (const u of students) if (!known.has(u.id)) visible.push(studentForTutor(u));
+      }
+    }
     res.json(visible);
   } catch (err) {
     sendServerError(res, err);
   }
 };
-
-// Contraseña de cuentas antiguas (hasta v1.0.8): los últimos 4 caracteres del RUT. Ya no se genera; solo se usa
-// para reconocer esas cuentas al completar un registro (ver claimImportedAccount).
-const legacyInitialPasswordFromRut = (rut) => (rut || '').replace(/[\.\-\s]/g, '').slice(-4).toUpperCase();
 
 // Envía la contraseña inicial (aleatoria) por correo, avisando cuándo vence. Devuelve true solo si salió por SMTP real (no simulado).
 async function sendInitialPasswordEmail(user, initialPassword, expiresAt) {
@@ -70,6 +104,8 @@ async function sendInitialPasswordEmail(user, initialPassword, expiresAt) {
 
 // Cuentas sin RUT (registradas desde Pendientes): se identifican y entran solo con su correo
 async function insertUserWithoutRut(db, newUser) {
+  if (!isValidName(newUser.name)) return { error: NAME_ERROR };
+  if (typeof newUser.email !== 'string' || newUser.email.length > 254) return { error: 'La cuenta necesita un correo válido para poder ingresar.' };
   const email = (newUser.email || '').trim().toLowerCase();
   if (!email) return { error: 'La cuenta necesita un correo para poder ingresar.' };
   newUser.email = email;
@@ -85,48 +121,30 @@ async function insertUserWithoutRut(db, newUser) {
   return { user: safeResult };
 }
 
-// Completa una cuenta importada sin RUT con los datos del registro (ver registerStudent)
-async function claimImportedAccount(db, account, { name, rut, career, password }) {
-  const alreadyRegistered = 'Ya existe una cuenta con este correo. Ingresa con tu correo y contraseña, o usa "¿Olvidaste tu contraseña?".';
-  const roles = getUserRoles(account);
-  if (account.rutHash || roles.some(r => r !== 'alumno')) return { error: alreadyRegistered, status: 409 };
-
-  const cleanRut = rut.replace(/[\.\-\s]/g, '').trim();
-  if (cleanRut.length !== 9) {
-    return { error: 'El RUT debe tener exactamente 9 dígitos/caracteres (ej: 123456789 o 12.345.678-9).' };
-  }
-  const rutBlindIndex = hashRut(cleanRut);
-  if (await db.collection('users').findOne({ rutHash: rutBlindIndex })) {
-    return { error: 'El RUT ya se encuentra registrado en el sistema.' };
-  }
-  const matchesInitial = account.password && await bcrypt.compare(legacyInitialPasswordFromRut(cleanRut), account.password);
-  if (!matchesInitial) return { error: alreadyRegistered, status: 409 };
-
-  const update = {
-    name: name.trim() || account.name,
-    rut: encryptField(rut.trim()),
-    rutHash: rutBlindIndex,
-    password: await bcrypt.hash(password.trim(), await bcrypt.genSalt(10)),
-    ...(typeof career === 'string' && career.trim() ? { career: career.trim() } : {}),
-  };
-  await db.collection('users').updateOne({ _id: account._id }, { $set: update, $unset: { mustChangePassword: '', initialPasswordExpiresAt: '' } });
-  const user = sanitizeUserOutput({ ...account, ...update, rut: rut.trim() });
-  emitEvent('users:changed', { action: 'update', user });
-  return { user };
-}
-
 export function findUserByEmail(db, email) {
   const escaped = String(email || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return db.collection('users').findOne({ email: { $regex: new RegExp(`^${escaped}$`, 'i') } });
 }
 
+// Campos que el cliente puede enviar al crear una cuenta
+const CREATABLE_FIELDS = ['name', 'rut', 'email', 'career', 'role', 'roles', 'tutorType', 'tutorTypes', 'assignedTutorIds'];
+
 const EMAIL_TAKEN = 'El correo ya se encuentra registrado en el sistema.';
 
 async function insertUser(db, newUser) {
   // Validación de seguridad de RUT (exactamente 9 caracteres ignorando puntos y guión)
+  if (typeof newUser.rut !== 'string') return { error: RUT_ERROR };
   const cleanRut = (newUser.rut || '').replace(/[\.\-]/g, '').trim();
   if (cleanRut.length !== 9) {
     return { error: "El RUT debe tener exactamente 9 dígitos/caracteres (ej: 123456789 o 12.345.678-9)." };
+  }
+  if (!isValidRut(cleanRut)) return { error: RUT_ERROR };
+  if (!isValidName(newUser.name)) return { error: NAME_ERROR };
+  if (newUser.career !== undefined && (typeof newUser.career !== 'string' || newUser.career.length > 200)) {
+    return { error: 'La carrera no es válida (máximo 200 caracteres).' };
+  }
+  if (newUser.email !== undefined && (typeof newUser.email !== 'string' || newUser.email.length > 254)) {
+    return { error: 'El correo no es válido.' };
   }
 
   const rutBlindIndex = hashRut(cleanRut);
@@ -166,8 +184,11 @@ async function insertUser(db, newUser) {
 // La usan el alta manual (Docente/Admin) y el registro de pendientes importados desde Excel.
 // Con `withoutRut` (uso interno desde Pendientes) la cuenta se crea sin RUT y entra con su correo.
 export async function createAccountWithInitialPassword(db, data, withoutRut = false) {
-  const { _id, rutHash, password, mustChangePassword, initialPasswordExpiresAt, ...newUser } = data || {};
-  if (!newUser.id) newUser.id = `${newUser.role || 'user'}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  // Lista blanca de campos: el cliente nunca decide el id ni campos internos (_id, rutHash, contraseña...).
+  const src = data || {};
+  const newUser = {};
+  for (const key of CREATABLE_FIELDS) if (src[key] !== undefined) newUser[key] = src[key];
+  newUser.id = crypto.randomUUID();
 
   // Nunca se acepta ni se devuelve una contraseña desde el cliente; se comunica solo por correo.
   const initialPassword = generateInitialPassword();
@@ -193,9 +214,11 @@ export async function createAccountWithInitialPassword(db, data, withoutRut = fa
 export const createUser = async (req, res) => {
   try {
     const body = req.body || {};
+    if (!validRoles(body.role, body.roles)) return res.status(400).json({ error: 'Rol no válido.' });
     if (rejectAdminChangeByNonAdmin(req, res, { role: body.role, roles: body.roles })) return;
     const result = await createAccountWithInitialPassword(req.db, body);
     if (result.error) return res.status(400).json({ error: result.error });
+    await audit(req, 'user.create', { userId: result.user.id }, { roles: result.user.roles || [result.user.role] });
     res.status(201).json({ ...result.user, emailSent: result.emailSent });
   } catch (err) {
     sendServerError(res, err);
@@ -209,6 +232,11 @@ export const registerStudent = async (req, res) => {
     if (![name, rut, email, password].every(v => typeof v === 'string' && v.trim())) {
       return res.status(400).json({ error: 'Todos los campos son obligatorios.' });
     }
+    if (!isValidName(name)) return res.status(400).json({ error: NAME_ERROR });
+    if (email.length > 254 || (career !== undefined && (typeof career !== 'string' || career.length > 200))) {
+      return res.status(400).json({ error: 'El correo o la carrera no son válidos.' });
+    }
+    if (!isValidRut(rut)) return res.status(400).json({ error: RUT_ERROR });
     const cleanEmail = email.trim().toLowerCase();
     if (!ALUMNO_EMAIL_DOMAINS.some(d => cleanEmail.endsWith(d))) {
       return res.status(400).json({ error: 'El correo institucional debe tener dominio oficial de la universidad.' });
@@ -216,19 +244,14 @@ export const registerStudent = async (req, res) => {
     const policyError = validatePasswordPolicy(password, { rut, email: cleanEmail, name });
     if (policyError) return res.status(400).json({ error: policyError });
 
-    // Si el correo ya tiene una cuenta importada desde Pendientes (sin RUT), el registro la completa
-    // en vez de crear otra. Para no permitir que alguien tome la cuenta de otro sabiendo solo su correo,
-    // el RUT ingresado debe calzar con la contraseña inicial (sus 4 últimos caracteres) que aún tiene.
-    const existingByEmail = await findUserByEmail(req.db, cleanEmail);
-    if (existingByEmail) {
-      const claim = await claimImportedAccount(req.db, existingByEmail, { name, rut, career, password });
-      if (claim.error) return res.status(claim.status || 400).json({ error: claim.error });
-      setSessionCookie(res, claim.user.id);
-      return res.status(200).json(claim.user);
+    // Un correo = una cuenta. Si ya existe (p. ej. importada desde Pendientes), no se puede "reclamar" registrándose:
+    // la persona entra con la contraseña temporal que recibió, o usa "¿Olvidaste tu contraseña?" (A-08).
+    if (await findUserByEmail(req.db, cleanEmail)) {
+      return res.status(409).json({ error: 'Ya existe una cuenta con este correo. Ingresa con tu correo y contraseña, o usa "¿Olvidaste tu contraseña?".' });
     }
 
     const result = await insertUser(req.db, {
-      id: `alumno_${Date.now()}`,
+      id: crypto.randomUUID(),
       name: name.trim(),
       rut: rut.trim(),
       role: 'alumno',
@@ -239,7 +262,7 @@ export const registerStudent = async (req, res) => {
     });
     if (result.error) return res.status(400).json({ error: result.error });
 
-    setSessionCookie(res, result.user.id);
+    setSessionCookie(res, result.user.id, 0);
     res.status(201).json(result.user);
   } catch (err) {
     sendServerError(res, err);
@@ -266,8 +289,10 @@ export const sendInitialPassword = async (req, res) => {
     await req.db.collection('users').updateOne(
       { _id: targetUser._id },
       { $set: { password: hashed, initialPasswordExpiresAt: expiresAt, ...(isPasswordChangeRequired() ? { mustChangePassword: true } : {}) },
+        $inc: { sessionVersion: 1 },
         ...(isPasswordChangeRequired() ? {} : { $unset: { mustChangePassword: '' } }) }
     );
+    await audit(req, 'user.initial_password_sent', { userId: targetUser.id });
     res.json({ success: true, message: `Contraseña temporal enviada a ${targetUser.email}.` });
   } catch (err) {
     sendServerError(res, err, 'No se pudo enviar la contraseña por correo.');
@@ -283,18 +308,30 @@ export const updateUser = async (req, res) => {
     if (!targetUser) {
       return res.status(404).json({ error: "Usuario no encontrado." });
     }
+    if (!validRoles(role, roles)) return res.status(400).json({ error: 'Rol no válido.' });
     if (rejectAdminChangeByNonAdmin(req, res, { targetUser, role, roles })) return;
 
     const updateData = {};
+    let sessionBump = false;
     if (email !== undefined) {
+      if (typeof email !== 'string' || email.length > 254) return res.status(400).json({ error: 'El correo no es válido.' });
       updateData.email = email.trim().toLowerCase();
       const owner = updateData.email ? await findUserByEmail(db, updateData.email) : null;
       if (owner && owner.id !== targetUser.id) {
         return res.status(400).json({ error: 'Ese correo ya pertenece a otra cuenta.' });
       }
     }
-    if (name !== undefined) updateData.name = name.trim();
-    if (career !== undefined) updateData.career = career.trim();
+    if (name !== undefined) {
+      if (!isValidName(name)) return res.status(400).json({ error: NAME_ERROR });
+      updateData.name = name.trim();
+    }
+    if (career !== undefined) {
+      if (typeof career !== 'string' || career.length > 200) return res.status(400).json({ error: 'La carrera no es válida (máximo 200 caracteres).' });
+      updateData.career = career.trim();
+    }
+    if (tutorType !== undefined && (typeof tutorType !== 'string' || tutorType.length > 40)) return res.status(400).json({ error: 'Tipo de tutor no válido.' });
+    if (tutorTypes !== undefined && !(Array.isArray(tutorTypes) ? tutorTypes : [tutorTypes]).every(t => typeof t === 'string' && t.length <= 40)) return res.status(400).json({ error: 'Tipo de tutor no válido.' });
+    if (assignedTutorIds !== undefined && !(Array.isArray(assignedTutorIds) && assignedTutorIds.length <= 500 && assignedTutorIds.every(t => typeof t === 'string' && t.length <= 100))) return res.status(400).json({ error: 'Lista de tutores no válida.' });
     if (tutorType !== undefined) updateData.tutorType = tutorType;
     if (tutorTypes !== undefined) updateData.tutorTypes = Array.isArray(tutorTypes) ? tutorTypes : [tutorTypes];
     // Mantener tutorType y tutorTypes sincronizados: si quedan distintos, el cambio de rol no se refleja en los portales.
@@ -306,11 +343,13 @@ export const updateUser = async (req, res) => {
     if (role !== undefined) updateData.role = role;
     if (roles !== undefined) updateData.roles = Array.isArray(roles) ? roles : [roles];
     
+    if (rut !== undefined && (typeof rut !== 'string' || rut.length > 20)) return res.status(400).json({ error: RUT_ERROR });
     if (rut !== undefined && rut.trim()) {
       const cleanRut = rut.replace(/[\.\-]/g, '').trim();
       if (cleanRut.length !== 9) {
         return res.status(400).json({ error: "El RUT debe tener exactamente 9 dígitos/caracteres." });
       }
+      if (!isValidRut(cleanRut)) return res.status(400).json({ error: RUT_ERROR });
       updateData.rut = encryptField(rut.trim());
       updateData.rutHash = hashRut(cleanRut);
       const rutOwner = await db.collection('users').findOne({ rutHash: updateData.rutHash }, { projection: { id: 1 } });
@@ -319,12 +358,18 @@ export const updateUser = async (req, res) => {
       }
     }
 
+    if (password !== undefined && typeof password !== 'string') return res.status(400).json({ error: 'La contraseña no es válida.' });
     if (password !== undefined && password.trim()) {
+      // Solo un administrador fija una contraseña a mano; coordinación usa "enviar contraseña temporal" (así nadie conoce la clave de otra persona)
+      if (!req.userRoles.includes('admin')) {
+        return res.status(403).json({ error: 'Solo un administrador puede fijar una contraseña. Usa "enviar contraseña temporal" para que la persona reciba una por correo.' });
+      }
       const policyError = validatePasswordPolicy(password, { rut: decryptField(targetUser.rut) || '', email: targetUser.email, name: targetUser.name });
       if (policyError) return res.status(400).json({ error: policyError });
       const salt = await bcrypt.genSalt(10);
       updateData.password = await bcrypt.hash(password.trim(), salt);
       updateData.initialPasswordExpiresAt = null; // una contraseña fijada por el administrador no vence
+      sessionBump = true;
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -333,9 +378,18 @@ export const updateUser = async (req, res) => {
 
     const targetHash = hashRut(id);
     await db.collection('users').updateOne(
-      { $or: [{ id }, { rutHash: targetHash }, { rut: id }] },
-      { $set: updateData }
+      { _id: targetUser._id },
+      { $set: updateData, ...(sessionBump || (updateData.email && updateData.email !== (targetUser.email || '').toLowerCase()) ? { $inc: { sessionVersion: 1 } } : {}) }
     );
+    await audit(req, 'user.update', { userId: targetUser.id }, { fields: Object.keys(updateData).filter(k => k !== 'password') });
+    // Cambio de correo: se avisa al correo anterior (si alguien toma la cuenta cambiando el correo, el dueño se entera)
+    if (updateData.email && targetUser.email && updateData.email !== targetUser.email.toLowerCase()) {
+      sendEmail({
+        to: targetUser.email, toName: targetUser.name,
+        subject: 'Se cambió el correo de tu cuenta',
+        text: 'El correo asociado a tu cuenta de Trayectoria UFT fue cambiado por coordinación. Si no esperabas este cambio, avisa a la Dirección de Trayectoria Estudiantil.'
+      }).catch(err => console.warn('[Mail] No se pudo avisar el cambio de correo:', err.message));
+    }
 
     const updatedUser = await db.collection('users').findOne({
       $or: [{ id }, { rutHash: targetHash }, { rut: id }]
@@ -379,6 +433,15 @@ export const deleteUser = async (req, res) => {
       affected.forEach(s => emitEvent('sessions:changed', { action: 'update', sessionId: s.id }));
     }
 
+    // Borrado completo de los datos personales de la cuenta (derecho de supresión, Ley 21.719)
+    const emailRegex = targetUser.email ? new RegExp(`^${String(targetUser.email).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') : null;
+    await Promise.all([
+      db.collection('student_requests').deleteMany({ studentId: targetUser.id }),
+      db.collection('availabilities').deleteMany({ userId: targetUser.id }),
+      db.collection('password_resets').deleteMany({ userId: targetUser.id }),
+      ...(emailRegex ? [db.collection('notifications').deleteMany({ toEmail: emailRegex })] : []),
+    ]);
+    await audit(req, 'user.delete', { userId: targetUser.id });
     emitEvent('users:changed', { action: 'delete', userId: id });
 
     res.json({ success: true, message: `Usuario ${id} eliminado exitosamente de MongoDB Atlas.` });

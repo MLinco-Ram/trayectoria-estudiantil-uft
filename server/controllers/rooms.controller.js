@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { emitEvent } from '../services/socket.service.js';
 import { sendServerError } from '../utils/errors.js';
 
@@ -28,7 +29,7 @@ export const createRoom = async (req, res) => {
     if (existing) {
       return res.status(409).json({ error: `La sala ${code} ya está registrada.` });
     }
-    const room = { id: `room_${Date.now()}`, code, ...(description ? { description } : {}), createdAt: new Date().toISOString() };
+    const room = { id: `room_${crypto.randomUUID()}`, code, ...(description ? { description } : {}), createdAt: new Date().toISOString() };
     await req.db.collection('rooms').insertOne(room);
     emitEvent('rooms:changed', { action: 'create', room });
     res.status(201).json(room);

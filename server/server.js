@@ -47,34 +47,25 @@ app.use('/api', generalLimiter);
 app.use(checkDb);
 
 // Conectar a MongoDB Atlas al iniciar
-connectDB().then(async (db) => {
+connectDB().then(async () => {
   console.log("Servidor API conectado a MongoDB Atlas");
-
-  // Sincronización inicial de correos de prueba si no estuvieran presentes
-  try {
-    const tutor1 = await db.collection('users').findOne({ id: 'tutor_1' });
-    if (tutor1 && !tutor1.email) {
-      await db.collection('users').updateOne(
-        { id: 'tutor_1' },
-        { $set: { email: 'alikevincuenta@gmail.com' } }
-      );
-    }
-    const docente1 = await db.collection('users').findOne({ id: 'docente_1' });
-    if (docente1 && !docente1.email) {
-      await db.collection('users').updateOne(
-        { id: 'docente_1' },
-        { $set: { email: 'kevincastro.d05@gmail.com' } }
-      );
-    }
-  } catch (err) {
-    console.warn("No se pudo sincronizar correos de prueba en Mongo:", err);
-  }
 }).catch((err) => {
   console.error("No se pudo conectar a la base de datos", err);
 });
 
 // Montar router maestro de la API
 app.use('/api', apiRouter);
+
+// Rutas inexistentes y errores no controlados (JSON malformado, cuerpo muy grande...) siempre responden JSON,
+// sin trazas ni rutas internas del servidor (RB-01, RB-03).
+app.use('/api', (req, res) => res.status(404).json({ error: 'Ruta no encontrada.' }));
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  const status = Number.isInteger(err?.status) && err.status >= 400 && err.status < 500 ? err.status : 500;
+  if (status === 500) console.error(`[500] ${req.method} ${req.originalUrl}:`, err);
+  const message = status === 413 ? 'La petición es demasiado grande.' : status === 400 ? 'La petición no es válida.' : 'Error interno del servidor.';
+  res.status(status).json({ error: message });
+});
 
 // Iniciar cron jobs automáticos de recordatorios
 startCronJobs();

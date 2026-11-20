@@ -42,6 +42,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  // Verificación en dos pasos: el servidor responde mfaRequired cuando la cuenta la tiene activada
+  const [mfaNeeded, setMfaNeeded] = useState(false);
+  const [totpInput, setTotpInput] = useState('');
 
   // Modal de aviso de rol no permitido en móvil
   const [showMobileWarningModal, setShowMobileWarningModal] = useState(false);
@@ -148,11 +151,12 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rut: rutInput, password: passwordInput })
+        body: JSON.stringify({ rut: rutInput, password: passwordInput, ...(mfaNeeded ? { totp: totpInput } : {}) })
       });
 
       const data = await res.json();
       if (!res.ok) {
+        if (data.mfaRequired) setMfaNeeded(true);
         setError(data.error || 'Credenciales incorrectas.');
         return;
       }
@@ -376,6 +380,25 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     </button>
                   </div>
                 </div>
+
+                {mfaNeeded && (
+                  <div>
+                    <label htmlFor="totp" className="block text-[11px] font-extrabold text-slate-900 dark:text-slate-200 mb-1.5 px-2">Código de verificación (app autenticadora)</label>
+                    <input
+                      type="text"
+                      id="totp"
+                      name="totp"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={7}
+                      autoFocus
+                      className="w-full bg-white dark:bg-slate-900 rounded-full px-5 py-3 text-center text-lg font-black tracking-[0.35em] font-mono text-slate-900 dark:text-white border-2 border-slate-900 dark:border-slate-700 focus:outline-none"
+                      placeholder="000000"
+                      value={totpInput}
+                      onChange={(e) => setTotpInput(e.target.value.replace(/[^\d\s]/g, ''))}
+                    />
+                  </div>
+                )}
 
                 {/* Pista para cuentas creadas desde Pendientes (entran con correo y la contraseña temporal) */}
                 <div className="flex gap-2.5 rounded-2xl border-2 border-dashed border-[#007ba7]/40 dark:border-[#2f5a85] bg-sky-50 dark:bg-[#0b2742] px-3.5 py-2.5 text-[11px] leading-snug text-slate-600 dark:text-slate-300">

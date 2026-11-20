@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { getDb, getOrConnectDB } from '../db.js';
+import { decryptField } from './crypto.service.js';
 
 /**
  * Obtener configuración SMTP efectiva desde MongoDB con fallback a .env
@@ -14,7 +15,7 @@ export const getEffectiveSmtpConfig = async () => {
         port: parseInt(dbConfig.port || '465', 10),
         secure: dbConfig.secure !== false,
         user: dbConfig.user,
-        pass: dbConfig.pass,
+        pass: decryptField(dbConfig.pass), // se guarda cifrada; las instalaciones antiguas la tienen en claro y también funcionan
         fromName: dbConfig.fromName || 'Trayectoria Estudiantil UFT'
       };
     }
@@ -116,7 +117,7 @@ export const formatMinimalEmail = ({
     cleanSummary = 'Tienes una nueva actualización en tu cuenta de Trayectoria UFT.';
   }
 
-  const greeting = toName ? `Hola, ${toName}` : 'Hola';
+  const greeting = toName ? `Hola, ${escapeText(toName)}` : 'Hola';
 
   return `<!DOCTYPE html>
 <html>
