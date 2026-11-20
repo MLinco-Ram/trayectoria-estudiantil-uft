@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate, useSearchParams, useNavigate, u
 import { AuthProvider, useAuth, getRoleHomePath } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { AccessibilityWidget } from './components/common/AccessibilityWidget';
+import { InstallAppPrompt } from './components/common/InstallAppPrompt';
 import { ProtectedRoute } from './components/routes/ProtectedRoute';
 import LoginScreen from './components/LoginScreen';
 
@@ -138,6 +139,7 @@ export default function App() {
           </Suspense>
           <FloatingVersion />
           <AccessibilityWidget />
+          <InstallAppPrompt />
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

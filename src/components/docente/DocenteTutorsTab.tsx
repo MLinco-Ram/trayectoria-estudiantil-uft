@@ -47,8 +47,11 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
   const [assignmentFeedback, setAssignmentFeedback] = useState<string | null>(null);
 
   const tutores = allUsers.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor'))));
-  const leadTutores = tutores.filter(u => u.tutorType === 'tutor_de_tutores');
-  const peerTutores = tutores.filter(u => u.tutorType !== 'tutor_de_tutores');
+  const typesOf = (u: User): TutorType[] => Array.isArray(u.tutorTypes) && u.tutorTypes.length > 0
+    ? u.tutorTypes
+    : [u.tutorType || 'tutor_par'];
+  const leadTutores = tutores.filter(u => typesOf(u).includes('tutor_de_tutores'));
+  const peerTutores = tutores.filter(u => typesOf(u).includes('tutor_par'));
 
   // Keep selectedLeadTutor in sync
   const currentLeadTutor = leadTutores.find(t => t.id === selectedLeadTutorId) || leadTutores[0] || null;
@@ -187,7 +190,9 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
       role: primaryRole,
       roles: editRoles,
       tutorTypes: editRoles.includes('tutor') ? editTutorTypes : undefined,
-      tutorType: editRoles.includes('tutor') ? (editTutorTypes[0] || 'tutor_par') : undefined,
+      tutorType: editRoles.includes('tutor')
+        ? (editTutorTypes.includes('tutor_de_tutores') ? 'tutor_de_tutores' : 'tutor_par')
+        : undefined,
     };
 
     try {
@@ -249,10 +254,11 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
   };
 
   const handlePromoteToLead = async (tutor: User) => {
-    const updatedType: TutorType = tutor.tutorType === 'tutor_de_tutores' ? 'tutor_par' : 'tutor_de_tutores';
+    const updatedType: TutorType = typesOf(tutor).includes('tutor_de_tutores') ? 'tutor_par' : 'tutor_de_tutores';
+    const patch: Partial<User> = { tutorType: updatedType, tutorTypes: [updatedType] };
     try {
-      await usersApi.updateUser(tutor.id, { tutorType: updatedType });
-      const updated = allUsers.map(u => u.id === tutor.id ? { ...u, tutorType: updatedType } : u);
+      await usersApi.updateUser(tutor.id, patch);
+      const updated = allUsers.map(u => u.id === tutor.id ? { ...u, ...patch } : u);
       setAllUsers(updated);
     } catch (err: any) {
       alert(`No se pudo cambiar el tipo de tutor: ${err.message || 'error de conexión'}`);
@@ -588,7 +594,7 @@ export const DocenteTutorsTab: React.FC<DocenteTutorsTabProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredTutores.map(tut => {
-                const isLead = tut.tutorType === 'tutor_de_tutores';
+                const isLead = typesOf(tut).includes('tutor_de_tutores');
                 const assignedCount = (tut.assignedTutorIds || []).length;
                 const userRoles = (tut.roles && tut.roles.length > 0) ? tut.roles : [tut.role || 'tutor'];
                 const isMultiRole = userRoles.length > 1;

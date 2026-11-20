@@ -304,7 +304,9 @@ export default function AdminDashboard({ user: propUser, onLogout: propLogout }:
       role: primaryRole,
       roles: editRoles,
       tutorTypes: editRoles.includes('tutor') ? editTutorTypes : undefined,
-      tutorType: editRoles.includes('tutor') ? (editTutorTypes[0] || 'tutor_par') : undefined,
+      tutorType: editRoles.includes('tutor')
+        ? (editTutorTypes.includes('tutor_de_tutores') ? 'tutor_de_tutores' : 'tutor_par')
+        : undefined,
     };
 
 

@@ -61,7 +61,12 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
     if (activeTab) {
       localStorage.setItem('uft_docente_active_tab', activeTab);
     }
+    // La fecha/bloque precargados desde el calendario solo valen para esa apertura del formulario
+    if (activeTab !== 'create') setCreatePrefill(null);
   }, [activeTab]);
+
+  // Fecha y bloque elegidos en la cuadrícula del calendario para crear una sesión ahí
+  const [createPrefill, setCreatePrefill] = useState<{ date: string; timeSlot: string; key: number } | null>(null);
 
   // Mini-Tutoriales Modulares por Sección
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
@@ -356,11 +361,18 @@ export default function DocenteDashboard({ user: propUser, onLogout: propLogout,
             allUsers={allUsers}
             allAvailabilities={allAvailabilities}
             onReload={loadData}
+            onCreateAt={(date, timeSlot) => {
+              setCreatePrefill({ date, timeSlot, key: Date.now() });
+              setActiveTab('create');
+            }}
           />
         )}
 
         {activeTab === 'create' && (
           <DocenteCreateSessionTab
+            key={createPrefill?.key ?? 'create'}
+            initialDate={createPrefill?.date}
+            initialTimeSlot={createPrefill?.timeSlot}
             user={user}
             allUsers={allUsers}
             allAvailabilities={allAvailabilities}

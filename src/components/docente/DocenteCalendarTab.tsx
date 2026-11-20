@@ -30,6 +30,8 @@ interface DocenteCalendarTabProps {
   allUsers: User[];
   allAvailabilities?: UserAvailability[];
   onReload: () => void;
+  /** Abre el formulario de creación con la fecha y bloque elegidos en la cuadrícula */
+  onCreateAt?: (date: string, timeSlot: string) => void;
 }
 
 export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
@@ -38,6 +40,7 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
   allUsers,
   allAvailabilities = [],
   onReload,
+  onCreateAt,
 }) => {
   // Modos de vista: Cuadrícula Semanal interactiva, Calendario Mensual, Agenda por Lista o Vista Diaria
   const [viewMode, setViewMode] = useState<'week' | 'month' | 'day' | 'list'>('week');
@@ -413,11 +416,33 @@ export const DocenteCalendarTab: React.FC<DocenteCalendarTabProps> = ({
                             }`}
                           >
                             {cellSessions.length === 0 ? (
-                              <div className="h-full min-h-[5rem] flex items-center justify-center border-2 border-dashed border-slate-100 rounded-lg text-slate-300 text-[10px] select-none hover:border-slate-200">
-                                —
-                              </div>
+                              onCreateAt ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onCreateAt(day.dateStr, slot)}
+                                  title={`Crear tutoría o taller el ${day.dateStr} a las ${slot}`}
+                                  className="w-full h-full min-h-[5rem] flex flex-col items-center justify-center gap-0.5 border-2 border-dashed border-slate-100 rounded-lg text-slate-300 text-[10px] font-bold hover:border-[#3a9ad9] hover:text-[#3a9ad9] hover:bg-blue-50/40 transition cursor-pointer"
+                                >
+                                  <span className="text-base leading-none">+</span>
+                                  <span>Crear aquí</span>
+                                </button>
+                              ) : (
+                                <div className="h-full min-h-[5rem] flex items-center justify-center border-2 border-dashed border-slate-100 rounded-lg text-slate-300 text-[10px] select-none hover:border-slate-200">
+                                  —
+                                </div>
+                              )
                             ) : (
                               <div className="space-y-1.5">
+                                {onCreateAt && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onCreateAt(day.dateStr, slot)}
+                                    className="w-full text-[10px] font-bold text-slate-400 hover:text-[#3a9ad9] border border-dashed border-slate-200 hover:border-[#3a9ad9] rounded-lg py-0.5 transition cursor-pointer"
+                                    title="Agregar otra tutoría o taller en este bloque"
+                                  >
+                                    + Agregar en este bloque
+                                  </button>
+                                )}
                                 {cellSessions.map((sess) => {
                                   const tutor = allUsers.find(u => u.id === sess.tutorId);
                                   const spotsTaken = (sess.studentIds || []).length;

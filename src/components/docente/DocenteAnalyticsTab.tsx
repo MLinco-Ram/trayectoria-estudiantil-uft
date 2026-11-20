@@ -185,9 +185,110 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
     ? Math.min(100, Math.round((totalInscriptions / totalCapacidadSalas) * 100))
     : 0;
 
-  const averageRating = totalRatingsCount > 0 
-    ? (totalRatingsSum / totalRatingsCount).toFixed(1) 
-    : '4.8';
+  const averageRating = totalRatingsCount > 0
+    ? (totalRatingsSum / totalRatingsCount).toFixed(1)
+    : '—';
+
+  // ==========================================
+  // EVALUACIÓN DE TUTORES POR PARTE DE LOS ESTUDIANTES
+  // % satisfacción = promedio / 5; % positivas = evaluaciones con 4 o 5 estrellas
+  // ==========================================
+  const tutorRatingStats = useMemo(() => {
+    const map = new Map<string, { sum: number; count: number; positive: number; sessionsRated: Set<string> }>();
+    filteredSessions.forEach(sess => {
+      if (!sess.tutorId || !sess.ratings) return;
+      Object.values(sess.ratings).forEach((r: any) => {
+        if (!r || typeof r.rating !== 'number') return;
+        const entry = map.get(sess.tutorId!) || { sum: 0, count: 0, positive: 0, sessionsRated: new Set<string>() };
+        entry.sum += r.rating;
+        entry.count++;
+        if (r.rating >= 4) entry.positive++;
+        entry.sessionsRated.add(sess.id);
+        map.set(sess.tutorId!, entry);
+      });
+    });
+    return Array.from(map.entries())
+      .map(([tutorId, e]) => {
+        const tutor = allUsers.find(u => u.id === tutorId);
+        const avg = e.sum / e.count;
+        return {
+          tutorId,
+          name: tutor?.name || 'Tutor sin registro',
+          count: e.count,
+          sessionsRated: e.sessionsRated.size,
+          avg,
+          satisfactionPct: Math.round((avg / 5) * 100),
+          positivePct: Math.round((e.positive / e.count) * 100),
+        };
+      })
+      .sort((a, b) => b.satisfactionPct - a.satisfactionPct || b.count - a.count);
+  }, [filteredSessions, allUsers]);
+
+  // ==========================================
+  // COMPARACIÓN CON PERIODOS ANTERIORES (mes / trimestre / año calendario)
+  // Usa todas las sesiones, independiente del filtro de rango superior.
+  // ==========================================
+  const [comparePeriod, setComparePeriod] = useState<'mes' | 'trimestre' | 'anio'>('mes');
+
+  const periodComparison = useMemo(() => {
+    const now = new Date();
+    const periodBounds = (offset: number): { start: Date; end: Date; label: string } => {
+      if (comparePeriod === 'mes') {
+        const start = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+        const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+        return { start, end, label: `${MONTH_NAMES[start.getMonth()]} ${start.getFullYear()}` };
+      }
+      if (comparePeriod === 'trimestre') {
+        const q = Math.floor(now.getMonth() / 3) - offset;
+        const start = new Date(now.getFullYear(), q * 3, 1);
+        const end = new Date(start.getFullYear(), start.getMonth() + 3, 1);
+        return { start, end, label: `T${Math.floor(start.getMonth() / 3) + 1} ${start.getFullYear()}` };
+      }
+      const start = new Date(now.getFullYear() - offset, 0, 1);
+      const end = new Date(start.getFullYear() + 1, 0, 1);
+      return { start, end, label: `${start.getFullYear()}` };
+    };
+    const yearAgoOffset = comparePeriod === 'mes' ? 12 : comparePeriod === 'trimestre' ? 4 : 1;
+
+    const metricsFor = (offset: number) => {
+      const { start, end, label } = periodBounds(offset);
+      const list = sessions.filter(s => {
+        if (!s.date) return false;
+        const d = new Date(`${s.date}T12:00:00`);
+        return !isNaN(d.getTime()) && d >= start && d < end;
+      });
+      let inscriptions = 0, presentes = 0, ausentes = 0, rSum = 0, rCount = 0;
+      const unique = new Set<string>();
+      list.forEach(s => {
+        (s.studentIds || []).forEach(id => {
+          inscriptions++;
+          const att = s.attendance?.[id];
+          if (att === 'presente') { presentes++; unique.add(id); }
+          else if (att === 'ausente') ausentes++;
+        });
+        Object.values(s.ratings || {}).forEach((r: any) => {
+          if (r && typeof r.rating === 'number') { rSum += r.rating; rCount++; }
+        });
+      });
+      return {
+        label,
+        sesiones: list.length,
+        tutorias: list.filter(s => s.program === 'tutorias').length,
+        talleres: list.filter(s => s.program === 'psicoeducativo').length,
+        inscripciones: inscriptions,
+        alumnosUnicos: unique.size,
+        asistencia: presentes + ausentes > 0 ? Math.round((presentes / (presentes + ausentes)) * 100) : null,
+        satisfaccion: rCount > 0 ? Math.round((rSum / rCount / 5) * 100) : null,
+      };
+    };
+
+    return {
+      current: metricsFor(0),
+      previous: metricsFor(1),
+      yearAgo: comparePeriod === 'anio' ? null : metricsFor(yearAgoOffset),
+      history: Array.from({ length: 6 }, (_, i) => metricsFor(5 - i)),
+    };
+  }, [sessions, comparePeriod]);
 
   const totalTutores = allUsers.filter(u => u && (u.role === 'tutor' || (Array.isArray(u.roles) && u.roles.includes('tutor')))).length;
   const totalAlumnos = allUsers.filter(u => u && (u.role === 'alumno' || (Array.isArray(u.roles) && u.roles.includes('alumno')))).length;
@@ -654,7 +755,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
       } else if (type === 'tutors_summary') {
         const ws = workbook.addWorksheet('Desempeño Tutores');
 
-        ws.mergeCells('A1:J1');
+        ws.mergeCells('A1:N1');
         const titleCell = ws.getCell('A1');
         titleCell.value = 'UNIVERSIDAD FINIS TERRAE  •  CENTRO DE APOYO AL APRENDIZAJE';
         titleCell.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -662,7 +763,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
         titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
         ws.getRow(1).height = 30;
 
-        ws.mergeCells('A2:J2');
+        ws.mergeCells('A2:N2');
         const subCell = ws.getCell('A2');
         subCell.value = `Reporte de Desempeño de Tutores | Filtro: ${timeRange.toUpperCase()} | Emitido: ${generatedAt}`;
         subCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF3A9AD9' } };
@@ -691,6 +792,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
 
           const totalMarcados = tutPresentes + tutAusentes;
           const pct = totalMarcados > 0 ? Math.round((tutPresentes / totalMarcados) * 100) : (totalStudents > 0 ? 100 : 0);
+          const ratingInfo = tutorRatingStats.find(r => r.tutorId === tutor.id);
 
           return [
             tutor.id,
@@ -702,12 +804,16 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
             totalStudents,
             tutPresentes,
             tutAusentes,
-            `${pct}%`
+            `${pct}%`,
+            ratingInfo ? ratingInfo.count : 0,
+            ratingInfo ? Number(ratingInfo.avg.toFixed(1)) : '-',
+            ratingInfo ? `${ratingInfo.satisfactionPct}%` : 'Sin evaluaciones',
+            ratingInfo ? `${ratingInfo.positivePct}%` : '-'
           ];
         });
 
         if (tableRows.length === 0) {
-          tableRows.push(['-', 'Sin tutores registrados', '-', '-', '-', 0, 0, 0, 0, '0%']);
+          tableRows.push(['-', 'Sin tutores registrados', '-', '-', '-', 0, 0, 0, 0, '0%', 0, '-', '-', '-']);
         }
 
         ws.addTable({
@@ -729,7 +835,11 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
             { name: 'Total Alumnos', filterButton: true },
             { name: 'Asistencias Efectivas', filterButton: true },
             { name: 'Ausencias Registradas', filterButton: true },
-            { name: 'Tasa Efectividad', filterButton: true }
+            { name: 'Tasa Efectividad', filterButton: true },
+            { name: 'N° Evaluaciones', filterButton: true },
+            { name: 'Promedio (1-5)', filterButton: true },
+            { name: '% Evaluación Estudiantes', filterButton: true },
+            { name: '% Evaluaciones Positivas (4-5)', filterButton: true }
           ],
           rows: tableRows,
         });
@@ -737,7 +847,8 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
         ws.columns = [
           { width: 15 }, { width: 28 }, { width: 14 }, { width: 28 },
           { width: 26 }, { width: 18 }, { width: 20 }, { width: 22 },
-          { width: 16 }, { width: 18 }
+          { width: 16 }, { width: 18 }, { width: 16 }, { width: 16 },
+          { width: 24 }, { width: 28 }
         ];
 
         const headerRow2 = ws.getRow(4);
@@ -752,7 +863,7 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
           row.height = 20;
           row.eachCell((cell, colNumber) => {
             cell.font = { name: 'Arial', size: 10 };
-            if ([1, 3, 6, 7, 8, 9, 10].includes(colNumber)) {
+            if ([1, 3, 6, 7, 8, 9, 10, 11, 12, 13, 14].includes(colNumber)) {
               cell.alignment = { vertical: 'middle', horizontal: 'center' };
             } else {
               cell.alignment = { vertical: 'middle', horizontal: 'left' };
@@ -1131,6 +1242,161 @@ export const DocenteAnalyticsTab: React.FC<DocenteAnalyticsTabProps> = ({
             <p className="text-2xl font-black text-slate-900 mt-2">{averageRating} <span className="text-xs text-slate-400 font-normal">/ 5.0</span></p>
             <p className="text-[10px] text-slate-500 mt-0.5">{totalRatingsCount} valoraciones</p>
           </div>
+        </div>
+
+        {/* =========================================================================
+            COMPARACIÓN CON PERIODOS ANTERIORES
+            ========================================================================= */}
+        {(() => {
+          const { current, previous, yearAgo, history } = periodComparison;
+          const periodWord = comparePeriod === 'mes' ? 'mes' : comparePeriod === 'trimestre' ? 'trimestre' : 'año';
+          const rows: { label: string; key: 'sesiones' | 'tutorias' | 'talleres' | 'inscripciones' | 'alumnosUnicos' | 'asistencia' | 'satisfaccion'; pct?: boolean }[] = [
+            { label: 'Sesiones totales', key: 'sesiones' },
+            { label: 'Tutorías', key: 'tutorias' },
+            { label: 'Talleres psicoeducativos', key: 'talleres' },
+            { label: 'Inscripciones', key: 'inscripciones' },
+            { label: 'Alumnos únicos con asistencia', key: 'alumnosUnicos' },
+            { label: 'Tasa de asistencia', key: 'asistencia', pct: true },
+            { label: 'Satisfacción estudiantes', key: 'satisfaccion', pct: true },
+          ];
+          const fmt = (v: number | null, pct?: boolean) => v === null ? '—' : pct ? `${v}%` : String(v);
+          const delta = (a: number | null, b: number | null, pct?: boolean) => {
+            if (a === null || b === null) return <span className="text-slate-400">—</span>;
+            const d = a - b;
+            if (d === 0) return <span className="text-slate-500 font-bold">= 0</span>;
+            const rel = !pct && b > 0 ? ` (${d > 0 ? '+' : ''}${Math.round((d / b) * 100)}%)` : '';
+            return (
+              <span className={`font-bold ${d > 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                {d > 0 ? '▲ +' : '▼ '}{d}{pct ? ' pts' : ''}{rel}
+              </span>
+            );
+          };
+          const maxHist = Math.max(1, ...history.map(h => h.sesiones));
+          return (
+            <div id="docente-analytics-period-compare" className="bg-white border border-slate-200 rounded-2xl p-5 mb-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                    <CalendarCheck className="w-5 h-5 text-[#3a9ad9]" />
+                    Comparación con periodos anteriores
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {periodWord.charAt(0).toUpperCase() + periodWord.slice(1)} en curso frente al {periodWord} anterior{yearAgo ? ' y al mismo periodo del año pasado' : ''}. No depende del filtro de rango de arriba.
+                  </p>
+                </div>
+                <div className="flex bg-slate-100 rounded-xl p-1 gap-1" role="group" aria-label="Periodo de comparación">
+                  {([['mes', 'Mes'], ['trimestre', 'Trimestre'], ['anio', 'Año']] as const).map(([val, lbl]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      aria-pressed={comparePeriod === val}
+                      onClick={() => setComparePeriod(val)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        comparePeriod === val ? 'bg-[#092c4c] text-white' : 'text-slate-600 hover:bg-white'
+                      }`}
+                    >
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs uppercase text-slate-500 border-b border-slate-200">
+                    <tr>
+                      <th className="py-2 pr-3">Indicador</th>
+                      <th className="py-2 px-3 text-right">{current.label}</th>
+                      <th className="py-2 px-3 text-right">{previous.label}</th>
+                      <th className="py-2 px-3 text-right">Variación</th>
+                      {yearAgo && <th className="py-2 px-3 text-right">{yearAgo.label}</th>}
+                      {yearAgo && <th className="py-2 pl-3 text-right">Vs. año anterior</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-800">
+                    {rows.map(r => (
+                      <tr key={r.key}>
+                        <td className="py-2 pr-3 font-semibold">{r.label}</td>
+                        <td className="py-2 px-3 text-right font-black">{fmt(current[r.key], r.pct)}</td>
+                        <td className="py-2 px-3 text-right">{fmt(previous[r.key], r.pct)}</td>
+                        <td className="py-2 px-3 text-right">{delta(current[r.key], previous[r.key], r.pct)}</td>
+                        {yearAgo && <td className="py-2 px-3 text-right">{fmt(yearAgo[r.key], r.pct)}</td>}
+                        {yearAgo && <td className="py-2 pl-3 text-right">{delta(current[r.key], yearAgo[r.key], r.pct)}</td>}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-5">
+                <span className="text-xs font-bold text-slate-600 block mb-2">Sesiones en los últimos 6 periodos</span>
+                <div className="flex items-end gap-2 h-28">
+                  {history.map((h, i) => (
+                    <div key={h.label} className="flex-1 flex flex-col items-center justify-end h-full gap-1 min-w-0">
+                      <span className="text-[11px] font-bold text-slate-700">{h.sesiones}</span>
+                      <div
+                        className={`w-full rounded-t-md ${i === history.length - 1 ? 'bg-[#092c4c]' : 'bg-[#3a9ad9]/60'}`}
+                        style={{ height: `${Math.max(4, (h.sesiones / maxHist) * 100)}%` }}
+                        title={`${h.label}: ${h.sesiones} sesiones`}
+                      />
+                      <span className="text-[10px] text-slate-500 truncate w-full text-center">{h.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* =========================================================================
+            EVALUACIÓN DE TUTORES POR PARTE DE LOS ESTUDIANTES
+            ========================================================================= */}
+        <div id="docente-analytics-tutor-ratings" className="bg-white border border-slate-200 rounded-2xl p-5 mb-8">
+          <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+            <Award className="w-5 h-5 text-amber-500" />
+            Evaluación de tutores por los estudiantes
+          </h3>
+          <p className="text-xs text-slate-500 mt-0.5 mb-4">
+            % de evaluación = promedio de las encuestas de satisfacción sobre 5. % positivas = encuestas con 4 o 5 estrellas. Respeta el filtro de rango de arriba.
+          </p>
+          {tutorRatingStats.length === 0 ? (
+            <p className="text-sm text-slate-500 italic">Aún no hay encuestas de satisfacción respondidas en este rango.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="text-xs uppercase text-slate-500 border-b border-slate-200">
+                  <tr>
+                    <th className="py-2 pr-3">Tutor</th>
+                    <th className="py-2 px-3 w-2/5">% Evaluación</th>
+                    <th className="py-2 px-3 text-right">Promedio</th>
+                    <th className="py-2 px-3 text-right">% Positivas</th>
+                    <th className="py-2 pl-3 text-right">Encuestas</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-800">
+                  {tutorRatingStats.map(t => (
+                    <tr key={t.tutorId}>
+                      <td className="py-2 pr-3 font-semibold">{t.name}</td>
+                      <td className="py-2 px-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${t.satisfactionPct >= 80 ? 'bg-emerald-600' : t.satisfactionPct >= 60 ? 'bg-amber-500' : 'bg-rose-600'}`}
+                              style={{ width: `${t.satisfactionPct}%` }}
+                            />
+                          </div>
+                          <span className="font-black w-11 text-right">{t.satisfactionPct}%</span>
+                        </div>
+                      </td>
+                      <td className="py-2 px-3 text-right">{t.avg.toFixed(1)} / 5</td>
+                      <td className="py-2 px-3 text-right">{t.positivePct}%</td>
+                      <td className="py-2 pl-3 text-right text-slate-500">{t.count} ({t.sessionsRated} ses.)</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* =========================================================================

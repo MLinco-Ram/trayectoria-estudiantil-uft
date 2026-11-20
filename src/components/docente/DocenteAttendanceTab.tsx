@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { StudentPicker } from '../common/StudentPicker';
 import { getTodayDateStr, getRelativeDateStr, triggerNotification, canTakeAttendance } from '../../data';
-import { sessionsApi } from '../../services/api';
+import { sessionsApi, usersApi } from '../../services/api';
 import { getSocket } from '../../services/socket';
 import { SessionQRModal } from '../common/SessionQRModal';
 
@@ -83,7 +83,18 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
   const [addingStudentSessionId, setAddingStudentSessionId] = useState<string | null>(null);
   const [selectedStudentToAdd, setSelectedStudentToAdd] = useState<string>('');
   const [studentSearchQuery, setStudentSearchQuery] = useState<string>('');
-  const [initialStatusToAdd, setInitialStatusToAdd] = useState<'presente' | 'pendiente'>('presente');
+  const [initialStatusToAdd, setInitialStatusToAdd] = useState<'presente' | 'pendiente' | 'ausente'>('presente');
+  // Registro rápido de un estudiante espontáneo que aún no tiene cuenta en el sistema
+  const [showQuickRegister, setShowQuickRegister] = useState(false);
+  const [quickName, setQuickName] = useState('');
+  const [quickRut, setQuickRut] = useState('');
+  const [quickEmail, setQuickEmail] = useState('');
+  const [quickCareer, setQuickCareer] = useState('');
+  const [isQuickSaving, setIsQuickSaving] = useState(false);
+  const resetQuickRegister = () => {
+    setShowQuickRegister(false);
+    setQuickName(''); setQuickRut(''); setQuickEmail(''); setQuickCareer('');
+  };
 
   const dailySessions = useMemo(() => {
     let list = sessions;
@@ -182,8 +193,8 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
   };
 
   // Función para agregar un estudiante manualmente a la sesión
-  const handleAddStudentToSession = async (sessionId: string) => {
-    const studentId = selectedStudentToAdd;
+  const handleAddStudentToSession = async (sessionId: string, overrideStudentId?: string, overrideName?: string) => {
+    const studentId = overrideStudentId || selectedStudentToAdd;
     const initialStatus = initialStatusToAdd;
     if (!studentId) return;
     const session = sessions.find(s => s.id === sessionId);
@@ -212,14 +223,51 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
       });
 
       const studentObj = allUsers.find(u => u.id === studentId);
-      setAttendanceFeedback(`¡${studentObj?.name || 'Estudiante'} agregado exitosamente a la lista con estado "${initialStatus}"!`);
+      const finalStatus = newAttendance[studentId];
+      const note = finalStatus !== initialStatus ? ' (la asistencia solo se marca el día de la clase)' : '';
+      setAttendanceFeedback(`¡${overrideName || studentObj?.name || 'Estudiante'} agregado a la lista con estado "${finalStatus}"!${note}`);
       setTimeout(() => setAttendanceFeedback(null), 4000);
       setAddingStudentSessionId(null);
       setSelectedStudentToAdd('');
       setStudentSearchQuery('');
+      resetQuickRegister();
     } catch (err: any) {
       console.warn('Error al agregar estudiante manualmente:', err);
       setAttendanceFeedback('Error al guardar en el servidor.');
+    }
+  };
+
+  // Registra en el sistema a un estudiante que llegó sin inscribirse y lo agrega a la sesión
+  const handleQuickRegisterAndAdd = async (sessionId: string) => {
+    const cleanRut = quickRut.replace(/[\.\-]/g, '').trim();
+    if (!quickName.trim() || !quickEmail.trim() || cleanRut.length !== 9) {
+      setAttendanceFeedback('Para registrar al estudiante ingresa nombre, correo y un RUT de 9 caracteres.');
+      setTimeout(() => setAttendanceFeedback(null), 4000);
+      return;
+    }
+    const existing = allUsers.find(u => (u.rut || '').replace(/[\.\-]/g, '').trim().toLowerCase() === cleanRut.toLowerCase());
+    if (existing) {
+      await handleAddStudentToSession(sessionId, existing.id, existing.name);
+      return;
+    }
+    setIsQuickSaving(true);
+    const newStudent: User = {
+      id: `alumno_${Date.now()}`,
+      name: quickName.trim(),
+      rut: quickRut.trim(),
+      role: 'alumno',
+      email: quickEmail.trim().toLowerCase(),
+      career: quickCareer.trim() || 'Estudiante UFT',
+    };
+    try {
+      const created = await usersApi.createUser(newStudent);
+      await handleAddStudentToSession(sessionId, created?.id || newStudent.id, newStudent.name);
+      onReload();
+    } catch (err: any) {
+      setAttendanceFeedback(err?.message || 'No se pudo registrar al estudiante.');
+      setTimeout(() => setAttendanceFeedback(null), 5000);
+    } finally {
+      setIsQuickSaving(false);
     }
   };
 
@@ -506,6 +554,46 @@ export const DocenteAttendanceTab: React.FC<DocenteAttendanceTabProps> = ({
                             <span>Inscribir en Lista</span>
                           </button>
                         </div>
+                      </div>
+
+                      {/* Estudiante espontáneo sin cuenta */}
+                      <div className="border-t border-slate-100 pt-3">
+                        {!showQuickRegister ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowQuickRegister(true)}
+                            className="text-xs font-bold text-emerald-700 hover:underline flex items-center gap-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            ¿El estudiante llegó sin inscribirse y no aparece? Regístralo aquí
+                          </button>
+                        ) : (
+                          <div className="space-y-2">
+                            <span className="text-[11px] font-semibold text-slate-600 block">
+                              Registrar estudiante espontáneo (se crea su cuenta y se envía la contraseña inicial a su correo)
+                            </span>
+                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                              <input value={quickName} onChange={e => setQuickName(e.target.value)} placeholder="Nombre completo" className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg" />
+                              <input value={quickRut} onChange={e => setQuickRut(e.target.value)} placeholder="RUT (ej: 12345678-9)" className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono" />
+                              <input value={quickEmail} onChange={e => setQuickEmail(e.target.value)} type="email" placeholder="Correo" className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg" />
+                              <input value={quickCareer} onChange={e => setQuickCareer(e.target.value)} placeholder="Carrera (opcional)" className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg" />
+                            </div>
+                            <div className="flex gap-2 justify-end">
+                              <button type="button" onClick={resetQuickRegister} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">
+                                Cancelar
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isQuickSaving}
+                                onClick={() => handleQuickRegisterAndAdd(sess.id)}
+                                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white flex items-center gap-1.5"
+                              >
+                                <UserPlus className="w-3.5 h-3.5" />
+                                {isQuickSaving ? 'Registrando...' : 'Registrar y agregar a la lista'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

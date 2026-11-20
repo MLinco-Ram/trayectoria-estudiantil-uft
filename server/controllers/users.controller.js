@@ -297,6 +297,11 @@ export const updateUser = async (req, res) => {
     if (career !== undefined) updateData.career = career.trim();
     if (tutorType !== undefined) updateData.tutorType = tutorType;
     if (tutorTypes !== undefined) updateData.tutorTypes = Array.isArray(tutorTypes) ? tutorTypes : [tutorTypes];
+    // Mantener tutorType y tutorTypes sincronizados: si quedan distintos, el cambio de rol no se refleja en los portales.
+    if (tutorType !== undefined && tutorTypes === undefined) updateData.tutorTypes = [tutorType];
+    if (updateData.tutorTypes && updateData.tutorTypes.length > 0 && !updateData.tutorTypes.includes(updateData.tutorType)) {
+      updateData.tutorType = updateData.tutorTypes.includes('tutor_de_tutores') ? 'tutor_de_tutores' : updateData.tutorTypes[0];
+    }
     if (assignedTutorIds !== undefined) updateData.assignedTutorIds = assignedTutorIds;
     if (role !== undefined) updateData.role = role;
     if (roles !== undefined) updateData.roles = Array.isArray(roles) ? roles : [roles];

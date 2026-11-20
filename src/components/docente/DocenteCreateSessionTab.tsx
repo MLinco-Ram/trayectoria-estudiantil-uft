@@ -13,6 +13,9 @@ interface DocenteCreateSessionTabProps {
   setSessions: React.Dispatch<React.SetStateAction<Session[]>>;
   rooms: Room[];
   onReload: () => void;
+  /** Fecha y bloque precargados al crear desde la cuadrícula del calendario */
+  initialDate?: string;
+  initialTimeSlot?: string;
 }
 
 export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = ({
@@ -23,13 +26,17 @@ export const DocenteCreateSessionTab: React.FC<DocenteCreateSessionTabProps> = (
   setSessions,
   rooms,
   onReload,
+  initialDate,
+  initialTimeSlot,
 }) => {
   const [formProgram, setFormProgram] = useState<ProgramType>('tutorias');
   const [formType, setFormType] = useState<SessionType>('tutoria_general');
   const [formTitle, setFormTitle] = useState('');
   const [formSubject, setFormSubject] = useState('Programación');
-  const [formDate, setFormDate] = useState(getTodayDateStr());
-  const [formTimeSlot, setFormTimeSlot] = useState(TIME_SLOTS[1]);
+  const [formDate, setFormDate] = useState(initialDate || getTodayDateStr());
+  const [formTimeSlot, setFormTimeSlot] = useState(
+    initialTimeSlot && TIME_SLOTS.includes(initialTimeSlot) ? initialTimeSlot : TIME_SLOTS[1]
+  );
   const [formLocation, setFormLocation] = useState('');
   const [formMaxSpots, setFormMaxSpots] = useState(15);
   const [formTutorId, setFormTutorId] = useState('');

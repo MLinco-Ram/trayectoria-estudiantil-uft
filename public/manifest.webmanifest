@@ -1,0 +1,22 @@
+{
+  "name": "Trayectoria UFT — Universidad Finis Terrae",
+  "short_name": "Trayectoria UFT",
+  "description": "Gestión de tutorías, talleres psicoeducativos y acompañamiento estudiantil para colaboradores, tutores y alumnos de la UFT.",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#092c4c",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Portal Coordinación", "url": "/docente", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Portal Tutor", "url": "/tutor", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Portal Alumno", "url": "/alumno", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

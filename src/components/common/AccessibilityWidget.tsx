@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Accessibility, X, RotateCcw, Minus, Plus, Contrast, Link2, Type, Space, PauseCircle } from 'lucide-react';
+import { Accessibility, X, RotateCcw, Minus, Plus, Contrast, Link2, Type, Space, PauseCircle, Palette } from 'lucide-react';
 
 // Opciones de accesibilidad, iguales en todas las páginas. Se guardan en este navegador (localStorage)
 // y se aplican como clases/variables en <html>; los estilos están en index.css (sección "Accesibilidad").
@@ -11,10 +11,11 @@ interface A11yPrefs {
   readable: boolean; // fuente más legible
   spacing: boolean; // más espacio entre letras y líneas
   noMotion: boolean; // detener animaciones
+  softColors: boolean; // colores menos saturados (menos fatiga visual)
 }
 
 const SCALES = [1, 1.15, 1.3, 1.5];
-const DEFAULTS: A11yPrefs = { scale: 1, contrast: false, links: false, readable: false, spacing: false, noMotion: false };
+const DEFAULTS: A11yPrefs = { scale: 1, contrast: false, links: false, readable: false, spacing: false, noMotion: false, softColors: false };
 const STORAGE_KEY = 'uft-a11y';
 
 const loadPrefs = (): A11yPrefs => {
@@ -38,12 +39,21 @@ const applyPrefs = (p: A11yPrefs) => {
   root.classList.toggle('a11y-readable', p.readable);
   root.classList.toggle('a11y-spacing', p.spacing);
   root.classList.toggle('a11y-no-motion', p.noMotion);
+  root.classList.toggle('a11y-soft', p.softColors);
 };
 
 export const AccessibilityWidget: React.FC = () => {
   const { pathname } = useLocation();
   const [prefs, setPrefs] = useState<A11yPrefs>(loadPrefs);
   const [open, setOpen] = useState(false);
+  // Aviso visible la primera vez para que se sepa que existe el ajuste de letra y colores
+  const [showHint, setShowHint] = useState(() => {
+    try { return !localStorage.getItem('uft-a11y-hint-seen'); } catch { return false; }
+  });
+  const dismissHint = () => {
+    setShowHint(false);
+    try { localStorage.setItem('uft-a11y-hint-seen', '1'); } catch { /* sin almacenamiento */ }
+  };
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -78,6 +88,7 @@ export const AccessibilityWidget: React.FC = () => {
     { key: 'links', label: 'Resaltar enlaces y botones', hint: 'Subrayado y borde al enfocar', icon: Link2 },
     { key: 'readable', label: 'Fuente legible', hint: 'Letra más simple y ancha', icon: Type },
     { key: 'spacing', label: 'Espaciado de texto', hint: 'Más aire entre letras y líneas', icon: Space },
+    { key: 'softColors', label: 'Colores suaves', hint: 'Menos saturación y brillo, cansa menos la vista', icon: Palette },
     { key: 'noMotion', label: 'Detener animaciones', hint: 'Sin movimientos ni transiciones', icon: PauseCircle },
   ];
 
@@ -168,10 +179,18 @@ export const AccessibilityWidget: React.FC = () => {
         </div>
       )}
 
+      {showHint && !open && (
+        <div className="absolute bottom-1 right-14 w-56 bg-[#092c4c] text-white text-sm rounded-xl shadow-lg p-3 pr-8">
+          ¿Te cuesta leer? Aquí puedes agrandar la letra y ajustar los colores.
+          <button type="button" onClick={dismissHint} aria-label="Cerrar aviso" className="absolute top-1.5 right-1.5 p-1 rounded-full hover:bg-white/15 cursor-pointer">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => setOpen(v => !v)}
+        onClick={() => { setOpen(v => !v); if (showHint) dismissHint(); }}
         aria-expanded={open}
         aria-label="Opciones de accesibilidad"
         title="Accesibilidad"

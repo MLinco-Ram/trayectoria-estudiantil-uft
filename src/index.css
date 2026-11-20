@@ -354,6 +354,22 @@ html.dark .shadow-2xl {
 }
 
 /* ==========================================
+   Legibilidad base (aplica a todos, sin activar nada)
+   Feedback de usuarios: colores y letra difíciles de leer.
+   - Tamaño mínimo de texto: nada bajo 11px (antes había etiquetas de 8–10px).
+   - Grises de texto con contraste suficiente (WCAG AA ≥ 4.5:1 sobre blanco):
+     slate-400 (#94a3b8, 2.6:1) pasa a #64748b (4.8:1) y slate-500 a #475569 (7.6:1).
+   ========================================== */
+:is([class~="text-[8px]"], [class~="text-[8.5px]"], [class~="text-[9px]"], [class~="text-[9.5px]"]) { font-size: 11px; }
+:is([class~="text-[10px]"], [class~="text-[10.5px]"]) { font-size: 11.5px; }
+[class~="text-[11px]"] { font-size: 12px; }
+html:not(.dark):not(.a11y-contrast) {
+  --color-slate-400: #64748b;
+  --color-slate-500: #475569;
+}
+html:not(.dark) ::placeholder { color: #64748b; opacity: 1; }
+
+/* ==========================================
    Accesibilidad (AccessibilityWidget.tsx)
    ========================================== */
 
@@ -418,6 +434,11 @@ html.a11y-spacing body :not(svg):not(svg *) {
   word-spacing: 0.12em !important;
   line-height: 1.6 !important;
 }
+
+/* Colores suaves: menos saturación y brillo para reducir fatiga visual.
+   Va en <html> y no en #root: un filter en un contenedor rompe los elementos position:fixed (modales, widget). */
+html.a11y-soft { filter: saturate(0.55) brightness(0.97); }
+html.dark.a11y-soft { filter: saturate(0.55); }
 
 /* Detener animaciones */
 html.a11y-no-motion *,
